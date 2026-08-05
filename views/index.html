@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Archive</title>
+<style>
+/* Shared base for index.html / transcript.html / settings.html.
+   Page-specific layout lives inline in each file; this file only holds
+   things that must look identical everywhere: colors, type, nav, buttons. */
+
+@import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --amber: #d69a4e; /* overridden per-page below */
+  --bg-0: #14171a;
+  --bg-1: #1a1e22;
+  --panel: #1c2023;
+  --panel-2: #20242a;
+  --border: #2a2f33;
+  --paper: #e8e2d0;
+  --ink: #d9d5c9;
+  --muted: #8d9297;
+  --faint: #565c62;
+  --red: #e05a3a;
+  --green: #6fa383;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  min-height: 100vh;
+  background: radial-gradient(ellipse at top, var(--bg-1), var(--bg-0));
+  font-family: 'Inter', sans-serif;
+  color: var(--ink);
+  position: relative;
+}
+/* Faint grain so large dark panels don't read as flat vector fills — a cheap
+   trick that makes the whole thing feel closer to physical paper/film than
+   a generic SaaS dashboard. Fixed + behind everything, never intercepts clicks. */
+body::before {
+  content: "";
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  opacity: 0.035; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+header.site, main, .modal-overlay { position: relative; z-index: 1; }
+a { color: var(--amber); text-decoration: none; }
+::selection { background: var(--amber); color: #14171a; }
+
+.mono { font-family: 'IBM Plex Mono', monospace; }
+.type-face { font-family: 'Special Elite', monospace; }
+
+.site-banner {
+  background: var(--amber); color: #14171a;
+  font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 12.5px;
+  text-align: center; padding: 9px 16px;
+}
+
+/* ---------- top nav ---------- */
+header.site {
+  position: sticky; top: 0; z-index: 30;
+  background: rgba(20,23,26,0.94);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+}
+.panel { box-shadow: 0 10px 28px rgba(0,0,0,0.2); }
+.topbar {
+  max-width: 1180px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 24px; gap: 18px; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.brand h1 {
+  font-family: 'Special Elite', monospace; font-size: 21px; color: var(--paper);
+  margin: 0; letter-spacing: .3px; white-space: nowrap;
+  text-shadow: 0 0 18px rgba(214,154,78,0.25);
+}
+nav.rf-tabs { display: flex; gap: 4px; }
+.rf-tab {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); padding: 7px 12px; border-radius: 4px; border: 1px solid transparent;
+}
+.rf-tab:hover { color: var(--paper); }
+.rf-tab.active { color: var(--amber); border-color: rgba(214,154,78,.35); background: rgba(214,154,78,.08); }
+
+.topbar-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+#sessionClock { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
+#sessionClock.warn { color: var(--red); }
+.btn {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .05em; text-transform: uppercase;
+  padding: 8px 13px; border-radius: 4px; cursor: pointer;
+  border: 1px solid var(--border); background: transparent; color: var(--ink);
+  transition: border-color .12s ease, color .12s ease, background .12s ease;
+}
+.btn:hover { border-color: var(--amber); color: var(--paper); }
+.btn.primary { background: var(--amber); color: #14171a; border-color: var(--amber); font-weight: 600; }
+.btn.primary:hover { opacity: .88; color: #14171a; }
+.btn.danger { color: var(--red); border-color: rgba(224,90,58,.4); }
+.btn.danger:hover { background: rgba(224,90,58,.1); border-color: var(--red); color: var(--red); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ---------- "stamp" — the one signature touch, used sparingly ---------- */
+.stamp {
+  font-family: 'Special Elite', monospace;
+  letter-spacing: .12em; text-transform: uppercase;
+  border: 2px solid currentColor; border-radius: 4px;
+  padding: 3px 9px; display: inline-block;
+  transform: rotate(-4deg);
+  opacity: .82;
+}
+
+.footer-note { text-align: center; color: var(--faint); font-size: 11px; margin-top: 10px; font-family: 'IBM Plex Mono', monospace; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+</style>
+<style>
+  :root { --amber: {{ACCENT_COLOR}}; }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 26px 24px 60px; }
+
+  .stats-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .stat-chip {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--muted);
+    background: var(--panel); border: 1px solid var(--border); border-left: 2px solid var(--chip-color, var(--amber));
+    padding: 6px 12px; border-radius: 5px;
+  }
+  .stat-chip b { color: var(--ink); font-weight: 500; margin-left: 4px; }
+  .stat-chip.total { border-left-color: var(--amber); color: var(--amber); }
+  .stat-chip.total b { color: var(--paper); }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 20px; }
+  .search-wrap { position: relative; flex: 1 1 260px; min-width: 220px; }
+  .search-wrap input {
+    width: 100%; background: var(--panel); border: 1px solid var(--border); color: var(--paper);
+    padding: 10px 14px 10px 32px; border-radius: 5px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px;
+  }
+  .search-wrap input:focus { outline: none; border-color: var(--amber); }
+  .search-wrap::before { content: "⌕"; position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--faint); font-size: 15px; }
+  select {
+    background: var(--panel); border: 1px solid var(--border); color: var(--ink);
+    padding: 10px 12px; border-radius: 5px; font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+  }
+  select:focus { outline: none; border-color: var(--amber); }
+  .count-pill { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--faint); white-space: nowrap; margin-left: auto; }
+  .count-pill b { color: var(--amber); font-weight: 600; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 14px; }
+
+  .card {
+    position: relative; overflow: hidden;
+    background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--card-color, var(--amber));
+    border-radius: 8px; padding: 17px 18px 14px;
+    display: flex; flex-direction: column; gap: 9px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset, 0 10px 24px rgba(0,0,0,0.18);
+    transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset, 0 16px 34px rgba(0,0,0,0.32);
+    border-color: var(--card-color, var(--amber));
+  }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .type-tag {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--card-color, var(--amber)); border: 1px solid var(--card-color, var(--amber));
+    padding: 3px 8px; border-radius: 3px; opacity: .9;
+  }
+  .case-no { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--faint); }
+  .card h3 { font-family: 'Special Elite', monospace; font-size: 16px; color: var(--paper); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .reason-preview {
+    font-size: 12.5px; color: var(--muted); line-height: 1.5; font-family: 'Inter', sans-serif;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 34px;
+  }
+  .meta-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px; font-size: 11px; color: var(--faint);
+    font-family: 'IBM Plex Mono', monospace;
+    border-top: 1px dashed var(--border); padding-top: 10px;
+  }
+  .meta-row span b { color: var(--muted); font-weight: 500; display: block; margin-bottom: 1px; }
+  .card-actions { display: flex; gap: 8px; margin-top: 2px; }
+  .card-actions .btn { flex: 1; text-align: center; }
+
+  .closed-stamp {
+    position: absolute; top: 10px; right: -30px;
+    color: var(--card-color, var(--amber));
+    font-size: 10px; padding: 2px 34px;
+    transform: rotate(34deg);
+    border-top: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+    font-family: 'Special Elite', monospace; letter-spacing: .15em; text-transform: uppercase;
+    opacity: .35; pointer-events: none;
+  }
+
+  .empty { grid-column: 1/-1; text-align: center; padding: 70px 20px; color: var(--faint); }
+  .empty .icon { font-size: 24px; margin-bottom: 10px; }
+  .empty h2 { font-family: 'Special Elite', monospace; color: var(--muted); font-size: 16px; margin: 0 0 6px; }
+  .empty p { font-size: 12.5px; margin: 0; font-family: 'IBM Plex Mono', monospace; }
+
+  .skeleton { opacity: .45; animation: pulse 1.3s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: .3; } 50% { opacity: .6; } }
+
+  footer.page-footer {
+    text-align: center; margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: .08em; color: var(--faint); text-transform: uppercase;
+  }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(10,11,13,.75); display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--red); border-radius: 6px; padding: 24px; width: 340px; max-width: 100%; }
+  .modal h3 { font-family: 'Special Elite', monospace; color: var(--paper); margin: 0 0 8px; font-size: 16px; }
+  .modal p { font-size: 12.5px; color: var(--muted); margin: 0 0 18px; line-height: 1.6; }
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-actions .btn { flex: 1; }
+
+  @media (max-width: 520px) { .meta-row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+{{BANNER_HTML}}
+
+<header class="site">
+  <div class="topbar">
+    <div class="brand">
+      <h1>{{SITE_TITLE}}</h1>
+      <nav class="rf-tabs" id="navTabs"></nav>
+    </div>
+    <div class="topbar-right">
+      <span id="sessionClock" class="mono">session --:--</span>
+      <a href="/logout" class="btn">Log out</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="stats-bar" id="statsBar" style="display:none;"></div>
+
+  <div class="controls">
+    <div class="search-wrap">
+      <input id="search" type="text" placeholder="Search opener, claimer, reason…" autocomplete="off">
+    </div>
+    <select id="typeFilter"><option value="">All types</option></select>
+    <select id="sortOrder">
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+    </select>
+    <span class="count-pill" id="countPill">loading…</span>
+  </div>
+
+  <div id="grid" class="grid">
+    <div class="card skeleton"><h3>········</h3></div>
+    <div class="card skeleton"><h3>········</h3></div>
+    <div class="card skeleton"><h3>········</h3></div>
+  </div>
+
+  <footer class="page-footer">{{SITE_TITLE}} · Ticket Records</footer>
+  {{FOOTER_NOTE_HTML}}
+</main>
+
+<div class="modal-overlay" id="deleteOverlay">
+  <div class="modal">
+    <h3>Delete this record?</h3>
+    <p>This permanently removes the archived transcript from the site. Can't be undone — if you're not sure, leave it.</p>
+    <div class="modal-actions">
+      <button class="btn danger" id="confirmDelete">Delete it</button>
+      <button class="btn" id="cancelDelete">Never mind</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Shared across index.html / transcript.html / settings.html so the three pages
+// don't drift out of sync with each other over time.
+window.RF = (function () {
+  const TYPE_COLORS = {
+    REDFIELD: '#6fa383',
+    MANAGEMENT: '#5c7d99',
+    BUG: '#c17a3f'
+  };
+  const FALLBACK_COLOR = '#8d7bb0';
+
+  function typeColor(type) {
+    return TYPE_COLORS[type] || FALLBACK_COLOR;
+  }
+
+  function esc(str) {
+    return (str === undefined || str === null ? '' : String(str))
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function initials(tag) {
+    if (!tag) return '?';
+    return tag.split('#')[0].slice(0, 2).toUpperCase();
+  }
+
+  function fmtDateTime(iso) {
+    if (!iso) return 'Unknown';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'Unknown';
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function fmtDay(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'Unknown date';
+    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  }
+
+  function fmtTime(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
+  function isStaffSession() {
+    return Boolean(getCookie('ticketAuth'));
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    return new Promise((resolve, reject) => {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy') ? resolve() : reject(new Error('copy failed')); }
+      catch (err) { reject(err); }
+      finally { document.body.removeChild(ta); }
+    });
+  }
+
+  // Wires up a "session N:SS" clock element + auto-reload when it hits zero,
+  // reading the non-HttpOnly sessionExpires cookie the server sets on login.
+  function startSessionClock(el) {
+    function tick() {
+      const expiresAt = parseInt(getCookie('sessionExpires') || '0', 10);
+      if (!expiresAt) { el.textContent = 'session --:--'; return; }
+      const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      const m = Math.floor(remaining / 60), s = remaining % 60;
+      el.textContent = `session ${m}:${s.toString().padStart(2, '0')}`;
+      el.classList.toggle('warn', remaining <= 60);
+      if (remaining <= 0) window.location.reload();
+    }
+    tick();
+    setInterval(tick, 1000);
+  }
+
+  // Builds the small nav strip shared by all three pages, marking whichever
+  // tab matches the current path as active.
+  function renderNav(activePath) {
+    const tabs = [
+      { href: '/', label: 'Archive' },
+      { href: '/settings', label: 'Settings' }
+    ];
+    return tabs.map(t => `<a class="rf-tab${t.href === activePath ? ' active' : ''}" href="${t.href}">${t.label}</a>`).join('');
+  }
+
+  return { typeColor, esc, initials, fmtDateTime, fmtDay, fmtTime, getCookie, isStaffSession, copyText, startSessionClock, renderNav };
+})();
+
+</script>
+<script>
+document.getElementById('navTabs').innerHTML = RF.renderNav('/');
+RF.startSessionClock(document.getElementById('sessionClock'));
+
+let allTickets = [];
+let pendingDeleteId = null;
+
+async function loadTickets() {
+  try {
+    const res = await fetch('/api/tickets');
+    if (res.status === 401) {
+      document.getElementById('grid').innerHTML = `<div class="empty"><div class="icon">🔒</div><h2>Session expired</h2><p>Your login timed out. <a href="/">Log in again</a>.</p></div>`;
+      document.getElementById('countPill').textContent = 'not logged in';
+      return;
+    }
+    if (!res.ok) {
+      let bodyText = '';
+      try { bodyText = await res.text(); } catch {}
+      document.getElementById('grid').innerHTML = `<div class="empty"><div class="icon">⚠</div><h2>The server returned an error</h2><p>HTTP ${res.status} on <code>/api/tickets</code>${bodyText ? ' — ' + RF.esc(bodyText.slice(0, 200)) : ''}. Check the bot's console/pm2 logs for a matching error.</p></div>`;
+      document.getElementById('countPill').textContent = `error ${res.status}`;
+      return;
+    }
+    allTickets = await res.json();
+    if (!Array.isArray(allTickets)) throw new Error('Unexpected response shape from /api/tickets');
+    populateTypeFilter();
+    render();
+  } catch (err) {
+    document.getElementById('grid').innerHTML = `<div class="empty"><div class="icon">⚠</div><h2>Couldn't load the archive</h2><p>${RF.esc(err.message || 'Unknown error')}. Open the browser console (F12) for the full error, or check the bot's server logs.</p></div>`;
+    document.getElementById('countPill').textContent = 'failed to load';
+  }
+}
+
+// Takes the already-filtered list so the chips always match what's actually
+// on screen — recomputed on every render(), not just on initial load, so it
+// stays correct after a search, a filter change, or a delete.
+function renderStats(list) {
+  const bar = document.getElementById('statsBar');
+  if (!list.length) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  const byType = {};
+  for (const t of list) byType[t.type || 'OTHER'] = (byType[t.type || 'OTHER'] || 0) + 1;
+  const typeChips = Object.entries(byType)
+    .sort((a, b) => b[1] - a[1])
+    .map(([type, count]) => `<span class="stat-chip" style="--chip-color:${RF.typeColor(type)}">${count} <b>${RF.esc(type)}</b></span>`)
+    .join('');
+  bar.innerHTML = `<span class="stat-chip total">${list.length} <b>shown</b></span>${typeChips}`;
+}
+
+function populateTypeFilter() {
+  const types = [...new Set(allTickets.map(t => t.type).filter(Boolean))].sort();
+  const sel = document.getElementById('typeFilter');
+  for (const t of types) {
+    const opt = document.createElement('option');
+    opt.value = t; opt.textContent = t;
+    sel.appendChild(opt);
+  }
+}
+
+function render() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const typeFilter = document.getElementById('typeFilter').value;
+  const sort = document.getElementById('sortOrder').value;
+
+  let filtered = allTickets.filter(t => {
+    if (typeFilter && t.type !== typeFilter) return false;
+    if (!q) return true;
+    const haystack = [t.openedBy, t.claimedBy, t.closedBy, t.reason, t.robloxUsername, t.channelName].join(' ').toLowerCase();
+    return haystack.includes(q);
+  });
+
+  filtered.sort((a, b) => {
+    const da = new Date(a.closedAt || 0).getTime();
+    const db = new Date(b.closedAt || 0).getTime();
+    return sort === 'oldest' ? da - db : db - da;
+  });
+
+  document.getElementById('countPill').innerHTML = `<b>${filtered.length}</b> of ${allTickets.length} filed`;
+  renderStats(filtered);
+
+  const grid = document.getElementById('grid');
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="empty"><div class="icon">🗄️</div><h2>${allTickets.length ? 'No matches' : 'Nothing filed yet'}</h2><p>${allTickets.length ? 'Try a different search or type filter.' : 'Closed tickets will show up here once staff archive them.'}</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(t => {
+    const color = RF.typeColor(t.type);
+    return `
+    <div class="card" style="--card-color:${color}">
+      <div class="closed-stamp">Closed</div>
+      <div class="card-top">
+        <span class="type-tag">${RF.esc(t.type || 'TICKET')}</span>
+        <span class="case-no">CASE ${RF.esc((t.id || '').slice(-6))}</span>
+      </div>
+      <h3 title="${RF.esc(t.channelName)}">${RF.esc(t.channelName || 'unnamed-ticket')}</h3>
+      <div class="reason-preview">${RF.esc(t.reason || 'No reason provided')}</div>
+      <div class="meta-row">
+        <span><b>Opened by</b>${RF.esc(t.openedBy || 'Unknown')}</span>
+        <span><b>Claimed by</b>${RF.esc(t.claimedBy || '—')}</span>
+        <span><b>Closed by</b>${RF.esc(t.closedBy || 'Unknown')}</span>
+        <span><b>Closed</b>${RF.fmtDateTime(t.closedAt)}</span>
+      </div>
+      <div class="card-actions">
+        <a class="btn primary" href="/transcript/${encodeURIComponent(t.id)}">Open transcript</a>
+        <button class="btn danger" data-id="${RF.esc(t.id)}" onclick="askDelete(this)">Delete</button>
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+
+function askDelete(btn) {
+  pendingDeleteId = btn.getAttribute('data-id');
+  document.getElementById('deleteOverlay').classList.add('show');
+}
+document.getElementById('cancelDelete').addEventListener('click', () => {
+  pendingDeleteId = null;
+  document.getElementById('deleteOverlay').classList.remove('show');
+});
+document.getElementById('confirmDelete').addEventListener('click', async () => {
+  if (!pendingDeleteId) return;
+  const id = pendingDeleteId;
+  document.getElementById('deleteOverlay').classList.remove('show');
+  try {
+    const res = await fetch(`/api/tickets/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (res.ok) { allTickets = allTickets.filter(t => t.id !== id); render(); }
+    else alert('Could not delete — try refreshing the page.');
+  } catch { alert('Could not delete — check your connection.'); }
+  pendingDeleteId = null;
+});
+
+document.getElementById('search').addEventListener('input', render);
+document.getElementById('typeFilter').addEventListener('change', render);
+document.getElementById('sortOrder').addEventListener('change', render);
+
+loadTickets();
+</script>
+</body>
+</html>

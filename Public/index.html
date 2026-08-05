@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14171a; --panel: #1c2023; --panel-edge: #2a2f33;
+    --paper: #e8e2d0; --ink: #d9d5c9; --muted: #7d8489;
+    --amber: {{ACCENT_COLOR}}; --green: #6fa383; --rust: #b3552f; --steel: #5c7d99;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); padding:0 24px 80px; }
+  .site-banner { background:var(--amber); color:#14171a; font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:13px; text-align:center; padding:10px 16px; margin:0 -24px 32px; }
+
+  .topbar { max-width:980px; margin:0 auto; display:flex; justify-content:flex-end; align-items:center; gap:12px; padding-top:20px; }
+  .session-badge { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); }
+  .icon-btn { font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.04em; text-transform:uppercase; background:var(--panel); border:1px solid var(--panel-edge); color:var(--ink); padding:7px 12px; border-radius:4px; cursor:pointer; }
+  .icon-btn:hover { border-color:var(--amber); color:var(--paper); }
+
+  .header { max-width:980px; margin:16px auto 32px; border-bottom:1px solid var(--panel-edge); padding-bottom:24px; display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; }
+  .eyebrow { font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--amber); margin:0 0 10px; }
+  h1 { font-family:'Special Elite',monospace; font-size:40px; margin:0; color:var(--paper); }
+  .subtitle { font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--muted); margin-top:8px; }
+  .stats { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted); text-align:right; }
+  .stats strong { color:var(--paper); font-size:20px; display:block; }
+
+  .controls-row { max-width:980px; margin:0 auto 18px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .controls-row input[type="text"] { flex:1; min-width:220px; font-family:'IBM Plex Mono',monospace; font-size:13px; background:var(--panel); border:1px solid var(--panel-edge); color:var(--paper); padding:12px 14px; border-radius:4px; }
+  .controls-row input:focus { outline:none; border-color:var(--amber); }
+  .controls-row select { font-family:'IBM Plex Mono',monospace; font-size:12.5px; background:var(--panel); border:1px solid var(--panel-edge); color:var(--ink); padding:12px 10px; border-radius:4px; cursor:pointer; }
+  .search-hint { max-width:980px; margin:0 auto 18px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); margin-top:-10px; }
+
+  .toolbar { max-width:980px; margin:0 auto 28px; display:flex; gap:10px; flex-wrap:wrap; }
+  .filter-btn { font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.05em; text-transform:uppercase; background:var(--panel); border:1px solid var(--panel-edge); color:var(--muted); padding:8px 14px; border-radius:3px; cursor:pointer; }
+  .filter-btn:hover, .filter-btn.active { color:var(--paper); border-color:var(--amber); }
+
+  #tickets { max-width:980px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:18px; }
+  .empty-state { grid-column:1/-1; font-family:'IBM Plex Mono',monospace; color:var(--muted); text-align:center; padding:60px 20px; border:1px dashed var(--panel-edge); border-radius:6px; }
+
+  .case-file { position:relative; background:var(--panel); border:1px solid var(--panel-edge); border-radius:4px; padding:20px 18px 18px; color:var(--ink); overflow:hidden; transition:transform .15s, border-color .15s, box-shadow .15s; }
+  .case-file::before { content:""; position:absolute; top:0; left:0; width:6px; height:100%; background:var(--tab-color, var(--steel)); }
+  .case-file:hover { transform:translateY(-3px); border-color:var(--tab-color, var(--steel)); box-shadow:0 10px 24px rgba(0,0,0,.35); }
+  .case-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:14px; }
+  .case-tag { font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--tab-color, var(--steel)); border:1px solid var(--tab-color, var(--steel)); padding:3px 8px; border-radius:2px; }
+  .stamp { font-family:'Special Elite',monospace; font-size:11px; letter-spacing:.08em; color:var(--rust); border:2px solid var(--rust); padding:2px 8px; border-radius:2px; transform:rotate(-6deg); opacity:.85; white-space:nowrap; }
+  .case-file h3 { font-family:'IBM Plex Mono',monospace; font-size:16px; font-weight:600; margin:0 0 10px; color:var(--paper); word-break:break-word; }
+  .case-meta { font-size:12.5px; color:var(--muted); line-height:1.7; }
+  .case-meta span { color:var(--ink); }
+  .case-actions { margin-top:16px; padding-top:12px; border-top:1px solid var(--panel-edge); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .case-footer { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--amber); text-decoration:none; display:flex; align-items:center; gap:6px; }
+  .case-footer::after { content:"→"; transition:transform .15s; }
+  .case-file:hover .case-footer::after { transform:translateX(4px); }
+  .case-mini-actions { display:flex; gap:6px; }
+  .mini-btn { font-size:12px; background:var(--bg); border:1px solid var(--panel-edge); color:var(--muted); width:26px; height:26px; border-radius:4px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .mini-btn:hover { border-color:var(--amber); color:var(--paper); }
+  .mini-btn.delete-mini:hover { border-color:var(--rust); color:var(--rust); }
+  footer { max-width:980px; margin:60px auto 0; text-align:center; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--panel-edge); }
+  .footer-note { max-width:980px; margin:8px auto 0; text-align:center; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); }
+</style>
+</head>
+<body>
+  {{BANNER_HTML}}
+
+  <div class="topbar">
+    <span class="session-badge" id="sessionBadge">Session: --:--</span>
+    <button class="icon-btn" id="refreshBtn">↻ Refresh</button>
+    <a class="icon-btn" href="/logout" id="logoutBtn" style="text-decoration:none;">⎋ Logout</a>
+  </div>
+
+  <div class="header">
+    <div>
+      <p class="eyebrow">Closed Case Records</p>
+      <h1>{{SITE_TITLE}}</h1>
+      <p class="subtitle">Every resolved support ticket, filed and searchable.</p>
+    </div>
+    <div class="stats"><strong id="ticketCount">0</strong>total cases on file</div>
+  </div>
+
+  <div class="controls-row">
+    <input id="search" type="text" placeholder="Search by Discord username, Discord ID, or Roblox username..." />
+    <select id="sortSelect">
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="type">By type</option>
+    </select>
+  </div>
+  <div class="search-hint">Matches channel name, opener's Discord tag/ID, Roblox username, and ticket ID.</div>
+
+  <div class="toolbar" id="toolbar"></div>
+  <div id="tickets">Loading archives...</div>
+  <footer>REDFIELD // TICKET RECORDS SYSTEM</footer>
+  {{FOOTER_NOTE_HTML}}
+
+  <script>
+    const TYPE_COLORS = { REDFIELD: 'var(--green)', MANAGEMENT: 'var(--steel)', BUG: 'var(--amber)' };
+    let allTickets = [];
+    let activeFilter = 'ALL';
+    let searchTerm = '';
+    let sortMode = 'newest';
+
+    function colorFor(type) { return TYPE_COLORS[type] || 'var(--steel)'; }
+
+    function matchesSearch(t, term) {
+      if (!term) return true;
+      const haystack = [t.channelName, t.openedBy, t.openedById, t.robloxUsername, t.id, t.reason].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(term.toLowerCase());
+    }
+
+    function sortTickets(list) {
+      const copy = [...list];
+      if (sortMode === 'newest') copy.sort((a, b) => new Date(b.closedAt) - new Date(a.closedAt));
+      else if (sortMode === 'oldest') copy.sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt));
+      else if (sortMode === 'type') copy.sort((a, b) => a.type.localeCompare(b.type) || new Date(b.closedAt) - new Date(a.closedAt));
+      return copy;
+    }
+
+    function render() {
+      const container = document.getElementById('tickets');
+      const filtered = sortTickets(allTickets.filter(t => activeFilter === 'ALL' || t.type === activeFilter).filter(t => matchesSearch(t, searchTerm)));
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="empty-state">No cases match your search/filter.</div>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(t => `
+        <div class="case-file" style="--tab-color:${colorFor(t.type)}">
+          <div class="case-top">
+            <span class="case-tag">${t.type}</span>
+            <span class="stamp">ARCHIVED</span>
+          </div>
+          <h3>${t.channelName}</h3>
+          <div class="case-meta">
+            Filed by <span>${t.openedBy}</span>${t.robloxUsername ? ` · Roblox: <span>${t.robloxUsername}</span>` : ''}<br>
+            Closed <span>${new Date(t.closedAt).toLocaleString()}</span>
+          </div>
+          <div class="case-actions">
+            <a class="case-footer" href="/transcript/${t.id}">View transcript</a>
+            <div class="case-mini-actions">
+              <button class="mini-btn copy-mini" data-id="${t.id}" title="Copy transcript link">🔗</button>
+              <button class="mini-btn delete-mini" data-id="${t.id}" title="Delete this archive">🗑️</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Best-effort clipboard copy — falls back to a hidden textarea + execCommand for
+    // non-HTTPS/non-localhost contexts where navigator.clipboard silently rejects.
+    function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+      }
+      return new Promise((resolve, reject) => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy') ? resolve() : reject(new Error('copy failed'));
+        } catch (err) {
+          reject(err);
+        } finally {
+          document.body.removeChild(ta);
+        }
+      });
+    }
+
+    document.getElementById('tickets').addEventListener('click', (e) => {
+      const copyBtn = e.target.closest('.copy-mini');
+      if (copyBtn) {
+        const url = `${window.location.origin}/transcript/${copyBtn.dataset.id}`;
+        copyText(url)
+          .then(() => { copyBtn.textContent = '✅'; setTimeout(() => { copyBtn.textContent = '🔗'; }, 1200); })
+          .catch(() => { copyBtn.textContent = '⚠️'; setTimeout(() => { copyBtn.textContent = '🔗'; }, 1200); });
+        return;
+      }
+
+      const deleteBtn = e.target.closest('.delete-mini');
+      if (deleteBtn) {
+        const id = deleteBtn.dataset.id;
+        if (!confirm('Delete this archived ticket permanently? This only removes it from the website — it cannot be undone.')) return;
+        fetch(`/api/tickets/${id}`, { method: 'DELETE' })
+          .then(res => res.json())
+          .then(result => {
+            if (!result.success) { alert('Could not delete — try again.'); return; }
+            allTickets = allTickets.filter(t => t.id !== id);
+            document.getElementById('ticketCount').textContent = allTickets.length;
+            buildToolbar();
+            render();
+          })
+          .catch(() => alert('Could not reach the server to delete this archive.'));
+      }
+    });
+
+    function buildToolbar() {
+      const counts = {};
+      allTickets.forEach(t => { counts[t.type] = (counts[t.type] || 0) + 1; });
+      const types = ['ALL', ...new Set(allTickets.map(t => t.type))];
+      const toolbar = document.getElementById('toolbar');
+      toolbar.innerHTML = types.map(type => {
+        const label = type === 'ALL' ? `ALL (${allTickets.length})` : `${type} (${counts[type]})`;
+        return `<button class="filter-btn ${type === activeFilter ? 'active' : ''}" data-type="${type}">${label}</button>`;
+      }).join('');
+      toolbar.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => { activeFilter = btn.dataset.type; buildToolbar(); render(); });
+      });
+    }
+
+    function loadTickets() {
+      document.getElementById('tickets').innerHTML = 'Loading archives...';
+      fetch('/api/tickets')
+        .then(res => res.json())
+        .then(data => {
+          allTickets = data;
+          document.getElementById('ticketCount').textContent = allTickets.length;
+          if (allTickets.length === 0) {
+            document.getElementById('tickets').innerHTML = '<div class="empty-state">No archived tickets yet.</div>';
+            document.getElementById('toolbar').innerHTML = '';
+            return;
+          }
+          buildToolbar();
+          render();
+        })
+        .catch(() => { document.getElementById('tickets').innerHTML = '<div class="empty-state">Could not reach the archive server.</div>'; });
+    }
+
+    document.getElementById('search').addEventListener('input', (e) => { searchTerm = e.target.value; render(); });
+    document.getElementById('sortSelect').addEventListener('change', (e) => { sortMode = e.target.value; render(); });
+    document.getElementById('refreshBtn').addEventListener('click', loadTickets);
+
+    // ---- Session countdown / auto-logout ----
+    function getCookie(name) {
+      const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+      return match ? decodeURIComponent(match[1]) : null;
+    }
+    function updateSessionBadge() {
+      const expiresAt = parseInt(getCookie('sessionExpires'), 10);
+      const badge = document.getElementById('sessionBadge');
+      if (!expiresAt) { badge.textContent = 'Session: --:--'; return; }
+      const remainingMs = expiresAt - Date.now();
+      if (remainingMs <= 0) {
+        badge.textContent = 'Session expired';
+        window.location.href = '/logout';
+        return;
+      }
+      const mins = Math.floor(remainingMs / 60000);
+      const secs = Math.floor((remainingMs % 60000) / 1000);
+      badge.textContent = `Session: ${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+    updateSessionBadge();
+    setInterval(updateSessionBadge, 1000);
+
+    loadTickets();
+  </script>
+</body>
+</html>

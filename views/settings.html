@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Settings</title>
+<style>
+/* Shared base for index.html / transcript.html / settings.html.
+   Page-specific layout lives inline in each file; this file only holds
+   things that must look identical everywhere: colors, type, nav, buttons. */
+
+@import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --amber: #d69a4e; /* overridden per-page below */
+  --bg-0: #14171a;
+  --bg-1: #1a1e22;
+  --panel: #1c2023;
+  --panel-2: #20242a;
+  --border: #2a2f33;
+  --paper: #e8e2d0;
+  --ink: #d9d5c9;
+  --muted: #8d9297;
+  --faint: #565c62;
+  --red: #e05a3a;
+  --green: #6fa383;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  min-height: 100vh;
+  background: radial-gradient(ellipse at top, var(--bg-1), var(--bg-0));
+  font-family: 'Inter', sans-serif;
+  color: var(--ink);
+  position: relative;
+}
+/* Faint grain so large dark panels don't read as flat vector fills — a cheap
+   trick that makes the whole thing feel closer to physical paper/film than
+   a generic SaaS dashboard. Fixed + behind everything, never intercepts clicks. */
+body::before {
+  content: "";
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  opacity: 0.035; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+header.site, main, .modal-overlay { position: relative; z-index: 1; }
+a { color: var(--amber); text-decoration: none; }
+::selection { background: var(--amber); color: #14171a; }
+
+.mono { font-family: 'IBM Plex Mono', monospace; }
+.type-face { font-family: 'Special Elite', monospace; }
+
+.site-banner {
+  background: var(--amber); color: #14171a;
+  font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 12.5px;
+  text-align: center; padding: 9px 16px;
+}
+
+/* ---------- top nav ---------- */
+header.site {
+  position: sticky; top: 0; z-index: 30;
+  background: rgba(20,23,26,0.94);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+}
+.panel { box-shadow: 0 10px 28px rgba(0,0,0,0.2); }
+.topbar {
+  max-width: 1180px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 24px; gap: 18px; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.brand h1 {
+  font-family: 'Special Elite', monospace; font-size: 21px; color: var(--paper);
+  margin: 0; letter-spacing: .3px; white-space: nowrap;
+  text-shadow: 0 0 18px rgba(214,154,78,0.25);
+}
+nav.rf-tabs { display: flex; gap: 4px; }
+.rf-tab {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); padding: 7px 12px; border-radius: 4px; border: 1px solid transparent;
+}
+.rf-tab:hover { color: var(--paper); }
+.rf-tab.active { color: var(--amber); border-color: rgba(214,154,78,.35); background: rgba(214,154,78,.08); }
+
+.topbar-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+#sessionClock { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
+#sessionClock.warn { color: var(--red); }
+.btn {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .05em; text-transform: uppercase;
+  padding: 8px 13px; border-radius: 4px; cursor: pointer;
+  border: 1px solid var(--border); background: transparent; color: var(--ink);
+  transition: border-color .12s ease, color .12s ease, background .12s ease;
+}
+.btn:hover { border-color: var(--amber); color: var(--paper); }
+.btn.primary { background: var(--amber); color: #14171a; border-color: var(--amber); font-weight: 600; }
+.btn.primary:hover { opacity: .88; color: #14171a; }
+.btn.danger { color: var(--red); border-color: rgba(224,90,58,.4); }
+.btn.danger:hover { background: rgba(224,90,58,.1); border-color: var(--red); color: var(--red); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ---------- "stamp" — the one signature touch, used sparingly ---------- */
+.stamp {
+  font-family: 'Special Elite', monospace;
+  letter-spacing: .12em; text-transform: uppercase;
+  border: 2px solid currentColor; border-radius: 4px;
+  padding: 3px 9px; display: inline-block;
+  transform: rotate(-4deg);
+  opacity: .82;
+}
+
+.footer-note { text-align: center; color: var(--faint); font-size: 11px; margin-top: 10px; font-family: 'IBM Plex Mono', monospace; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+</style>
+<style>
+  :root { --amber: {{ACCENT_COLOR}}; }
+
+  main { max-width: 820px; margin: 0 auto; padding: 26px 20px 70px; }
+
+  .server-line { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
+  .server-line b { color: var(--paper); font-family: 'Special Elite', monospace; font-size: 15px; font-weight: normal; }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 20px 22px; margin-bottom: 18px; }
+  .panel h2 { font-family: 'Special Elite', monospace; font-size: 16px; color: var(--paper); margin: 0 0 4px; }
+  .panel .sub { font-size: 12.5px; color: var(--muted); margin: 0 0 16px; line-height: 1.55; }
+
+  .tier-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 16px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--faint); }
+  .tier-legend span b { color: var(--muted); }
+
+  .owner-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--panel-2); border-radius: 5px; margin-bottom: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+  .owner-row .badge { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #c9a24d; border: 1px solid #c9a24d; padding: 2px 7px; border-radius: 3px; }
+
+  .role-list { display: flex; flex-direction: column; gap: 6px; max-height: 340px; overflow-y: auto; padding-right: 4px; }
+  .role-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 5px; background: var(--panel-2); }
+  .role-swatch { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .role-name { flex: 1; font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .role-count { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--faint); white-space: nowrap; }
+  .role-row select { background: var(--bg-0); border: 1px solid var(--border); color: var(--ink); font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 5px 8px; border-radius: 4px; }
+  .role-row select:focus { outline: none; border-color: var(--amber); }
+
+  .cat-grid { display: flex; flex-direction: column; gap: 12px; }
+  .cat-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .cat-row .cat-label { width: 150px; flex-shrink: 0; font-size: 13px; color: var(--paper); font-family: 'Special Elite', monospace; }
+  .cat-row select, .cat-row input[type=text] {
+    flex: 1; min-width: 180px; background: var(--panel-2); border: 1px solid var(--border); color: var(--ink);
+    padding: 9px 11px; border-radius: 5px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px;
+  }
+  .cat-row select:focus, .cat-row input:focus { outline: none; border-color: var(--amber); }
+
+  .bl-search { position: relative; margin-bottom: 12px; }
+  .bl-search input {
+    width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: var(--ink);
+    padding: 9px 12px; border-radius: 5px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px;
+  }
+  .bl-search input:focus { outline: none; border-color: var(--amber); }
+  .bl-results { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--bg-1); border: 1px solid var(--border); border-radius: 5px; overflow: hidden; z-index: 5; display: none; }
+  .bl-results.show { display: block; }
+  .bl-result { padding: 9px 12px; font-size: 12.5px; font-family: 'IBM Plex Mono', monospace; cursor: pointer; }
+  .bl-result:hover { background: var(--panel-2); color: var(--amber); }
+
+  .bl-list { display: flex; flex-direction: column; gap: 6px; }
+  .bl-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--panel-2); border-radius: 5px; }
+  .bl-item .who { flex: 1; font-size: 12.5px; }
+  .bl-item .who b { color: var(--paper); }
+  .bl-item .reason { color: var(--faint); font-size: 11px; }
+  .bl-empty { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--faint); padding: 10px 2px; }
+
+  .panel-actions { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+  .save-status { font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--green); opacity: 0; transition: opacity .2s; }
+  .save-status.show { opacity: 1; }
+
+  .loading-line { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--faint); padding: 20px 0; text-align: center; }
+</style>
+</head>
+<body>
+
+{{BANNER_HTML}}
+
+<header class="site">
+  <div class="topbar">
+    <div class="brand">
+      <h1>{{SITE_TITLE}}</h1>
+      <nav class="rf-tabs" id="navTabs"></nav>
+    </div>
+    <div class="topbar-right">
+      <span id="sessionClock" class="mono">session --:--</span>
+      <a href="/logout" class="btn">Log out</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="loading-line">Reading server roles and channels…</div>
+</main>
+
+<script>
+// Shared across index.html / transcript.html / settings.html so the three pages
+// don't drift out of sync with each other over time.
+window.RF = (function () {
+  const TYPE_COLORS = {
+    REDFIELD: '#6fa383',
+    MANAGEMENT: '#5c7d99',
+    BUG: '#c17a3f'
+  };
+  const FALLBACK_COLOR = '#8d7bb0';
+
+  function typeColor(type) {
+    return TYPE_COLORS[type] || FALLBACK_COLOR;
+  }
+
+  function esc(str) {
+    return (str === undefined || str === null ? '' : String(str))
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function initials(tag) {
+    if (!tag) return '?';
+    return tag.split('#')[0].slice(0, 2).toUpperCase();
+  }
+
+  function fmtDateTime(iso) {
+    if (!iso) return 'Unknown';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'Unknown';
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function fmtDay(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'Unknown date';
+    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  }
+
+  function fmtTime(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
+  function isStaffSession() {
+    return Boolean(getCookie('ticketAuth'));
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    return new Promise((resolve, reject) => {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy') ? resolve() : reject(new Error('copy failed')); }
+      catch (err) { reject(err); }
+      finally { document.body.removeChild(ta); }
+    });
+  }
+
+  // Wires up a "session N:SS" clock element + auto-reload when it hits zero,
+  // reading the non-HttpOnly sessionExpires cookie the server sets on login.
+  function startSessionClock(el) {
+    function tick() {
+      const expiresAt = parseInt(getCookie('sessionExpires') || '0', 10);
+      if (!expiresAt) { el.textContent = 'session --:--'; return; }
+      const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      const m = Math.floor(remaining / 60), s = remaining % 60;
+      el.textContent = `session ${m}:${s.toString().padStart(2, '0')}`;
+      el.classList.toggle('warn', remaining <= 60);
+      if (remaining <= 0) window.location.reload();
+    }
+    tick();
+    setInterval(tick, 1000);
+  }
+
+  // Builds the small nav strip shared by all three pages, marking whichever
+  // tab matches the current path as active.
+  function renderNav(activePath) {
+    const tabs = [
+      { href: '/', label: 'Archive' },
+      { href: '/settings', label: 'Settings' }
+    ];
+    return tabs.map(t => `<a class="rf-tab${t.href === activePath ? ' active' : ''}" href="${t.href}">${t.label}</a>`).join('');
+  }
+
+  return { typeColor, esc, initials, fmtDateTime, fmtDay, fmtTime, getCookie, isStaffSession, copyText, startSessionClock, renderNav };
+})();
+
+</script>
+<script>
+document.getElementById('navTabs').innerHTML = RF.renderNav('/settings');
+RF.startSessionClock(document.getElementById('sessionClock'));
+
+let guildData = null;
+
+async function load() {
+  try {
+    const res = await fetch('/api/guild');
+    if (res.status === 401) { window.location.reload(); return; }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      document.getElementById('main').innerHTML = `<div class="panel"><h2>Couldn't load server data</h2><p class="sub">${RF.esc(err.error || 'Unknown error — check the bot is online and in the server.')}</p></div>`;
+      return;
+    }
+    guildData = await res.json();
+    renderPage();
+  } catch (err) {
+    document.getElementById('main').innerHTML = `<div class="panel"><h2>Couldn't reach the server</h2><p class="sub">Refresh the page and try again.</p></div>`;
+  }
+}
+
+function renderPage() {
+  const g = guildData;
+
+  document.getElementById('main').innerHTML = `
+    <div class="server-line">Managing <b>${RF.esc(g.guildName)}</b></div>
+
+    <div class="panel">
+      <h2>Roles &amp; tiers</h2>
+      <p class="sub">Pick what each role can do here. Admins can do everything staff can, plus they're the only ones who count as Administrator for anything not listed below. Anyone with no role assigned is a normal member — they can open tickets, nothing else. This can also be set with <code>/configure</code> in Discord.</p>
+
+      <div class="owner-row"><span class="badge">Owner</span> ${RF.esc(g.ownerTag || g.ownerId)} <span style="color:var(--faint)">— always has full access, can't be changed here</span></div>
+
+      <div class="tier-legend">
+        <span><b>Admin</b> — full control, including this Settings tab</span>
+        <span><b>Staff</b> — can claim/force-close tickets, sees ticket categories</span>
+        <span><b>Normal</b> — no role set, can only open tickets</span>
+      </div>
+
+      <div class="role-list" id="roleList"></div>
+
+      <div class="panel-actions">
+        <button class="btn primary" id="saveRolesBtn">Save roles</button>
+        <span class="save-status" id="rolesStatus">Saved ✓</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Ticket categories</h2>
+      <p class="sub">Which Discord category each ticket type gets created under. Pick an existing one or type a new name — it'll be created automatically the next time someone opens that kind of ticket.</p>
+
+      <div class="cat-grid" id="catGrid"></div>
+
+      <div class="panel-actions">
+        <button class="btn primary" id="saveCatBtn">Save categories</button>
+        <span class="save-status" id="catStatus">Saved ✓</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Blacklist</h2>
+      <p class="sub">Blacklisted members can't open new tickets. Search for someone by username to add them.</p>
+
+      <div class="bl-search">
+        <input type="text" id="blSearch" placeholder="Search server members…" autocomplete="off">
+        <div class="bl-results" id="blResults"></div>
+      </div>
+
+      <div class="bl-list" id="blList"></div>
+    </div>
+  `;
+
+  renderRoles();
+  renderCategories();
+  renderBlacklist();
+  wireRoleSave();
+  wireCategorySave();
+  wireBlacklistSearch();
+}
+
+function tierOf(roleId) {
+  if (guildData.adminRoleIds.includes(roleId)) return 'admin';
+  if (guildData.staffRoleIds.includes(roleId)) return 'staff';
+  return 'normal';
+}
+
+function renderRoles() {
+  const list = document.getElementById('roleList');
+  if (!guildData.roles.length) {
+    list.innerHTML = '<div class="bl-empty">No assignable roles found in this server.</div>';
+    return;
+  }
+  list.innerHTML = guildData.roles.map(r => `
+    <div class="role-row" data-role-id="${r.id}">
+      <span class="role-swatch" style="background:${r.color || '#8d9297'}"></span>
+      <span class="role-name">${RF.esc(r.name)}</span>
+      <span class="role-count">${r.memberCount} member${r.memberCount === 1 ? '' : 's'}</span>
+      <select data-role-id="${r.id}">
+        <option value="normal" ${tierOf(r.id) === 'normal' ? 'selected' : ''}>Normal</option>
+        <option value="staff" ${tierOf(r.id) === 'staff' ? 'selected' : ''}>Staff</option>
+        <option value="admin" ${tierOf(r.id) === 'admin' ? 'selected' : ''}>Admin</option>
+      </select>
+    </div>
+  `).join('');
+}
+
+function wireRoleSave() {
+  document.getElementById('saveRolesBtn').addEventListener('click', async () => {
+    const staffRoleIds = [], adminRoleIds = [];
+    document.querySelectorAll('#roleList select').forEach(sel => {
+      const id = sel.getAttribute('data-role-id');
+      if (sel.value === 'staff') staffRoleIds.push(id);
+      if (sel.value === 'admin') adminRoleIds.push(id);
+    });
+    const btn = document.getElementById('saveRolesBtn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/guild/roles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ staffRoleIds, adminRoleIds }) });
+      if (res.ok) {
+        guildData.staffRoleIds = staffRoleIds; guildData.adminRoleIds = adminRoleIds;
+        flashStatus('rolesStatus');
+      } else alert('Could not save — try again.');
+    } catch { alert('Could not save — check your connection.'); }
+    btn.disabled = false;
+  });
+}
+
+function renderCategories() {
+  const grid = document.getElementById('catGrid');
+  const catNames = guildData.categories.map(c => c.name.toUpperCase());
+  grid.innerHTML = Object.entries(guildData.panels).map(([typeKey, panel]) => {
+    const current = (panel.categoryName || '').toUpperCase();
+    const options = [...new Set([current, ...catNames])].filter(Boolean);
+    return `
+      <div class="cat-row" data-type="${typeKey}">
+        <span class="cat-label">${RF.esc(panel.buttonLabel || typeKey)}</span>
+        <select class="cat-select" data-type="${typeKey}">
+          ${options.map(name => `<option value="${RF.esc(name)}" ${name === current ? 'selected' : ''}>${RF.esc(name)}</option>`).join('')}
+          <option value="__new__">+ New category…</option>
+        </select>
+        <input type="text" class="cat-new-input" data-type="${typeKey}" placeholder="New category name" maxlength="90" style="display:none;">
+      </div>
+    `;
+  }).join('');
+
+  grid.querySelectorAll('.cat-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const input = grid.querySelector(`.cat-new-input[data-type="${sel.getAttribute('data-type')}"]`);
+      input.style.display = sel.value === '__new__' ? 'block' : 'none';
+      if (sel.value === '__new__') input.focus();
+    });
+  });
+}
+
+function wireCategorySave() {
+  document.getElementById('saveCatBtn').addEventListener('click', async () => {
+    const updates = {};
+    const blankRows = [];
+    document.querySelectorAll('.cat-row').forEach(row => {
+      const type = row.getAttribute('data-type');
+      const sel = row.querySelector('.cat-select');
+      const input = row.querySelector('.cat-new-input');
+      const value = sel.value === '__new__' ? input.value.trim() : sel.value;
+      // Discord category names are capped at 100 chars; leave real headroom.
+      // Catch blank/too-long entries here instead of letting them silently
+      // fail later when someone actually tries to open that kind of ticket.
+      if (sel.value === '__new__' && (!value || value.length > 90)) { blankRows.push(type); return; }
+      updates[type] = value;
+    });
+    if (blankRows.length) {
+      alert(`Category name for ${blankRows.join(', ')} is blank or too long (max 90 characters) — fix that before saving.`);
+      return;
+    }
+    const btn = document.getElementById('saveCatBtn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/guild/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
+      if (res.ok) { flashStatus('catStatus'); load(); }
+      else alert('Could not save — try again.');
+    } catch { alert('Could not save — check your connection.'); }
+    btn.disabled = false;
+  });
+}
+
+function renderBlacklist() {
+  const list = document.getElementById('blList');
+  const entries = Object.entries(guildData.blacklistedUsers || {});
+  if (!entries.length) {
+    list.innerHTML = '<div class="bl-empty">Nobody blacklisted right now.</div>';
+    return;
+  }
+  list.innerHTML = entries.map(([userId, info]) => `
+    <div class="bl-item">
+      <span class="who"><b>${RF.esc(info.tag)}</b> <span class="reason">— ${RF.esc(info.reason || 'No reason given')}</span></span>
+      <button class="btn danger" data-user-id="${RF.esc(userId)}" onclick="removeBlacklist(this)">Remove</button>
+    </div>
+  `).join('');
+}
+
+async function removeBlacklist(btn) {
+  const userId = btn.getAttribute('data-user-id');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/guild/blacklist/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+    if (res.ok) { delete guildData.blacklistedUsers[userId]; renderBlacklist(); }
+    else { alert('Could not remove — try again.'); btn.disabled = false; }
+  } catch { alert('Could not remove — check your connection.'); btn.disabled = false; }
+}
+
+function wireBlacklistSearch() {
+  const input = document.getElementById('blSearch');
+  const results = document.getElementById('blResults');
+  let debounceTimer;
+
+  input.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    const q = input.value.trim();
+    if (q.length < 2) { results.classList.remove('show'); return; }
+    debounceTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/guild/members?query=${encodeURIComponent(q)}`);
+        const members = await res.json();
+        if (!members.length) { results.innerHTML = '<div class="bl-result" style="color:var(--faint);cursor:default;">No members found</div>'; }
+        else {
+          results.innerHTML = members.map(m => `<div class="bl-result" data-user-id="${RF.esc(m.id)}" data-tag="${RF.esc(m.tag)}">${RF.esc(m.displayName)} <span style="color:var(--faint)">(${RF.esc(m.tag)})</span></div>`).join('');
+        }
+        results.classList.add('show');
+      } catch { results.classList.remove('show'); }
+    }, 300);
+  });
+
+  results.addEventListener('click', async (e) => {
+    const row = e.target.closest('.bl-result');
+    if (!row || !row.getAttribute('data-user-id')) return;
+    const userId = row.getAttribute('data-user-id');
+    const tag = row.getAttribute('data-tag');
+    const reason = prompt(`Reason for blacklisting ${tag}? (optional)`) || '';
+    try {
+      const res = await fetch('/api/guild/blacklist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, tag, reason }) });
+      if (res.ok) {
+        guildData.blacklistedUsers[userId] = { tag, reason: reason || 'No reason given' };
+        renderBlacklist();
+        input.value = ''; results.classList.remove('show');
+      } else alert('Could not blacklist — try again.');
+    } catch { alert('Could not blacklist — check your connection.'); }
+  });
+}
+
+// Wired ONCE, not inside wireBlacklistSearch() — that function reruns every
+// time the page re-renders (e.g. after saving categories), and re-attaching
+// this to `document` each time would pile up duplicate listeners forever
+// since `document` itself never gets replaced like the inner elements do.
+// Looks up #blResults fresh on every click instead of closing over a
+// possibly-stale reference from an earlier render.
+let outsideClickWired = false;
+function wireOutsideClickOnce() {
+  if (outsideClickWired) return;
+  outsideClickWired = true;
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.bl-search')) return;
+    const results = document.getElementById('blResults');
+    if (results) results.classList.remove('show');
+  });
+}
+
+function flashStatus(id) {
+  const el = document.getElementById(id);
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+load();
+wireOutsideClickOnce();
+</script>
+</body>
+</html>

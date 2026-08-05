@@ -1,0 +1,108 @@
+/* Shared base for index.html / transcript.html / settings.html.
+   Page-specific layout lives inline in each file; this file only holds
+   things that must look identical everywhere: colors, type, nav, buttons. */
+
+@import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --amber: #d69a4e; /* overridden inline per-page from {{ACCENT_COLOR}} */
+  --bg-0: #14171a;
+  --bg-1: #1a1e22;
+  --panel: #1c2023;
+  --panel-2: #20242a;
+  --border: #2a2f33;
+  --paper: #e8e2d0;
+  --ink: #d9d5c9;
+  --muted: #8d9297;
+  --faint: #565c62;
+  --red: #e05a3a;
+  --green: #6fa383;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  min-height: 100vh;
+  background: radial-gradient(ellipse at top, var(--bg-1), var(--bg-0));
+  font-family: 'Inter', sans-serif;
+  color: var(--ink);
+  position: relative;
+}
+/* Faint grain so large dark panels don't read as flat vector fills — a cheap
+   trick that makes the whole thing feel closer to physical paper/film than
+   a generic SaaS dashboard. Fixed + behind everything, never intercepts clicks. */
+body::before {
+  content: "";
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  opacity: 0.035; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+header.site, main, .modal-overlay { position: relative; z-index: 1; }
+a { color: var(--amber); text-decoration: none; }
+::selection { background: var(--amber); color: #14171a; }
+
+.mono { font-family: 'IBM Plex Mono', monospace; }
+.type-face { font-family: 'Special Elite', monospace; }
+
+.site-banner {
+  background: var(--amber); color: #14171a;
+  font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 12.5px;
+  text-align: center; padding: 9px 16px;
+}
+
+/* ---------- top nav ---------- */
+header.site {
+  position: sticky; top: 0; z-index: 30;
+  background: rgba(20,23,26,0.94);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+}
+.panel { box-shadow: 0 10px 28px rgba(0,0,0,0.2); }
+.topbar {
+  max-width: 1180px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 24px; gap: 18px; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.brand h1 {
+  font-family: 'Special Elite', monospace; font-size: 19px; color: var(--paper);
+  margin: 0; letter-spacing: .3px; white-space: nowrap;
+}
+nav.rf-tabs { display: flex; gap: 4px; }
+.rf-tab {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); padding: 7px 12px; border-radius: 4px; border: 1px solid transparent;
+}
+.rf-tab:hover { color: var(--paper); }
+.rf-tab.active { color: var(--amber); border-color: rgba(214,154,78,.35); background: rgba(214,154,78,.08); }
+
+.topbar-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+#sessionClock { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
+#sessionClock.warn { color: var(--red); }
+.btn {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .05em; text-transform: uppercase;
+  padding: 8px 13px; border-radius: 4px; cursor: pointer;
+  border: 1px solid var(--border); background: transparent; color: var(--ink);
+  transition: border-color .12s ease, color .12s ease, background .12s ease;
+}
+.btn:hover { border-color: var(--amber); color: var(--paper); }
+.btn.primary { background: var(--amber); color: #14171a; border-color: var(--amber); font-weight: 600; }
+.btn.primary:hover { opacity: .88; color: #14171a; }
+.btn.danger { color: var(--red); border-color: rgba(224,90,58,.4); }
+.btn.danger:hover { background: rgba(224,90,58,.1); border-color: var(--red); color: var(--red); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ---------- "stamp" — the one signature touch, used sparingly ---------- */
+.stamp {
+  font-family: 'Special Elite', monospace;
+  letter-spacing: .12em; text-transform: uppercase;
+  border: 2px solid currentColor; border-radius: 4px;
+  padding: 3px 9px; display: inline-block;
+  transform: rotate(-4deg);
+  opacity: .82;
+}
+
+.footer-note { text-align: center; color: var(--faint); font-size: 11px; margin-top: 10px; font-family: 'IBM Plex Mono', monospace; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Transcript</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#14171a; --panel:#1c2023; --panel-edge:#2a2f33; --paper:#e8e2d0; --ink:#d9d5c9; --muted:#7d8489; --amber: {{ACCENT_COLOR}}; --green:#6fa383; --rust:#b3552f; --steel:#5c7d99; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; font-family:'Inter',sans-serif; background:var(--bg); color:var(--ink); padding:0 20px 80px; }
+  .site-banner { background:var(--amber); color:#14171a; font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:13px; text-align:center; padding:10px 16px; margin:0 -20px 32px; }
+
+  .wrap { max-width:760px; margin:0 auto; padding-top:20px; }
+  .topbar { display:flex; justify-content:flex-end; align-items:center; gap:12px; margin-bottom:16px; }
+  .session-badge { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); }
+  .icon-btn { font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.04em; text-transform:uppercase; background:var(--panel); border:1px solid var(--panel-edge); color:var(--ink); padding:7px 12px; border-radius:4px; cursor:pointer; }
+  .icon-btn:hover { border-color:var(--amber); color:var(--paper); }
+
+  .back-link { display:inline-flex; align-items:center; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--muted); text-decoration:none; margin-bottom:24px; }
+  .back-link:hover { color:var(--amber); }
+  .case-header { background:var(--panel); border:1px solid var(--panel-edge); border-left:4px solid var(--tab-color, var(--steel)); border-radius:4px; padding:22px 22px 18px; margin-bottom:28px; }
+  .case-tag { font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--tab-color, var(--steel)); border:1px solid var(--tab-color, var(--steel)); padding:3px 8px; border-radius:2px; display:inline-block; margin-bottom:12px; }
+  .case-header-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  h2 { font-family:'Special Elite',monospace; font-size:26px; margin:0 0 6px; color:var(--paper); }
+  .case-sub { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted); line-height:1.6; }
+  .copy-btn { font-family:'IBM Plex Mono',monospace; font-size:11px; background:var(--bg); border:1px solid var(--panel-edge); color:var(--ink); padding:6px 10px; border-radius:4px; cursor:pointer; white-space:nowrap; }
+  .copy-btn:hover { border-color:var(--amber); color:var(--paper); }
+
+  #messages { background:var(--panel); border:1px solid var(--panel-edge); border-radius:4px; padding:6px 20px; }
+  .msg { display:flex; gap:14px; padding:14px 0; border-bottom:1px solid var(--panel-edge); }
+  .msg:last-child { border-bottom:none; }
+  .avatar { flex-shrink:0; width:34px; height:34px; border-radius:50%; background:var(--tab-color, var(--steel)); color:#14171a; font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:13px; display:flex; align-items:center; justify-content:center; margin-top:2px; }
+  .msg-body { flex:1; min-width:0; }
+  .msg-line { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .author { font-weight:600; color:var(--paper); font-size:14px; }
+  .time { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); }
+  .content { margin-top:4px; font-size:14px; line-height:1.55; color:var(--ink); word-wrap:break-word; white-space:pre-wrap; }
+  .content a { color:var(--amber); }
+  .media-wrap { margin-top:8px; display:flex; flex-wrap:wrap; gap:8px; }
+  .chat-media { max-width:280px; max-height:280px; border-radius:6px; display:block; border:1px solid var(--panel-edge); }
+  .loading, .error-state { font-family:'IBM Plex Mono',monospace; color:var(--muted); text-align:center; padding:40px 0; }
+  footer { text-align:center; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--panel-edge); margin-top:40px; }
+  .footer-note { text-align:center; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); margin-top:8px; }
+</style>
+</head>
+<body>
+  {{BANNER_HTML}}
+  <div class="wrap">
+    <div class="topbar">
+      <span class="session-badge" id="sessionBadge">Session: --:--</span>
+      <a class="icon-btn" href="#" id="staffViewBtn" style="display:none; text-decoration:none;">🛡️ Staff View</a>
+      <a class="icon-btn" href="/logout" id="logoutBtn" style="text-decoration:none;">⎋ Logout</a>
+    </div>
+
+    <a class="back-link" href="/" id="backLink">&larr; Back to Archives</a>
+
+    <div class="case-header" id="caseHeader">
+      <div class="case-header-top">
+        <div>
+          <span class="case-tag" id="caseTag">CASE</span>
+          <h2 id="title">Loading transcript...</h2>
+        </div>
+        <button class="copy-btn" id="copyLinkBtn">📋 Copy Link</button>
+      </div>
+      <div class="case-sub" id="caseSub"></div>
+    </div>
+
+    <div id="messages"><div class="loading">Retrieving records...</div></div>
+    <footer>REDFIELD // TICKET RECORDS SYSTEM</footer>
+    {{FOOTER_NOTE_HTML}}
+  </div>
+
+  <script>
+    const TYPE_COLORS = { REDFIELD: '#6fa383', MANAGEMENT: '#5c7d99', BUG: '#d69a4e' };
+    function initials(tag) { return (tag || '?').split('#')[0].slice(0, 2).toUpperCase(); }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    const IMAGE_EXT_RE = /\.(gif|png|jpe?g|webp)(\?[^\s]*)?$/i;
+    const URL_RE = /(https?:\/\/[^\s]+)/gi;
+
+    function isImageUrl(url, contentType) {
+      if (contentType && contentType.startsWith('image/')) return true;
+      return IMAGE_EXT_RE.test(url);
+    }
+
+    // Turns plain message text into safe HTML, upgrading any direct image/GIF
+    // link into an inline <img> instead of leaving it as a raw URL.
+    function renderContent(text) {
+      if (!text) return '';
+      let result = '';
+      let lastIndex = 0;
+      let match;
+      URL_RE.lastIndex = 0;
+      while ((match = URL_RE.exec(text))) {
+        const url = match[0];
+        result += escapeHtml(text.slice(lastIndex, match.index));
+        if (IMAGE_EXT_RE.test(url)) {
+          result += `<br><img class="chat-media" src="${url}" loading="lazy" alt="attached image" onerror="this.outerHTML='<a href=\\'${url}\\' target=\\'_blank\\' rel=\\'noopener\\'>${url}</a>'">`;
+        } else {
+          result += `<a href="${url}" target="_blank" rel="noopener">${escapeHtml(url)}</a>`;
+        }
+        lastIndex = URL_RE.lastIndex;
+      }
+      result += escapeHtml(text.slice(lastIndex));
+      return result;
+    }
+
+    function renderMedia(m) {
+      const items = [];
+      (m.attachments || []).forEach(a => {
+        if (isImageUrl(a.url, a.contentType)) items.push(`<img class="chat-media" src="${a.url}" loading="lazy" alt="attachment">`);
+        else items.push(`<a href="${a.url}" target="_blank" rel="noopener">📎 ${a.url.split('/').pop()}</a>`);
+      });
+      (m.embedImages || []).forEach(url => items.push(`<img class="chat-media" src="${url}" loading="lazy" alt="embedded image">`));
+      return items.length ? `<div class="media-wrap">${items.join('')}</div>` : '';
+    }
+
+    const id = window.location.pathname.split('/').pop();
+    const token = new URLSearchParams(window.location.search).get('token');
+
+    if (token) {
+      // Viewing via the special link DMed to the ticket opener — this token only
+      // unlocks this one transcript, so hide the staff-only navigation entirely.
+      document.getElementById('backLink').style.display = 'none';
+      document.getElementById('sessionBadge').style.display = 'none';
+      document.getElementById('logoutBtn').style.display = 'none';
+      const staffBtn = document.getElementById('staffViewBtn');
+      staffBtn.href = window.location.pathname; // same transcript, no token = prompts staff password
+      staffBtn.style.display = 'inline-block';
+    }
+
+    const apiUrl = `/api/tickets/${id}` + (token ? `?token=${encodeURIComponent(token)}` : '');
+
+    fetch(apiUrl)
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          document.getElementById('title').textContent = 'Case not found';
+          document.getElementById('messages').innerHTML = '<div class="error-state">This transcript does not exist or was never archived.</div>';
+          return;
+        }
+        const color = TYPE_COLORS[data.type] || '#5c7d99';
+        document.getElementById('caseHeader').style.setProperty('--tab-color', color);
+        document.getElementById('caseTag').textContent = data.type;
+        document.getElementById('caseTag').style.setProperty('--tab-color', color);
+        document.getElementById('title').textContent = data.channelName;
+
+        const subLines = [
+          `Filed by ${data.openedBy}${data.openedById ? ' (' + data.openedById + ')' : ''}`,
+          data.robloxUsername ? `Roblox: ${data.robloxUsername}` : null,
+          data.claimedBy ? `Claimed by ${data.claimedBy}` : null,
+          `Closed ${new Date(data.closedAt).toLocaleString()} by ${data.closedBy || 'unknown'}`,
+          `${data.messages.length} messages`
+        ].filter(Boolean);
+        document.getElementById('caseSub').innerHTML = subLines.join('<br>');
+
+        if (data.messages.length === 0) {
+          document.getElementById('messages').innerHTML = '<div class="error-state">No messages were recorded for this ticket.</div>';
+          return;
+        }
+
+        document.getElementById('messages').innerHTML = data.messages.map(m => {
+          const textHtml = renderContent(m.content);
+          const mediaHtml = renderMedia(m);
+          const nothing = !textHtml && !mediaHtml;
+          return `
+            <div class="msg">
+              <div class="avatar" style="--tab-color:${color}">${initials(m.author)}</div>
+              <div class="msg-body">
+                <div class="msg-line">
+                  <span class="author">${m.author}</span>
+                  <span class="time">${new Date(m.timestamp).toLocaleString()}</span>
+                </div>
+                ${textHtml ? `<div class="content">${textHtml}</div>` : ''}
+                ${mediaHtml}
+                ${nothing ? '<div class="content" style="opacity:.6">[Attachment/Embed]</div>' : ''}
+              </div>
+            </div>`;
+        }).join('');
+      })
+      .catch(() => {
+        document.getElementById('title').textContent = 'Error';
+        document.getElementById('messages').innerHTML = '<div class="error-state">Could not reach the archive server.</div>';
+      });
+
+    function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+      }
+      return new Promise((resolve, reject) => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy') ? resolve() : reject(new Error('copy failed'));
+        } catch (err) {
+          reject(err);
+        } finally {
+          document.body.removeChild(ta);
+        }
+      });
+    }
+
+    document.getElementById('copyLinkBtn').addEventListener('click', () => {
+      const btn = document.getElementById('copyLinkBtn');
+      const original = btn.textContent;
+      copyText(window.location.href)
+        .then(() => { btn.textContent = '✅ Copied!'; setTimeout(() => { btn.textContent = original; }, 1500); })
+        .catch(() => { btn.textContent = '⚠️ Copy failed'; setTimeout(() => { btn.textContent = original; }, 1500); });
+    });
+
+    function getCookie(name) {
+      const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+      return match ? decodeURIComponent(match[1]) : null;
+    }
+    function updateSessionBadge() {
+      const expiresAt = parseInt(getCookie('sessionExpires'), 10);
+      const badge = document.getElementById('sessionBadge');
+      if (!expiresAt) { badge.textContent = 'Session: --:--'; return; }
+      const remainingMs = expiresAt - Date.now();
+      if (remainingMs <= 0) {
+        badge.textContent = 'Session expired';
+        window.location.href = '/logout';
+        return;
+      }
+      const mins = Math.floor(remainingMs / 60000);
+      const secs = Math.floor((remainingMs % 60000) / 1000);
+      badge.textContent = `Session: ${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+    updateSessionBadge();
+    setInterval(updateSessionBadge, 1000);
+  </script>
+</body>
+</html>
