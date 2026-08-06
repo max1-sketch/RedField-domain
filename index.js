@@ -197,7 +197,9 @@ function defaultConfig() {
                 style: 'Success',
                 color: 0x2ecc71,
                 promptLabel: 'What do you need help with?',
-                categoryName: 'GENERAL TICKETS'
+                categoryName: 'GENERAL TICKETS',
+                teamRoleIds: [],
+                restrictToTeamOnly: false
             },
             MANAGEMENT: {
                 title: 'Management',
@@ -207,7 +209,9 @@ function defaultConfig() {
                 style: 'Primary',
                 color: 0x5865f2,
                 promptLabel: 'Describe the situation you want to report',
-                categoryName: 'MANAGEMENT TICKETS'
+                categoryName: 'MANAGEMENT TICKETS',
+                teamRoleIds: [],
+                restrictToTeamOnly: false
             },
             BUG: {
                 title: 'Bug Report',
@@ -217,7 +221,9 @@ function defaultConfig() {
                 style: 'Secondary',
                 color: 0xf1c40f,
                 promptLabel: 'Describe the bug (steps to reproduce)',
-                categoryName: 'BUG TICKETS'
+                categoryName: 'BUG TICKETS',
+                teamRoleIds: [],
+                restrictToTeamOnly: false
             }
         },
         maxTicketsPerUser: 3,
@@ -229,7 +235,8 @@ function defaultConfig() {
         blacklistedUsers: {},
         staffRoleIds: [],
         adminRoleIds: [],
-        logChannelId: null
+        logChannelId: null,
+        tags: [] // [{ id, name, color }]
     };
 }
 
@@ -241,9 +248,11 @@ function getGuildConfig(guildId) {
     merged.panels = {};
     for (const key of Object.keys(def.panels)) {
         merged.panels[key] = { ...def.panels[key], ...((saved.panels && saved.panels[key]) || {}) };
+        if (!Array.isArray(merged.panels[key].teamRoleIds)) merged.panels[key].teamRoleIds = [];
     }
     merged.staffRoleIds = Array.isArray(saved.staffRoleIds) ? saved.staffRoleIds : def.staffRoleIds;
     merged.adminRoleIds = Array.isArray(saved.adminRoleIds) ? saved.adminRoleIds : def.adminRoleIds;
+    merged.tags = Array.isArray(saved.tags) ? saved.tags : def.tags;
 
     guildConfigs[guildId] = merged;
     saveConfigs();
@@ -259,7 +268,7 @@ const STYLE_MAP = {
 
 // Persisted the same way archivedTickets is — a bot restart used to wipe
 // this entirely, silently defeating max-tickets-per-user and orphaning the
-// opener-ID tracking that Close/Force Close/Request Close all depend on.
+// opener-ID tracking that Close, Close With Reason, and /closerequest all depend on.
 const OPEN_TICKETS_FILE = path.join(DATA_DIR, 'openTickets.json');
 let openTickets = new Map();
 try {
@@ -277,6 +286,81 @@ function saveOpenTickets() {
     }
 }
 const pendingCreations = new Set();
+// Tracks the auto-close timer for a pending /closerequest, keyed by channel
+// ID, so an opener's Accept/Deny response (or a new /closerequest) can
+// cancel the previous timer. In-memory only — like openTickets, a bot
+// restart forgets any pending auto-close and it just won't fire.
+const closeRequestTimers = new Map();
+
+// Moderation notes/warnings — persisted per-user, independent of Discord's
+// own audit log (which the bot can't write custom entries into anyway).
+const MOD_NOTES_FILE = path.join(DATA_DIR, 'moderationNotes.json');
+let moderationNotes = new Map(); // userId -> [{ id, type, content, byName, at }]
+try {
+    if (fs.existsSync(MOD_NOTES_FILE)) {
+        moderationNotes = new Map(Object.entries(JSON.parse(fs.readFileSync(MOD_NOTES_FILE, 'utf8'))));
+    }
+} catch (err) {
+    console.error('Could not load moderation notes, starting fresh:', err);
+}
+function saveModerationNotes() {
+    try {
+        fs.writeFileSync(MOD_NOTES_FILE, JSON.stringify(Object.fromEntries(moderationNotes), null, 2));
+    } catch (err) {
+        console.error('Failed to save moderation notes:', err);
+    }
+}
+
+// Rolling log of moderation actions taken FROM THE WEBSITE (timeout/kick/ban/
+// unban) — there's no per-staff login here, only the shared site password,
+// so "byName" is a typed label like the live-ticket sender name: informal,
+// not a verified identity. This log exists so at least there's *some*
+// visibility into who claimed to do what, even without real accounts.
+const MOD_LOG_FILE = path.join(DATA_DIR, 'moderationLog.json');
+const MOD_LOG_MAX_ENTRIES = 500;
+let moderationLog = [];
+try {
+    if (fs.existsSync(MOD_LOG_FILE)) {
+        moderationLog = JSON.parse(fs.readFileSync(MOD_LOG_FILE, 'utf8'));
+    }
+} catch (err) {
+    console.error('Could not load moderation log, starting fresh:', err);
+}
+function logModerationAction(action, targetId, targetTag, reason, byName) {
+    moderationLog.unshift({ id: crypto.randomBytes(6).toString('hex'), action, targetId, targetTag, reason: reason || null, byName: byName || 'Unknown (via Website)', at: new Date().toISOString() });
+    if (moderationLog.length > MOD_LOG_MAX_ENTRIES) moderationLog.length = MOD_LOG_MAX_ENTRIES;
+    try {
+        fs.writeFileSync(MOD_LOG_FILE, JSON.stringify(moderationLog, null, 2));
+    } catch (err) {
+        console.error('Failed to save moderation log:', err);
+    }
+}
+
+// Prefers the verified Discord identity from req.authUser (set by
+// requireAuth when logged in via "Sign in with Discord") over whatever name
+// the client typed in — real accountability when it's available, informal
+// label when it isn't (password login has no per-user identity to fall back on).
+function resolveActorName(req) {
+    if (req.authUser && req.authUser.id) return req.authUser.name;
+    return String(req.body?.byName || '').trim().slice(0, 40) || 'Staff (via Website)';
+}
+
+// If the person just kicked/banned/timed-out has a ticket open right now,
+// let staff in that channel know immediately rather than have them find out
+// later (or not at all) that the person they're helping just got moderated.
+async function notifyTicketOfModerationAction(guild, targetUserId, action, reason, byName) {
+    const actionLabel = { timeout: 'timed out', kick: 'kicked', ban: 'banned' }[action] || action;
+    for (const [channelId, ticket] of openTickets.entries()) {
+        if (ticket.userId !== targetUserId || ticket.guildId !== guild.id) continue;
+        try {
+            const channel = await guild.channels.fetch(channelId).catch(() => null);
+            if (!channel) continue;
+            await channel.send(`⚠️ **Moderation notice:** This ticket's opener was just **${actionLabel}** by **${byName}** (via website).${reason ? `\nReason: ${reason}` : ''}`);
+        } catch (err) {
+            console.error('Could not notify ticket of moderation action:', err.message);
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // EXPRESS WEB SERVER
@@ -298,9 +382,60 @@ function parseCookies(req) {
 
 const SESSION_SECONDS = 10 * 60;
 
+// Signs/verifies Discord-login sessions without needing a session store or
+// database — the cookie carries its own HMAC, keyed by a secret generated
+// once and persisted to disk. This exists purely to support "Sign in with
+// Discord" as an ALTERNATIVE to the shared access code, not a replacement —
+// the password login still works exactly as before, so a misconfigured
+// Discord app can't lock anyone out.
+const SESSION_SECRET_FILE = path.join(DATA_DIR, 'sessionSecret.txt');
+let SESSION_SECRET;
+try {
+    if (fs.existsSync(SESSION_SECRET_FILE)) SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim();
+} catch (err) {
+    console.error('Could not read session secret:', err);
+}
+if (!SESSION_SECRET) {
+    SESSION_SECRET = crypto.randomBytes(32).toString('hex');
+    try { fs.writeFileSync(SESSION_SECRET_FILE, SESSION_SECRET); } catch (err) { console.error('Could not persist session secret:', err); }
+}
+function signDiscordSession(payload) {
+    const b64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    const sig = crypto.createHmac('sha256', SESSION_SECRET).update(b64).digest('base64url');
+    return `${b64}.${sig}`;
+}
+function verifyDiscordSession(token) {
+    if (!token || !token.includes('.')) return null;
+    const [b64, sig] = token.split('.');
+    const expectedSig = crypto.createHmac('sha256', SESSION_SECRET).update(b64).digest('base64url');
+    if (sig !== expectedSig) return null;
+    try {
+        const payload = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8'));
+        if (!payload.exp || payload.exp < Date.now()) return null;
+        return payload;
+    } catch {
+        return null;
+    }
+}
+const DISCORD_LOGIN_CONFIGURED = Boolean(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET);
+
 function lockPageHtml(error, returnTo) {
     const accent = /^#[0-9A-Fa-f]{6}$/.test(siteConfig.accentColor) ? siteConfig.accentColor : '#d69a4e';
     const safeReturn = JSON.stringify((returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/');
+    const errorMessages = {
+        1: 'Incorrect code — try again.',
+        discord_denied: 'Discord login was cancelled.',
+        discord_notstaff: "That Discord account isn't staff on this server.",
+        discord_failed: 'Discord login failed — try again or use the access code.'
+    };
+    const errorText = errorMessages[error] || (error ? errorMessages['1'] : null);
+    const discordSection = DISCORD_LOGIN_CONFIGURED ? `
+    <a class="discord-btn" href="/auth/discord?returnTo=${encodeURIComponent((returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/')}">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20.3 4.4A19.7 19.7 0 0 0 15.6 3l-.3.6a14 14 0 0 1 4 1.6c-2.9-1.4-6.7-1.4-9.6 0a10 10 0 0 1 4-1.6L13.4 3a19.7 19.7 0 0 0-4.7 1.4C5.6 8.6 4.8 12.7 5.2 16.7a19.9 19.9 0 0 0 5.1 2.5l.7-1.1a13 13 0 0 1-2-1c.2-.1.3-.2.5-.3a14 14 0 0 0 11 0l.5.3c-.6.4-1.3.7-2 1l.7 1.1a19.8 19.8 0 0 0 5.1-2.5c.5-4.6-.7-8.7-2.9-12.3ZM9.7 14.3c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.5.8 1.5 1.7c0 1-.7 1.7-1.5 1.7Zm5.6 0c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.5.8 1.5 1.7c0 1-.7 1.7-1.5 1.7Z"/></svg>
+      Sign in with Discord
+    </a>
+    <button type="button" class="alt-toggle" id="altToggle">Use access code instead</button>` : '';
+    const codeFormOpenStyle = DISCORD_LOGIN_CONFIGURED ? 'display:none;' : '';
     return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(siteConfig.siteTitle)} — Locked</title>
@@ -316,24 +451,39 @@ function lockPageHtml(error, returnTo) {
   p{font-size:12px;color:#7d8489;margin:0 0 20px;line-height:1.5;}
   input{width:100%;box-sizing:border-box;background:#14171a;border:1px solid #2a2f33;color:#e8e2d0;padding:12px;border-radius:4px;font-family:inherit;font-size:15px;margin-bottom:12px;letter-spacing:0.3em;text-align:center;transition:border-color .15s;}
   input:focus{outline:none;border-color:var(--amber);}
-  button{width:100%;background:var(--amber);border:none;color:#14171a;font-weight:600;padding:11px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:13px;letter-spacing:.05em;text-transform:uppercase;transition:opacity .15s;}
-  button:hover{opacity:.9;}
+  button[type=submit]{width:100%;background:var(--amber);border:none;color:#14171a;font-weight:600;padding:11px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:13px;letter-spacing:.05em;text-transform:uppercase;transition:opacity .15s;}
+  button[type=submit]:hover{opacity:.9;}
   .err{color:#e05a3a;font-size:11.5px;margin-top:12px;font-weight:600;}
   .hint{font-size:10.5px;color:#4d5257;margin-top:18px;}
+  .discord-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;background:#5865F2;color:#fff;font-weight:600;padding:12px;border-radius:4px;text-decoration:none;font-size:13.5px;margin-bottom:12px;transition:opacity .15s;}
+  .discord-btn:hover{opacity:.9;}
+  .alt-toggle{display:block;width:100%;background:none;border:none;color:#5b6272;font-family:inherit;font-size:11px;text-decoration:underline;cursor:pointer;padding:4px;margin-bottom:4px;}
+  .alt-toggle:hover{color:#9199a8;}
 </style></head>
 <body>
   <div class="box">
     <div class="lock-icon">🔒</div>
     <h1>${escapeHtml(siteConfig.siteTitle)}</h1>
-    <p>This archive is restricted. Enter the access code from staff to continue.</p>
-    <form id="f">
-      <input id="pw" type="password" placeholder="ACCESS CODE" autofocus autocomplete="off" />
+    <p>This archive is restricted.</p>
+    ${discordSection}
+    <form id="f" style="${codeFormOpenStyle}">
+      <input id="pw" type="password" placeholder="ACCESS CODE" autocomplete="off" />
       <button type="submit">Unlock Archive</button>
-      ${error ? '<div class="err">⚠ Incorrect code — try again.</div>' : ''}
     </form>
+    ${errorText ? `<div class="err">⚠ ${escapeHtml(errorText)}</div>` : ''}
     <div class="hint">Sessions auto-expire after 10 minutes for security.</div>
   </div>
   <script>
+    const toggle = document.getElementById('altToggle');
+    if (toggle) {
+      toggle.addEventListener('click', () => {
+        const form = document.getElementById('f');
+        const showing = form.style.display !== 'none';
+        form.style.display = showing ? 'none' : 'block';
+        toggle.textContent = showing ? 'Use access code instead' : 'Hide access code';
+        if (!showing) document.getElementById('pw').focus();
+      });
+    }
     const returnTo = ${safeReturn};
     document.getElementById('f').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -345,9 +495,17 @@ function lockPageHtml(error, returnTo) {
 </body></html>`;
 }
 
-function requireAuth(req, res, next) {
+function isRequestAuthed(req) {
     const cookies = parseCookies(req);
-    if (cookies.ticketAuth === computeAuthToken(siteConfig.password)) return next();
+    if (cookies.ticketAuth === computeAuthToken(siteConfig.password)) return { name: 'Staff (access code)' };
+    const session = verifyDiscordSession(cookies.discordAuth);
+    if (session) return { id: session.id, name: session.tag };
+    return null;
+}
+
+function requireAuth(req, res, next) {
+    const authUser = isRequestAuthed(req);
+    if (authUser) { req.authUser = authUser; return next(); }
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
     return res.send(lockPageHtml(req.query.err, req.path));
 }
@@ -398,8 +556,7 @@ function maintenancePageHtml() {
 
 function maintenanceGate(req, res, next) {
     if (!siteConfig.maintenanceMode) return next();
-    const cookies = parseCookies(req);
-    if (cookies.ticketAuth === computeAuthToken(siteConfig.password)) return next();
+    if (isRequestAuthed(req)) return next();
     if (req.path.startsWith('/api/')) return res.status(503).json({ error: 'Under maintenance' });
     return res.status(503).send(maintenancePageHtml());
 }
@@ -417,9 +574,82 @@ app.post('/api/login', (req, res) => {
     return res.status(401).json({ success: false });
 });
 
+app.get('/auth/discord', (req, res) => {
+    if (!DISCORD_LOGIN_CONFIGURED) return res.status(503).send('Discord login is not configured — set DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET in .env.');
+    const returnTo = (req.query.returnTo && req.query.returnTo.startsWith('/') && !req.query.returnTo.startsWith('//')) ? req.query.returnTo : '/';
+    const state = crypto.randomBytes(16).toString('hex');
+    res.setHeader('Set-Cookie', [
+        `oauthState=${state}; HttpOnly; Path=/; Max-Age=300`,
+        `oauthReturnTo=${encodeURIComponent(returnTo)}; HttpOnly; Path=/; Max-Age=300`
+    ]);
+    const params = new URLSearchParams({
+        client_id: process.env.DISCORD_CLIENT_ID,
+        redirect_uri: `${getWebsiteUrl()}/auth/discord/callback`,
+        response_type: 'code',
+        scope: 'identify',
+        state
+    });
+    res.redirect(`https://discord.com/oauth2/authorize?${params.toString()}`);
+});
+
+app.get('/auth/discord/callback', async (req, res) => {
+    const cookies = parseCookies(req);
+    const { code, state, error: oauthError } = req.query;
+    const returnTo = cookies.oauthReturnTo ? decodeURIComponent(cookies.oauthReturnTo) : '/';
+
+    if (oauthError) return res.send(lockPageHtml('discord_denied', returnTo));
+    if (!DISCORD_LOGIN_CONFIGURED) return res.status(503).send('Discord login is not configured.');
+    if (!code || !state || state !== cookies.oauthState) return res.send(lockPageHtml('discord_failed', returnTo));
+
+    try {
+        const redirectUri = `${getWebsiteUrl()}/auth/discord/callback`;
+        const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                client_id: process.env.DISCORD_CLIENT_ID,
+                client_secret: process.env.DISCORD_CLIENT_SECRET,
+                grant_type: 'authorization_code',
+                code,
+                redirect_uri: redirectUri
+            })
+        });
+        if (!tokenRes.ok) throw new Error(`Discord token exchange returned ${tokenRes.status}`);
+        const tokenData = await tokenRes.json();
+
+        const userRes = await fetch('https://discord.com/api/users/@me', {
+            headers: { Authorization: `Bearer ${tokenData.access_token}` }
+        });
+        if (!userRes.ok) throw new Error(`Discord user lookup returned ${userRes.status}`);
+        const discordUser = await userRes.json();
+
+        const guild = getTargetGuild();
+        if (!guild) throw new Error('Bot is not currently in any server');
+        const member = await guild.members.fetch(discordUser.id).catch(() => null);
+        const guildConfig = getGuildConfig(guild.id);
+        if (!member || !isStaff(member, guildConfig)) {
+            return res.send(lockPageHtml('discord_notstaff', returnTo));
+        }
+
+        const expiresAt = Date.now() + SESSION_SECONDS * 1000;
+        const session = signDiscordSession({ id: discordUser.id, tag: member.user.tag, exp: expiresAt });
+        res.setHeader('Set-Cookie', [
+            `discordAuth=${session}; HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}`,
+            `sessionExpires=${expiresAt}; Path=/; Max-Age=${SESSION_SECONDS}`,
+            'oauthState=; Path=/; Max-Age=0',
+            'oauthReturnTo=; Path=/; Max-Age=0'
+        ]);
+        res.redirect(returnTo);
+    } catch (err) {
+        console.error('[discord oauth] failed:', err);
+        res.send(lockPageHtml('discord_failed', returnTo));
+    }
+});
+
 function clearAuthCookies(res) {
     res.setHeader('Set-Cookie', [
         'ticketAuth=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT',
+        'discordAuth=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT',
         'sessionExpires=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
     ]);
 }
@@ -441,8 +671,7 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, 'views'), { index: false }));
 
 function requireAuthOrTicketToken(req, res, next) {
-    const cookies = parseCookies(req);
-    if (cookies.ticketAuth === computeAuthToken(siteConfig.password)) return next();
+    if (isRequestAuthed(req)) return next();
 
     const ticket = archivedTickets.get(req.params.id);
     if (ticket && ticket.accessToken && req.query.token && req.query.token === ticket.accessToken) {
@@ -454,6 +683,13 @@ function requireAuthOrTicketToken(req, res, next) {
 
 app.get('/', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'index.html')));
 app.get('/settings', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'settings.html')));
+app.get('/tickets', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'tickets.html')));
+app.get('/tickets/:channelId', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'live-ticket.html')));
+app.get('/panels', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'panels.html')));
+app.get('/blacklist', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'blacklist.html')));
+app.get('/tags', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'tags.html')));
+app.get('/moderation', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'moderation.html')));
+app.get('/moderation/:userId', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'member-detail.html')));
 app.get('/transcript/:id', maintenanceGate, requireAuthOrTicketToken, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'transcript.html')));
 app.get('/api/tickets', maintenanceGate, requireAuth, (req, res) => res.json(Array.from(archivedTickets.values())));
 app.get('/api/tickets/:id', maintenanceGate, requireAuthOrTicketToken, (req, res) => {
@@ -466,6 +702,22 @@ app.delete('/api/tickets/:id', requireAuth, (req, res) => {
     archivedTickets.delete(req.params.id);
     saveArchive();
     res.json({ success: true });
+});
+
+app.post('/api/tickets/:id/tags', maintenanceGate, requireAuth, (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const ticket = archivedTickets.get(req.params.id);
+    if (!ticket) return res.status(404).json({ error: 'Not found' });
+
+    const guildConfig = getGuildConfig(guild.id);
+    const validTagIds = new Set(guildConfig.tags.map(t => t.id));
+    const tagIds = Array.isArray(req.body?.tagIds) ? req.body.tagIds.filter(id => validTagIds.has(id)) : [];
+
+    ticket.tags = tagIds;
+    archivedTickets.set(req.params.id, ticket);
+    saveArchive();
+    res.json({ success: true, tags: tagIds });
 });
 
 // ---------------------------------------------------------------------------
@@ -511,13 +763,308 @@ app.get('/api/guild', maintenanceGate, requireAuth, async (req, res) => {
             categories,
             staffRoleIds: guildConfig.staffRoleIds,
             adminRoleIds: guildConfig.adminRoleIds,
-            panels: Object.fromEntries(Object.entries(guildConfig.panels).map(([k, p]) => [k, { buttonLabel: p.buttonLabel, categoryName: p.categoryName }])),
-            blacklistedUsers: guildConfig.blacklistedUsers
+            panels: Object.fromEntries(Object.entries(guildConfig.panels).map(([k, p]) => [k, {
+                title: p.title,
+                description: p.description,
+                buttonLabel: p.buttonLabel,
+                emoji: p.emoji || '',
+                style: p.style,
+                color: '#' + (p.color || 0).toString(16).padStart(6, '0'),
+                promptLabel: p.promptLabel,
+                categoryName: p.categoryName,
+                teamRoleIds: p.teamRoleIds || [],
+                restrictToTeamOnly: Boolean(p.restrictToTeamOnly)
+            }])),
+            blacklistedUsers: guildConfig.blacklistedUsers,
+            tags: guildConfig.tags
         });
     } catch (err) {
         console.error('[/api/guild] failed:', err);
         res.status(500).json({ error: 'Could not load server data.' });
     }
+});
+
+app.post('/api/guild/panels', maintenanceGate, requireAuth, (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const guildConfig = getGuildConfig(guild.id);
+    const updates = req.body || {};
+    const errors = [];
+    const validated = {};
+
+    // Validate everything first, mutate nothing, so a bad value in one panel
+    // never leaves another panel's valid edit half-applied and unsaved.
+    for (const [typeKey, edit] of Object.entries(updates)) {
+        if (!guildConfig.panels[typeKey]) continue;
+
+        const title = String(edit.title || '').trim();
+        const description = String(edit.description || '').trim();
+        const buttonLabel = String(edit.buttonLabel || '').trim();
+        const promptLabel = String(edit.promptLabel || '').trim();
+        const emoji = String(edit.emoji || '').trim();
+        const style = STYLE_MAP[edit.style] ? edit.style : 'Secondary';
+        const colorHex = /^#[0-9A-Fa-f]{6}$/.test(edit.color) ? edit.color : null;
+        const teamRoleIds = Array.isArray(edit.teamRoleIds) ? edit.teamRoleIds.filter(id => guild.roles.cache.has(id)) : [];
+        const restrictToTeamOnly = Boolean(edit.restrictToTeamOnly);
+
+        // Same limits Discord enforces on embeds/buttons/modals — reject here
+        // instead of letting /sendpanels or the ticket modal fail later.
+        if (!title || title.length > 256) errors.push(`${typeKey}: title must be 1-256 characters`);
+        if (!description || description.length > 4096) errors.push(`${typeKey}: description must be 1-4096 characters`);
+        if (!buttonLabel || buttonLabel.length > 80) errors.push(`${typeKey}: button text must be 1-80 characters`);
+        if (!promptLabel || promptLabel.length > 45) errors.push(`${typeKey}: modal question must be 1-45 characters`);
+        if (emoji && !isValidEmoji(emoji)) errors.push(`${typeKey}: "${emoji}" isn't a valid emoji`);
+        if (!colorHex) errors.push(`${typeKey}: color must be a hex value like #2ecc71`);
+        if (restrictToTeamOnly && !teamRoleIds.length) errors.push(`${typeKey}: pick at least one team role before restricting to team-only, or nobody on staff could see these tickets`);
+
+        validated[typeKey] = { title, description, buttonLabel, promptLabel, emoji, style, colorHex, teamRoleIds, restrictToTeamOnly };
+    }
+
+    if (errors.length) return res.status(400).json({ error: errors.join('; ') });
+
+    for (const [typeKey, v] of Object.entries(validated)) {
+        guildConfig.panels[typeKey] = {
+            ...guildConfig.panels[typeKey],
+            title: v.title, description: v.description, buttonLabel: v.buttonLabel,
+            promptLabel: v.promptLabel, emoji: v.emoji, style: v.style,
+            color: parseInt(v.colorHex.slice(1), 16),
+            teamRoleIds: v.teamRoleIds,
+            restrictToTeamOnly: v.restrictToTeamOnly
+        };
+    }
+    saveConfigs();
+    res.json({ success: true });
+});
+
+app.post('/api/guild/panels/create', maintenanceGate, requireAuth, (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const guildConfig = getGuildConfig(guild.id);
+
+    const name = String(req.body?.name || '').trim();
+    if (!name || name.length > 40) return res.status(400).json({ error: 'Panel name must be 1-40 characters.' });
+
+    const existingKeys = new Set(Object.keys(guildConfig.panels));
+    const typeKey = slugifyTypeKey(name, existingKeys);
+
+    guildConfig.panels[typeKey] = {
+        title: name,
+        description: 'By clicking the button, a ticket will be opened for you.',
+        buttonLabel: name,
+        emoji: '',
+        style: 'Secondary',
+        color: 0x5865f2,
+        promptLabel: 'What do you need help with?',
+        categoryName: 'TICKETS',
+        teamRoleIds: [],
+        restrictToTeamOnly: false
+    };
+    saveConfigs();
+    res.json({ success: true, typeKey, panel: guildConfig.panels[typeKey] });
+});
+
+app.delete('/api/guild/panels/:typeKey', maintenanceGate, requireAuth, (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const guildConfig = getGuildConfig(guild.id);
+    const { typeKey } = req.params;
+
+    if (!guildConfig.panels[typeKey]) return res.status(404).json({ error: 'Panel not found.' });
+    if (Object.keys(guildConfig.panels).length <= 1) return res.status(400).json({ error: "Can't delete the last remaining panel." });
+
+    delete guildConfig.panels[typeKey];
+    saveConfigs();
+    res.json({ success: true });
+});
+
+// Live view of tickets currently open (not yet archived). Viewing/messaging/
+// closing from the website all go through the same finalizeTicketClose etc.
+// helpers the Discord side uses, so there's still only one code path that
+// ever actually archives/locks/deletes a channel — this just gives the
+// website a way to trigger it too.
+app.get('/api/open-tickets', maintenanceGate, requireAuth, (req, res) => {
+    const guild = getTargetGuild();
+    const list = Array.from(openTickets.entries()).map(([channelId, t]) => ({
+        channelId,
+        guildId: t.guildId,
+        type: t.type,
+        userTag: t.userTag,
+        robloxUsername: t.robloxUsername,
+        reason: t.reason,
+        claimedBy: t.claimedBy ? t.claimedBy.tag : null,
+        openedAt: t.openedAt,
+        closing: Boolean(t.closing),
+        tags: Array.isArray(t.tags) ? t.tags : [],
+        discordUrl: t.guildId ? `https://discord.com/channels/${t.guildId}/${channelId}` : (guild ? `https://discord.com/channels/${guild.id}/${channelId}` : null)
+    }));
+    res.json(list);
+});
+
+app.post('/api/open-tickets/:channelId/tags', maintenanceGate, requireAuth, (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const ticket = openTickets.get(req.params.channelId);
+    if (!ticket) return res.status(404).json({ error: 'That ticket is no longer open (it may have just been closed).' });
+
+    const guildConfig = getGuildConfig(guild.id);
+    const validTagIds = new Set(guildConfig.tags.map(t => t.id));
+    const tagIds = Array.isArray(req.body?.tagIds) ? req.body.tagIds.filter(id => validTagIds.has(id)) : [];
+
+    ticket.tags = tagIds;
+    openTickets.set(req.params.channelId, ticket);
+    saveOpenTickets();
+    res.json({ success: true, tags: tagIds });
+});
+
+// Remote view — live message log of a still-open ticket, fetched fresh from
+// Discord each call (not from the openTickets record, which only holds
+// metadata). Same shape as the archived-ticket transcript so the frontend
+// can reuse its rendering logic.
+app.get('/api/open-tickets/:channelId/messages', maintenanceGate, requireAuth, async (req, res) => {
+    const ticket = openTickets.get(req.params.channelId);
+    if (!ticket) return res.status(404).json({ error: 'This ticket is no longer open — it may have just been closed.' });
+
+    try {
+        const channel = await client.channels.fetch(req.params.channelId).catch(() => null);
+        if (!channel) return res.status(404).json({ error: "Could not find that channel in Discord — it may have been deleted manually." });
+
+        const batch = await channel.messages.fetch({ limit: 100 });
+        const messages = Array.from(batch.values()).reverse().map(m => ({
+            author: m.author.tag,
+            isBot: m.author.bot,
+            content: m.content || '',
+            attachments: Array.from(m.attachments.values()).map(a => ({ url: a.url, contentType: a.contentType || '' })),
+            embedImages: m.embeds.map(e => (e.image && e.image.url) || (e.thumbnail && e.thumbnail.url) || null).filter(Boolean),
+            timestamp: m.createdAt
+        }));
+
+        res.json({
+            ticket: {
+                guildId: ticket.guildId || channel.guild?.id || null,
+                type: ticket.type,
+                userTag: ticket.userTag,
+                robloxUsername: ticket.robloxUsername,
+                reason: ticket.reason,
+                claimedBy: ticket.claimedBy ? ticket.claimedBy.tag : null,
+                openedAt: ticket.openedAt,
+                closing: Boolean(ticket.closing),
+                tags: Array.isArray(ticket.tags) ? ticket.tags : []
+            },
+            messages
+        });
+    } catch (err) {
+        console.error('[open-ticket messages] failed:', err);
+        res.status(500).json({ error: 'Could not fetch messages from Discord.' });
+    }
+});
+
+// Remote message — sends into the live channel as the bot, clearly labeled
+// so nobody in the channel mistakes it for the bot's own automated text.
+// There's no per-staff login system (just the shared site password), so
+// attribution is whatever name the sender types in on the website — treat
+// it as informal, not an audit trail.
+app.post('/api/open-tickets/:channelId/messages', maintenanceGate, requireAuth, async (req, res) => {
+    const ticket = openTickets.get(req.params.channelId);
+    if (!ticket) return res.status(404).json({ error: 'This ticket is no longer open — it may have just been closed.' });
+
+    const content = String(req.body?.content || '').trim();
+    const asName = String(req.body?.asName || '').trim().slice(0, 40);
+    if (!content) return res.status(400).json({ error: 'Message cannot be blank.' });
+    if (content.length > 1900) return res.status(400).json({ error: 'Message is too long (max 1900 characters).' });
+
+    try {
+        const channel = await client.channels.fetch(req.params.channelId).catch(() => null);
+        if (!channel) return res.status(404).json({ error: "Could not find that channel in Discord — it may have been deleted manually." });
+
+        const label = asName ? `**${asName} (via Website):**` : `**Staff (via Website):**`;
+        await channel.send(`${label} ${content}`);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[open-ticket send] failed:', err);
+        res.status(500).json({ error: 'Could not send the message.' });
+    }
+});
+
+// Remote close — same archive/lock/delete logic finalizeTicketClose already
+// runs for every other close path (button, slash command, request-close).
+app.post('/api/open-tickets/:channelId/close', maintenanceGate, requireAuth, async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const ticket = openTickets.get(req.params.channelId);
+    if (!ticket) return res.status(404).json({ error: 'This ticket is already closed.' });
+    if (ticket.closing) return res.status(409).json({ error: 'Already closing.' });
+
+    const asName = String(req.body?.asName || '').trim().slice(0, 40) || 'Staff (via Website)';
+
+    try {
+        const channel = await client.channels.fetch(req.params.channelId).catch(() => null);
+        if (!channel) return res.status(404).json({ error: "Could not find that channel in Discord — it may have been deleted manually." });
+
+        ticket.closing = true;
+        openTickets.set(req.params.channelId, ticket);
+        saveOpenTickets();
+
+        const guildConfig = getGuildConfig(guild.id);
+        await channel.send(`⛔ **${asName}** closed this ticket from the website. Archiving now...`).catch(() => {});
+        await finalizeTicketClose(channel, guild, guildConfig, asName);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[open-ticket close] failed:', err);
+        res.status(500).json({ error: 'Could not close the ticket.' });
+    }
+});
+
+app.post('/api/guild/tags', maintenanceGate, requireAuth, (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const guildConfig = getGuildConfig(guild.id);
+
+    const name = String(req.body?.name || '').trim();
+    const color = /^#[0-9A-Fa-f]{6}$/.test(req.body?.color) ? req.body.color : '#a78bfa';
+    if (!name || name.length > 30) return res.status(400).json({ error: 'Tag name must be 1-30 characters.' });
+    if (guildConfig.tags.some(t => t.name.toLowerCase() === name.toLowerCase())) {
+        return res.status(400).json({ error: `A tag named "${name}" already exists.` });
+    }
+
+    const tag = { id: crypto.randomBytes(5).toString('hex'), name, color };
+    guildConfig.tags.push(tag);
+    saveConfigs();
+    res.json({ success: true, tag });
+});
+
+app.delete('/api/guild/tags/:tagId', maintenanceGate, requireAuth, (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const guildConfig = getGuildConfig(guild.id);
+    const { tagId } = req.params;
+
+    if (!guildConfig.tags.some(t => t.id === tagId)) return res.status(404).json({ error: 'Tag not found.' });
+    guildConfig.tags = guildConfig.tags.filter(t => t.id !== tagId);
+    saveConfigs();
+
+    // Cascade — a deleted tag shouldn't linger as an orphaned id on tickets
+    // that reference it, on either side of the open/archived split.
+    let openChanged = false;
+    for (const [channelId, t] of openTickets.entries()) {
+        if (Array.isArray(t.tags) && t.tags.includes(tagId)) {
+            t.tags = t.tags.filter(id => id !== tagId);
+            openTickets.set(channelId, t);
+            openChanged = true;
+        }
+    }
+    if (openChanged) saveOpenTickets();
+
+    let archiveChanged = false;
+    for (const [ticketId, t] of archivedTickets.entries()) {
+        if (Array.isArray(t.tags) && t.tags.includes(tagId)) {
+            t.tags = t.tags.filter(id => id !== tagId);
+            archivedTickets.set(ticketId, t);
+            archiveChanged = true;
+        }
+    }
+    if (archiveChanged) saveArchive();
+
+    res.json({ success: true });
 });
 
 app.post('/api/guild/roles', maintenanceGate, requireAuth, (req, res) => {
@@ -559,6 +1106,240 @@ app.get('/api/guild/members', maintenanceGate, requireAuth, async (req, res) => 
     } catch (err) {
         res.json([]);
     }
+});
+
+// ---------------------------------------------------------------------------
+// MODERATION — view members, notes/warnings, timeout, kick, ban
+// ---------------------------------------------------------------------------
+// IMPORTANT: same auth model as everything else on this site — one shared
+// password, no per-staff login. That was an acceptable tradeoff for ticket
+// management; it's a much bigger one here, since anyone who has that
+// password can now kick, ban, or timeout real members. If that password
+// leaks, this is the part that actually hurts. Rotate it periodically and
+// don't share it more widely than you'd share ban/kick access itself.
+
+function serializeMember(guild, m) {
+    const notes = moderationNotes.get(m.id) || [];
+    return {
+        id: m.id,
+        tag: m.user.tag,
+        displayName: m.displayName,
+        joinedAt: m.joinedAt ? m.joinedAt.toISOString() : null,
+        roles: m.roles.cache.filter(r => r.id !== guild.id).sort((a, b) => b.position - a.position).map(r => ({ id: r.id, name: r.name, color: r.hexColor === '#000000' ? null : r.hexColor, isAdmin: r.permissions.has(PermissionFlagsBits.Administrator) })),
+        isTimedOut: Boolean(m.communicationDisabledUntil && m.communicationDisabledUntil.getTime() > Date.now()),
+        isOwner: m.id === guild.ownerId,
+        noteCount: notes.length,
+        warningCount: notes.filter(n => n.type === 'warning').length
+    };
+}
+
+app.get('/api/moderation/members', maintenanceGate, requireAuth, async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const query = (req.query.query || '').trim();
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
+    const after = req.query.after || undefined;
+
+    try {
+        let members;
+        if (query) {
+            members = await guild.members.fetch({ query, limit });
+        } else {
+            members = await guild.members.list({ limit, after });
+        }
+        const list = members.map(m => serializeMember(guild, m));
+        const nextAfter = (!query && members.size === limit) ? members.last().id : null;
+        res.json({ members: list, nextAfter, totalMemberCount: guild.memberCount });
+    } catch (err) {
+        console.error('[moderation members] failed:', err);
+        res.status(500).json({ error: 'Could not fetch members from Discord.' });
+    }
+});
+
+app.get('/api/moderation/members/:userId', maintenanceGate, requireAuth, async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    try {
+        const member = await guild.members.fetch(req.params.userId).catch(() => null);
+        if (!member) return res.status(404).json({ error: 'That member is no longer in the server (they may have left, been kicked, or been banned).' });
+        res.json({
+            ...serializeMember(guild, member),
+            avatarURL: member.displayAvatarURL({ size: 64 }),
+            createdAt: member.user.createdAt.toISOString(),
+            timeoutUntil: member.communicationDisabledUntil ? member.communicationDisabledUntil.toISOString() : null,
+            notes: moderationNotes.get(req.params.userId) || [],
+            allGuildRoles: guild.roles.cache.filter(r => r.id !== guild.id).sort((a, b) => b.position - a.position).map(r => ({ id: r.id, name: r.name, color: r.hexColor === '#000000' ? null : r.hexColor, isAdmin: r.permissions.has(PermissionFlagsBits.Administrator) }))
+        });
+    } catch (err) {
+        console.error('[moderation member detail] failed:', err);
+        res.status(500).json({ error: 'Could not fetch that member.' });
+    }
+});
+
+app.post('/api/moderation/members/:userId/notes', maintenanceGate, requireAuth, (req, res) => {
+    const type = req.body?.type === 'warning' ? 'warning' : 'note';
+    const content = String(req.body?.content || '').trim();
+    const byName = resolveActorName(req);
+    if (!content || content.length > 500) return res.status(400).json({ error: 'Note must be 1-500 characters.' });
+    const note = { id: crypto.randomBytes(5).toString('hex'), type, content, byName, at: new Date().toISOString() };
+    list.push(note);
+    moderationNotes.set(req.params.userId, list);
+    saveModerationNotes();
+    res.json({ success: true, note });
+});
+
+app.delete('/api/moderation/members/:userId/notes/:noteId', maintenanceGate, requireAuth, (req, res) => {
+    const list = moderationNotes.get(req.params.userId) || [];
+    const filtered = list.filter(n => n.id !== req.params.noteId);
+    if (filtered.length === list.length) return res.status(404).json({ error: 'Note not found.' });
+    if (filtered.length) moderationNotes.set(req.params.userId, filtered);
+    else moderationNotes.delete(req.params.userId);
+    saveModerationNotes();
+    res.json({ success: true });
+});
+
+app.post('/api/moderation/members/:userId/nickname', maintenanceGate, requireAuth, async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const nickname = String(req.body?.nickname || '').trim().slice(0, 32); // Discord's own nickname cap
+    const byName = resolveActorName(req);
+
+    try {
+        const member = await guild.members.fetch(req.params.userId).catch(() => null);
+        if (!member) return res.status(404).json({ error: 'That member is no longer in the server.' });
+        if (member.id === guild.ownerId) return res.status(400).json({ error: "Can't change the server owner's nickname." });
+        await member.setNickname(nickname || null, `Changed from website by ${byName}`);
+        res.json({ success: true, nickname: nickname || null });
+    } catch (err) {
+        console.error('[moderation nickname] failed:', err);
+        res.status(500).json({ error: `Could not change nickname — the bot may lack the Manage Nicknames permission, or its role sits below theirs. (${err.message})` });
+    }
+});
+
+app.post('/api/moderation/members/:userId/roles', maintenanceGate, requireAuth, async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const addRoleId = req.body?.add;
+    const removeRoleId = req.body?.remove;
+    const byName = resolveActorName(req);
+    if (!addRoleId && !removeRoleId) return res.status(400).json({ error: 'Nothing to change.' });
+
+    try {
+        const member = await guild.members.fetch(req.params.userId).catch(() => null);
+        if (!member) return res.status(404).json({ error: 'That member is no longer in the server.' });
+
+        if (addRoleId) {
+            if (!guild.roles.cache.has(addRoleId)) return res.status(400).json({ error: 'That role no longer exists.' });
+            await member.roles.add(addRoleId, `Added from website by ${byName}`);
+        }
+        if (removeRoleId) {
+            await member.roles.remove(removeRoleId, `Removed from website by ${byName}`);
+        }
+        res.json({ success: true, roles: member.roles.cache.filter(r => r.id !== guild.id).map(r => ({ id: r.id, name: r.name, color: r.hexColor === '#000000' ? null : r.hexColor })) });
+    } catch (err) {
+        console.error('[moderation roles] failed:', err);
+        res.status(500).json({ error: `Could not update roles — the bot may lack the Manage Roles permission, or its role sits below the role being changed. (${err.message})` });
+    }
+});
+
+app.post('/api/moderation/members/:userId/timeout', maintenanceGate, requireAuth, async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const minutes = Number.isFinite(req.body?.minutes) ? req.body.minutes : null;
+    const reason = String(req.body?.reason || '').trim().slice(0, 400);
+    const byName = resolveActorName(req);
+
+    try {
+        const member = await guild.members.fetch(req.params.userId).catch(() => null);
+        if (!member) return res.status(404).json({ error: 'That member is no longer in the server.' });
+        if (member.id === guild.ownerId) return res.status(400).json({ error: "Can't timeout the server owner." });
+
+        // Discord's own cap is 28 days (40320 minutes).
+        const ms = minutes ? Math.min(Math.max(minutes, 1), 40320) * 60 * 1000 : null;
+        await member.timeout(ms, reason || undefined);
+        logModerationAction(ms ? 'timeout' : 'timeout_clear', member.id, member.user.tag, reason, byName);
+        if (ms) notifyTicketOfModerationAction(guild, member.id, 'timeout', reason, byName);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[moderation timeout] failed:', err);
+        res.status(500).json({ error: `Could not update timeout — the bot may lack the Moderate Members permission, or its role sits below theirs. (${err.message})` });
+    }
+});
+
+app.post('/api/moderation/members/:userId/kick', maintenanceGate, requireAuth, async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const reason = String(req.body?.reason || '').trim();
+    const byName = resolveActorName(req);
+    if (!reason) return res.status(400).json({ error: 'A reason is required.' });
+
+    try {
+        const member = await guild.members.fetch(req.params.userId).catch(() => null);
+        if (!member) return res.status(404).json({ error: 'That member is no longer in the server.' });
+        if (member.id === guild.ownerId) return res.status(400).json({ error: "Can't kick the server owner." });
+        const tag = member.user.tag;
+        await member.kick(reason);
+        logModerationAction('kick', req.params.userId, tag, reason, byName);
+        notifyTicketOfModerationAction(guild, req.params.userId, 'kick', reason, byName);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[moderation kick] failed:', err);
+        res.status(500).json({ error: `Could not kick — the bot may lack the Kick Members permission, or its role sits below theirs. (${err.message})` });
+    }
+});
+
+app.post('/api/moderation/members/:userId/ban', maintenanceGate, requireAuth, async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const reason = String(req.body?.reason || '').trim();
+    const byName = resolveActorName(req);
+    const deleteMessageDays = Math.min(Math.max(parseInt(req.body?.deleteMessageDays, 10) || 0, 0), 7);
+    if (!reason) return res.status(400).json({ error: 'A reason is required.' });
+    if (req.params.userId === guild.ownerId) return res.status(400).json({ error: "Can't ban the server owner." });
+
+    try {
+        let tag = req.params.userId;
+        const member = await guild.members.fetch(req.params.userId).catch(() => null);
+        if (member) tag = member.user.tag;
+        await guild.members.ban(req.params.userId, { reason, deleteMessageSeconds: deleteMessageDays * 86400 });
+        logModerationAction('ban', req.params.userId, tag, reason, byName);
+        notifyTicketOfModerationAction(guild, req.params.userId, 'ban', reason, byName);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[moderation ban] failed:', err);
+        res.status(500).json({ error: `Could not ban — the bot may lack the Ban Members permission, or its role sits below theirs. (${err.message})` });
+    }
+});
+
+app.get('/api/moderation/bans', maintenanceGate, requireAuth, async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    try {
+        const bans = await guild.bans.fetch();
+        res.json(bans.map(b => ({ id: b.user.id, tag: b.user.tag, reason: b.reason || null })));
+    } catch (err) {
+        console.error('[moderation bans list] failed:', err);
+        res.status(500).json({ error: 'Could not fetch the ban list — the bot may lack the Ban Members permission.' });
+    }
+});
+
+app.delete('/api/moderation/bans/:userId', maintenanceGate, requireAuth, async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const reason = String(req.body?.reason || '').trim();
+    const byName = resolveActorName(req);
+    try {
+        await guild.members.unban(req.params.userId, reason || undefined);
+        logModerationAction('unban', req.params.userId, req.params.userId, reason, byName);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[moderation unban] failed:', err);
+        res.status(500).json({ error: `Could not unban: ${err.message}` });
+    }
+});
+
+app.get('/api/moderation/log', maintenanceGate, requireAuth, (req, res) => {
+    res.json(moderationLog.slice(0, 100));
 });
 
 app.post('/api/guild/blacklist', maintenanceGate, requireAuth, (req, res) => {
@@ -611,6 +1392,20 @@ function clamp(str, max) {
 
 function sanitizeForChannelName(input) {
     return input.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'user';
+}
+
+// Turns a human-typed panel name into a stable, unique key safe to embed in
+// Discord customIds (open_ticket_KEY, ticket_modal_KEY) — those have their
+// own character/length rules, so this can't just reuse the display name.
+function slugifyTypeKey(name, existingKeys) {
+    let base = name.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 20) || 'PANEL';
+    let key = base;
+    let n = 2;
+    while (existingKeys.has(key)) {
+        key = `${base}_${n}`.slice(0, 24);
+        n++;
+    }
+    return key;
 }
 
 function isStaff(member, guildConfig) {
@@ -679,29 +1474,30 @@ function recoverTicketFromTopic(channel) {
     };
 }
 
+// Matches the "Tickets v2" reference layout: one row, Close / Close With
+// Reason / Claim. Close and Close With Reason are available to both the
+// opener and staff (permission-checked where they're handled); Claim toggles
+// to Unclaim once pressed.
 function buildTicketButtons(claimed) {
-    const row1 = new ActionRowBuilder();
-    if (claimed) {
-        row1.addComponents(new ButtonBuilder().setCustomId('unclaim_ticket').setLabel('Unclaim').setStyle(ButtonStyle.Secondary).setEmoji('↩️'));
-    } else {
-        row1.addComponents(new ButtonBuilder().setCustomId('claim_ticket').setLabel('Claim Ticket').setStyle(ButtonStyle.Primary).setEmoji('🙋'));
-    }
-    row1.addComponents(new ButtonBuilder().setCustomId('force_close_ticket').setLabel('Force Close').setStyle(ButtonStyle.Danger).setEmoji('⛔'));
-
-    const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('request_close_ticket').setLabel('Request Close').setStyle(ButtonStyle.Secondary).setEmoji('📨')
+    const row = new ActionRowBuilder();
+    row.addComponents(
+        new ButtonBuilder().setCustomId('ticket_close').setLabel('Close').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
+        new ButtonBuilder().setCustomId('ticket_close_with_reason').setLabel('Close With Reason').setStyle(ButtonStyle.Danger).setEmoji('🔒')
     );
-
-    return [row1, row2];
+    if (claimed) {
+        row.addComponents(new ButtonBuilder().setCustomId('unclaim_ticket').setLabel('Unclaim').setStyle(ButtonStyle.Secondary).setEmoji('↩️'));
+    } else {
+        row.addComponents(new ButtonBuilder().setCustomId('claim_ticket').setLabel('Claim').setStyle(ButtonStyle.Success).setEmoji('🎫'));
+    }
+    return [row];
 }
 
-// Rebuilds just the Claim/Unclaim row (row 1) so the button label actually
-// flips after a claim/unclaim, while keeping every other row (Request Close,
-// the opener's own Close Ticket row) exactly as they were on the message.
+// Rebuilds the single button row so the Claim/Unclaim label actually flips
+// after a claim/unclaim.
 function withUpdatedClaimRow(existingComponents, claimed) {
-    const [freshRow1] = buildTicketButtons(claimed);
+    const [freshRow] = buildTicketButtons(claimed);
     const rest = Array.isArray(existingComponents) ? existingComponents.slice(1) : [];
-    return [freshRow1, ...rest];
+    return [freshRow, ...rest];
 }
 
 async function fetchAllMessages(channel, maxMessages = 2000) {
@@ -743,7 +1539,8 @@ async function finalizeTicketClose(channel, guild, guildConfig, closedByTag) {
             openedAt: meta.openedAt || null,
             closedAt: new Date().toISOString(),
             accessToken,
-            messages: messagesArray
+            messages: messagesArray,
+            tags: Array.isArray(meta.tags) ? meta.tags : []
         });
         saveArchive();
 
@@ -799,6 +1596,33 @@ async function finalizeTicketClose(channel, guild, guildConfig, closedByTag) {
     }
 }
 
+// Cancels any pending auto-close timer for a channel — called whenever the
+// opener responds to a /closerequest, or a new /closerequest replaces an
+// older one, so at most one timer is ever live per channel.
+function clearCloseRequestTimer(channelId) {
+    const existing = closeRequestTimers.get(channelId);
+    if (existing) {
+        clearTimeout(existing);
+        closeRequestTimers.delete(channelId);
+    }
+}
+
+function scheduleCloseRequestAutoClose(channel, guild, guildConfig, hours, requestedByTag) {
+    clearCloseRequestTimer(channel.id);
+    const ms = hours * 60 * 60 * 1000;
+    const timer = setTimeout(async () => {
+        closeRequestTimers.delete(channel.id);
+        const ticket = openTickets.get(channel.id);
+        if (!ticket || ticket.closing) return; // already closed or already closing some other way
+        ticket.closing = true;
+        openTickets.set(channel.id, ticket);
+        saveOpenTickets();
+        await channel.send(`⏱️ No response after ${hours} hour${hours === 1 ? '' : 's'} — auto-closing per **${requestedByTag}**'s close request.`).catch(() => {});
+        await finalizeTicketClose(channel, guild, guildConfig, `Auto-close (requested by ${requestedByTag})`);
+    }, ms);
+    closeRequestTimers.set(channel.id, timer);
+}
+
 async function createTicketChannel(guild, user, typeKey, reason, robloxUsername, guildConfig) {
     const panel = guildConfig.panels[typeKey];
     const categoryName = (panel.categoryName || 'TICKETS').toUpperCase();
@@ -814,12 +1638,24 @@ async function createTicketChannel(guild, user, typeKey, reason, robloxUsername,
     }
 
     const validStaffRoleIds = guildConfig.staffRoleIds.filter(id => guild.roles.cache.has(id));
+    const validPanelTeamRoleIds = (panel.teamRoleIds || []).filter(id => guild.roles.cache.has(id));
+    // Default (restrictToTeamOnly off): global staff always keep access/ping
+    // as a floor, panel team is added on top — matches the old behavior.
+    // With restrictToTeamOnly on, ONLY that panel's team gets access/ping;
+    // this is what actually gives per-panel isolation (e.g. Management
+    // tickets visible only to an Owners/Managers team, hidden from general
+    // Staff) — note Administrator permission still bypasses channel
+    // overwrites entirely, same as Discord itself; there's no overwrite
+    // that can hide a channel from a true server admin.
+    const pingAndAccessRoleIds = panel.restrictToTeamOnly
+        ? validPanelTeamRoleIds
+        : [...new Set([...validStaffRoleIds, ...validPanelTeamRoleIds])];
 
     const permissionOverwrites = [
         { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
         { id: user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
     ];
-    for (const roleId of validStaffRoleIds) {
+    for (const roleId of pingAndAccessRoleIds) {
         permissionOverwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
     }
 
@@ -849,15 +1685,16 @@ async function createTicketChannel(guild, user, typeKey, reason, robloxUsername,
         openedAt: new Date().toISOString(),
         claimedBy: null,
         closing: false,
-        welcomeMessageId: null
+        welcomeMessageId: null,
+        tags: []
     });
 
-    const staffMention = validStaffRoleIds.map(id => `<@&${id}>`).join(' ');
+    const staffMention = pingAndAccessRoleIds.map(id => `<@&${id}>`).join(' ');
     const welcomeEmbed = new EmbedBuilder()
         .setColor(panel.color)
         .setTitle(`${panel.buttonLabel} · Ticket Opened`)
         .setThumbnail(user.displayAvatarURL())
-        .setDescription(`<@${user.id}>, staff will be with you soon.\n\n**Reason given:**\n${reason || '*No reason provided*'}\n\nOnly <@${user.id}> can close this ticket, using the **Close Ticket** button below. Staff can **Force Close** immediately, or **Request Close** to ask first.`)
+        .setDescription(`Thank you for contacting support.\nPlease describe your issue and wait for a response.\n\n**Reason given:**\n${reason || '*No reason provided*'}`)
         .addFields(
             { name: 'Opened by', value: `<@${user.id}>`, inline: true },
             { name: 'Type', value: panel.buttonLabel, inline: true },
@@ -867,14 +1704,10 @@ async function createTicketChannel(guild, user, typeKey, reason, robloxUsername,
         .setFooter({ text: `Ticket ID: ${ticketChannel.id}` })
         .setTimestamp();
 
-    const openerButtons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('opener_close_own_ticket').setLabel('Close Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒')
-    );
-
     const welcomeMessage = await ticketChannel.send({
         content: `${staffMention ? staffMention + ' — ' : ''}<@${user.id}>`,
         embeds: [welcomeEmbed],
-        components: [...buildTicketButtons(false), openerButtons]
+        components: buildTicketButtons(false)
     });
 
     const ticketRecord = openTickets.get(ticketChannel.id);
@@ -1006,8 +1839,22 @@ client.once('ready', async () => {
         { name: 'config-site', description: 'Configure the archive website, auto-delete delay, and ticket pause mode (staff only)' },
         { name: 'claim', description: 'Claim the ticket in this channel (staff only)' },
         { name: 'unclaim', description: 'Unclaim the ticket in this channel (staff only)' },
-        { name: 'close', description: 'Close the ticket in this channel (ticket opener only, or staff via force-close)' },
-        { name: 'request-close', description: 'Ask the ticket opener to close their own ticket (staff only)' },
+        { name: 'close', description: 'Close the ticket in this channel (opener or staff)' },
+        {
+            name: 'closerequest',
+            description: 'Ask the ticket opener to close their own ticket (staff only)',
+            options: [
+                { name: 'reason', description: 'Why the ticket should close', type: 3, required: true },
+                { name: 'close_delay', description: 'Hours to auto-close the ticket in if the user does not respond', type: 4, required: false, min_value: 1, max_value: 168 }
+            ]
+        },
+        {
+            name: 'transfer',
+            description: 'Transfer this ticket to another staff member (staff only)',
+            options: [
+                { name: 'user', description: 'Staff member to hand the ticket to', type: 6, required: true }
+            ]
+        },
         {
             name: 'blacklist',
             description: 'Block a user from opening tickets (staff only)',
@@ -1156,14 +2003,15 @@ client.on('interactionCreate', async (interaction) => {
                 if (countUserTickets(guild.id, user.id) >= guildConfig.maxTicketsPerUser) {
                     return interaction.reply({ content: `❌ You've reached the max of ${guildConfig.maxTicketsPerUser} open tickets. Close one before opening another.`, ephemeral: true });
                 }
+                await interaction.deferReply({ ephemeral: true });
                 try {
                     const testTicket = await createTicketChannel(guild, user, typeKey, 'Automated test ticket from /setup', null, guildConfig);
                     await testTicket.send(`🤖 **[TEST BOT]**: This is an automatically created working test ticket.`);
                     await testTicket.send(`👤 **${user.username}**: Testing ticket messages and web archiving system!`);
-                    return interaction.reply({ content: `✅ Test ticket channel created: ${testTicket}.`, ephemeral: true });
+                    return interaction.editReply({ content: `✅ Test ticket channel created: ${testTicket}.` });
                 } catch (err) {
                     console.error('[/setup] failed:', err);
-                    return interaction.reply({ content: `❌ Could not create the test ticket: ${err.message}`, ephemeral: true }).catch(fallbackErr => {
+                    return interaction.editReply({ content: `❌ Could not create the test ticket: ${err.message}` }).catch(fallbackErr => {
                         console.error('[/setup] fallback reply also failed:', fallbackErr.message);
                     });
                 }
@@ -1237,8 +2085,8 @@ client.on('interactionCreate', async (interaction) => {
                 if (!ticket) return interaction.reply({ content: "This isn't an open ticket channel.", ephemeral: true });
 
                 const isOpener = ticket.userId === user.id;
-                if (!isOpener) {
-                    return interaction.reply({ content: '❌ Only the ticket opener can use /close. Staff should use the Force Close button.', ephemeral: true });
+                if (!isOpener && !isStaff(member, guildConfig)) {
+                    return interaction.reply({ content: '❌ You are not allowed to close this ticket.', ephemeral: true });
                 }
 
                 const confirmRow = new ActionRowBuilder().addComponents(
@@ -1248,19 +2096,79 @@ client.on('interactionCreate', async (interaction) => {
                 return interaction.reply({ content: `⚠️ Close this ticket? It will archive to the website and ${guildConfig.archiveAction === 'lock' ? 'lock' : 'delete'} in ${guildConfig.closeDelaySeconds}s.`, components: [confirmRow] });
             }
 
-            if (commandName === 'request-close') {
+            if (commandName === 'closerequest') {
                 if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can request a close.', ephemeral: true });
 
                 const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
                 if (!ticket || !ticket.userId) {
-                    return interaction.reply({ content: "⚠️ Could not identify the ticket opener — either this isn't a ticket channel, or the bot restarted since it opened. Use Force Close instead.", ephemeral: true });
+                    return interaction.reply({ content: "⚠️ Could not identify the ticket opener — either this isn't a ticket channel, or the bot restarted since it opened. Use /close instead.", ephemeral: true });
                 }
 
+                const reason = interaction.options.getString('reason');
+                const closeDelayHours = interaction.options.getInteger('close_delay');
+
                 const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId('opener_respond_close').setLabel('Close').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
-                    new ButtonBuilder().setCustomId('opener_respond_keep_open').setLabel('Keep Open').setStyle(ButtonStyle.Secondary).setEmoji('↩️')
+                    new ButtonBuilder().setCustomId('closerequest_accept').setLabel('Accept & Close').setStyle(ButtonStyle.Success).setEmoji('✅'),
+                    new ButtonBuilder().setCustomId('closerequest_deny').setLabel('Deny & Keep Open').setStyle(ButtonStyle.Danger).setEmoji('❌')
                 );
-                return interaction.reply({ content: `📨 <@${ticket.userId}>, staff has requested this ticket be closed. Only you can respond below.`, components: [row] });
+                const closeRequestEmbed = new EmbedBuilder()
+                    .setColor(0x5865f2)
+                    .setTitle('Close Request')
+                    .setDescription(`<@${ticket.userId}> has requested to close this ticket. Reason:\n\`\`\`${reason}\`\`\`\n\nPlease accept or deny using the buttons below.${closeDelayHours ? `\n\n⏱️ This will auto-close in **${closeDelayHours} hour${closeDelayHours === 1 ? '' : 's'}** if there's no response.` : ''}`);
+
+                if (closeDelayHours) scheduleCloseRequestAutoClose(channel, guild, guildConfig, closeDelayHours, user.tag);
+
+                return interaction.reply({ content: `<@${ticket.userId}>`, embeds: [closeRequestEmbed], components: [row] });
+            }
+
+            if (commandName === 'transfer') {
+                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can transfer tickets.', ephemeral: true });
+
+                const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
+                if (!ticket) return interaction.reply({ content: "This isn't an open ticket channel.", ephemeral: true });
+
+                const targetUser = interaction.options.getUser('user');
+                if (targetUser.bot) return interaction.reply({ content: '❌ Cannot transfer a ticket to a bot.', ephemeral: true });
+
+                // Several API calls follow (member fetch, permission edit, embed
+                // edit) — defer so a slow moment doesn't expire the interaction
+                // before the final reply, same fix as ticket creation above.
+                await interaction.deferReply();
+
+                const targetMember = await guild.members.fetch(targetUser.id).catch(() => null);
+                if (!targetMember || !isStaff(targetMember, guildConfig)) {
+                    return interaction.editReply({ content: `❌ **${targetUser.tag}** isn't staff — pick someone with a Staff or Admin role.` });
+                }
+
+                // If someone else already claimed it, only that person (or an
+                // Administrator) can hand it off — otherwise any staff could
+                // silently steal another staffer's claimed ticket.
+                if (ticket.claimedBy && ticket.claimedBy.id !== user.id && !member.permissions.has(PermissionFlagsBits.Administrator)) {
+                    return interaction.editReply({ content: `❌ This ticket is claimed by **${ticket.claimedBy.tag}** — only they (or an Administrator) can transfer it.` });
+                }
+
+                const previousClaimerTag = ticket.claimedBy ? ticket.claimedBy.tag : null;
+                ticket.claimedBy = { id: targetMember.id, tag: targetMember.user.tag };
+                openTickets.set(channel.id, ticket);
+                saveOpenTickets();
+
+                // Make sure the new claimer can actually see the channel, in
+                // case they're not covered by the panel's team/staff roles.
+                await channel.permissionOverwrites.edit(targetMember.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true }).catch(() => {});
+
+                if (ticket.welcomeMessageId) {
+                    try {
+                        const msg = await channel.messages.fetch(ticket.welcomeMessageId);
+                        const updatedEmbed = EmbedBuilder.from(msg.embeds[0]).setFields(
+                            msg.embeds[0].fields.map(f => f.name === 'Status' ? { name: 'Status', value: `🟡 Claimed by ${targetMember.user.tag}`, inline: true } : f)
+                        );
+                        await msg.edit({ embeds: [updatedEmbed], components: withUpdatedClaimRow(msg.components, true) });
+                    } catch (err) {
+                        console.error('Could not update ticket embed on /transfer:', err.message);
+                    }
+                }
+
+                return interaction.editReply(`🔁 ${previousClaimerTag ? `Transferred from **${previousClaimerTag}** to` : 'Transferred to'} **${targetMember.user.tag}** by **${user.tag}**.`);
             }
 
             if (commandName === 'blacklist') {
@@ -1596,25 +2504,32 @@ client.on('interactionCreate', async (interaction) => {
 
             if (customId === 'confirm_close') {
                 let ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
-                const isOpener = ticket && ticket.userId === user.id;
-                if (!isOpener) return interaction.reply({ content: '❌ Only the ticket opener can close this ticket this way. Staff should use Force Close.', ephemeral: true });
+                const allowed = ticket && (ticket.userId === user.id || isStaff(member, guildConfig));
+                if (!allowed) return interaction.reply({ content: '❌ You are not allowed to close this ticket.', ephemeral: true });
 
                 if (ticket.closing) return interaction.reply({ content: '⏳ Already closing.', ephemeral: true });
                 ticket.closing = true;
                 openTickets.set(channel.id, ticket);
                 saveOpenTickets();
+                clearCloseRequestTimer(channel.id);
 
                 await interaction.update({ content: `🔒 Closing in ${guildConfig.closeDelaySeconds}s. Saved to the website only.`, components: [] });
                 setTimeout(() => finalizeTicketClose(channel, guild, guildConfig, user.tag), guildConfig.closeDelaySeconds * 1000);
                 return;
             }
 
-            // Ticket-opener's own Close button on the welcome message — only the
-            // person who opened the ticket can press this one.
-            if (customId === 'opener_close_own_ticket') {
+            // Close — opener or staff. Asks for confirmation, then closes after
+            // the configured delay, same as /close. Also handles the OLD
+            // 'force_close_ticket' / 'opener_close_own_ticket' customIds —
+            // tickets opened before this button layout changed still have
+            // those baked into their already-sent Discord message (editing
+            // every open ticket's message on redeploy isn't practical), so
+            // without this alias those buttons would just silently time out.
+            if (customId === 'ticket_close' || customId === 'force_close_ticket' || customId === 'opener_close_own_ticket') {
                 const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
-                if (!ticket || ticket.userId !== user.id) {
-                    return interaction.reply({ content: '❌ Only the person who opened this ticket can close it this way. Staff should use Force Close.', ephemeral: true });
+                const allowed = ticket && (ticket.userId === user.id || isStaff(member, guildConfig));
+                if (!allowed) {
+                    return interaction.reply({ content: '❌ You are not allowed to close this ticket.', ephemeral: true });
                 }
                 const confirmRow = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId('confirm_close').setLabel('Confirm Close').setStyle(ButtonStyle.Danger),
@@ -1623,62 +2538,93 @@ client.on('interactionCreate', async (interaction) => {
                 return interaction.reply({ content: `⚠️ Close this ticket? It will archive to the website and ${guildConfig.archiveAction === 'lock' ? 'lock' : 'delete'} in ${guildConfig.closeDelaySeconds}s.`, components: [confirmRow] });
             }
 
-            // Request Close — staff only. Posts a message with buttons only the
-            // ORIGINAL OPENER can act on, so staff can ask without forcing it.
+            // Legacy 'request_close_ticket' button (staff) — the button no
+            // longer exists on new tickets (staff use /closerequest now, which
+            // asks for a reason), but old open tickets still have it. Give it
+            // a generic reason rather than leaving it dead.
             if (customId === 'request_close_ticket') {
                 if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can request a close.', ephemeral: true });
-
                 const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
                 if (!ticket || !ticket.userId) {
-                    return interaction.reply({ content: '⚠️ Could not identify the original ticket opener (bot may have restarted). Use Force Close instead.', ephemeral: true });
+                    return interaction.reply({ content: '⚠️ Could not identify the ticket opener (bot may have restarted). Use /close instead.', ephemeral: true });
                 }
-
                 const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId('opener_respond_close').setLabel('Close').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
-                    new ButtonBuilder().setCustomId('opener_respond_keep_open').setLabel('Keep Open').setStyle(ButtonStyle.Secondary).setEmoji('↩️')
+                    new ButtonBuilder().setCustomId('closerequest_accept').setLabel('Accept & Close').setStyle(ButtonStyle.Success).setEmoji('✅'),
+                    new ButtonBuilder().setCustomId('closerequest_deny').setLabel('Deny & Keep Open').setStyle(ButtonStyle.Danger).setEmoji('❌')
                 );
-                return interaction.reply({ content: `📨 <@${ticket.userId}>, staff has requested this ticket be closed. Only you can respond below.`, components: [row] });
+                const closeRequestEmbed = new EmbedBuilder()
+                    .setColor(0x5865f2)
+                    .setTitle('Close Request')
+                    .setDescription(`<@${ticket.userId}> has requested to close this ticket. Reason:\n\`\`\`Staff requested this ticket be closed.\`\`\`\n\nPlease accept or deny using the buttons below.`);
+                return interaction.reply({ content: `<@${ticket.userId}>`, embeds: [closeRequestEmbed], components: [row] });
             }
 
-            // Both buttons above — opener only, staff deliberately blocked.
-            if (customId === 'opener_respond_keep_open') {
+            // Close With Reason — opener or staff. Skips the delay/confirmation
+            // in favor of a required reason, recorded in the channel before
+            // archiving so it ends up in the transcript.
+            if (customId === 'ticket_close_with_reason') {
+                const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
+                const allowed = ticket && (ticket.userId === user.id || isStaff(member, guildConfig));
+                if (!allowed) {
+                    return interaction.reply({ content: '❌ You are not allowed to close this ticket.', ephemeral: true });
+                }
+                if (ticket.closing) return interaction.reply({ content: '⏳ Already closing.', ephemeral: true });
+
+                const modal = new ModalBuilder().setCustomId('close_with_reason_modal').setTitle('Close With Reason');
+                modal.addComponents(new ActionRowBuilder().addComponents(
+                    new TextInputBuilder().setCustomId('closeReason').setLabel('Reason for closing').setStyle(TextInputStyle.Paragraph).setMaxLength(500).setRequired(true)
+                ));
+                return interaction.showModal(modal);
+            }
+
+            // Accept/Deny buttons on a /closerequest embed — opener only, staff
+            // deliberately blocked since the whole point is asking, not forcing.
+            // Also covers the OLD 'opener_respond_close' / 'opener_respond_keep_open'
+            // customIds for the same reason as above.
+            if (customId === 'closerequest_deny' || customId === 'opener_respond_keep_open') {
                 const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
                 if (!ticket || ticket.userId !== user.id) {
                     return interaction.reply({ content: '❌ Only the ticket opener can respond to this request.', ephemeral: true });
                 }
-                return interaction.update({ content: `↩️ **${user.tag}** chose to keep this ticket open.`, components: [] });
+                clearCloseRequestTimer(channel.id);
+                return interaction.update({ content: `❌ **${user.tag}** denied the close request — this ticket stays open.`, embeds: [], components: [] });
             }
 
-            if (customId === 'opener_respond_close') {
+            if (customId === 'closerequest_accept' || customId === 'opener_respond_close') {
                 const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
                 if (!ticket || ticket.userId !== user.id) {
                     return interaction.reply({ content: '❌ Only the ticket opener can respond to this request.', ephemeral: true });
                 }
                 if (ticket.closing) return interaction.reply({ content: '⏳ Already closing.', ephemeral: true });
+                clearCloseRequestTimer(channel.id);
                 ticket.closing = true;
                 openTickets.set(channel.id, ticket);
                 saveOpenTickets();
 
-                await interaction.update({ content: `🔒 Closing in ${guildConfig.closeDelaySeconds}s. Saved to the website only.`, components: [] });
+                await interaction.update({ content: `🔒 **${user.tag}** accepted — closing in ${guildConfig.closeDelaySeconds}s.`, embeds: [], components: [] });
                 setTimeout(() => finalizeTicketClose(channel, guild, guildConfig, user.tag), guildConfig.closeDelaySeconds * 1000);
-                return;
-            }
-
-            // Force Close — staff only, no confirmation, immediate.
-            if (customId === 'force_close_ticket') {
-                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can force close a ticket.', ephemeral: true });
-
-                let ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
-                if (ticket && ticket.closing) return interaction.reply({ content: '⏳ Already closing.', ephemeral: true });
-                if (ticket) { ticket.closing = true; openTickets.set(channel.id, ticket); saveOpenTickets(); }
-
-                await interaction.reply({ content: `⛔ **${user.tag}** force-closed this ticket. Archiving now...` });
-                await finalizeTicketClose(channel, guild, guildConfig, user.tag);
                 return;
             }
         }
 
         if (interaction.isModalSubmit()) {
+            if (interaction.customId === 'close_with_reason_modal') {
+                const ticket = openTickets.get(interaction.channel.id) || recoverTicketFromTopic(interaction.channel);
+                const allowed = ticket && (ticket.userId === interaction.user.id || isStaff(interaction.member, guildConfig));
+                if (!allowed) return interaction.reply({ content: '❌ You are not allowed to close this ticket.', ephemeral: true });
+                if (ticket.closing) return interaction.reply({ content: '⏳ Already closing.', ephemeral: true });
+
+                const closeReason = interaction.fields.getTextInputValue('closeReason');
+                ticket.closing = true;
+                openTickets.set(interaction.channel.id, ticket);
+                saveOpenTickets();
+                clearCloseRequestTimer(interaction.channel.id);
+
+                await interaction.reply({ content: `🔒 **${interaction.user.tag}** closed this ticket.\n**Reason:** ${closeReason}\n\nArchiving now...` });
+                await finalizeTicketClose(interaction.channel, interaction.guild, guildConfig, interaction.user.tag);
+                return;
+            }
+
             if (interaction.customId === 'sitecfg_password_modal') {
                 if (!isStaff(interaction.member, guildConfig)) return interaction.reply({ content: '❌ Only staff can use this.', ephemeral: true });
                 const newPassword = interaction.fields.getTextInputValue('password').trim();
@@ -1775,12 +2721,20 @@ client.on('interactionCreate', async (interaction) => {
                 }
 
                 pendingCreations.add(lockKey);
+                // Discord requires a reply (or at least an ack) within 3 seconds
+                // of the modal submit. Creating the channel + sending the
+                // welcome message is multiple API calls and can occasionally
+                // take longer than that — without deferring first, a slow
+                // moment shows the user "Something went wrong" even though
+                // the ticket was actually created successfully just before
+                // the reply itself failed. Deferring buys up to 15 minutes.
+                await interaction.deferReply({ ephemeral: true });
                 try {
                     const ticketChannel = await createTicketChannel(interaction.guild, interaction.user, typeKey, reason, robloxUsername, guildConfig);
-                    await interaction.reply({ content: `✅ Ticket created: ${ticketChannel}`, ephemeral: true });
+                    await interaction.editReply({ content: `✅ Ticket created: ${ticketChannel}` });
                 } catch (err) {
                     console.error(`[ticket creation failed] type=${typeKey} user=${interaction.user.tag}:`, err);
-                    await interaction.reply({ content: `❌ Couldn't create your ticket: ${err.message}\n\nPlease tell staff so they can check the bot's permissions.`, ephemeral: true });
+                    await interaction.editReply({ content: `❌ Couldn't create your ticket: ${err.message}\n\nPlease tell staff so they can check the bot's permissions.` });
                 } finally {
                     pendingCreations.delete(lockKey);
                 }

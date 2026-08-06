@@ -5,249 +5,162 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{SITE_TITLE}} — Transcript</title>
 <style>
-/* Shared base for index.html / transcript.html / settings.html.
-   Page-specific layout lives inline in each file; this file only holds
-   things that must look identical everywhere: colors, type, nav, buttons. */
-
-@import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 :root {
-  --amber: #d69a4e; /* overridden per-page below */
-  --bg-0: #14171a;
-  --bg-1: #1a1e22;
-  --panel: #1c2023;
-  --panel-2: #20242a;
-  --border: #2a2f33;
-  --paper: #e8e2d0;
-  --ink: #d9d5c9;
-  --muted: #8d9297;
-  --faint: #565c62;
-  --red: #e05a3a;
-  --green: #6fa383;
+  --accent: {{ACCENT_COLOR}};
+  --bg-0: #0a0c11;
+  --sidebar-bg: #0d0f16;
+  --panel: #141722;
+  --panel-2: #1a1e2b;
+  --border: #262b3a;
+  --ink: #e7e9ee;
+  --muted: #9199a8;
+  --faint: #5b6272;
+  --red: #ef4444;
 }
-
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
-body {
-  min-height: 100vh;
-  background: radial-gradient(ellipse at top, var(--bg-1), var(--bg-0));
-  font-family: 'Inter', sans-serif;
-  color: var(--ink);
-  position: relative;
-}
-/* Faint grain so large dark panels don't read as flat vector fills — a cheap
-   trick that makes the whole thing feel closer to physical paper/film than
-   a generic SaaS dashboard. Fixed + behind everything, never intercepts clicks. */
-body::before {
-  content: "";
-  position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  opacity: 0.035; mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-header.site, main, .modal-overlay { position: relative; z-index: 1; }
-a { color: var(--amber); text-decoration: none; }
-::selection { background: var(--amber); color: #14171a; }
-
+body { min-height: 100vh; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+a { color: inherit; text-decoration: none; }
 .mono { font-family: 'IBM Plex Mono', monospace; }
-.type-face { font-family: 'Special Elite', monospace; }
+.site-banner { background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; }
 
-.site-banner {
-  background: var(--amber); color: #14171a;
-  font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 12.5px;
-  text-align: center; padding: 9px 16px;
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar { width: 250px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.sidebar-brand { display: flex; align-items: center; gap: 10px; background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px; margin-bottom: 18px; line-height: 1.25; }
+.sidebar-brand .dot { width: 8px; height: 8px; border-radius: 50%; background: #0a0c11; flex-shrink: 0; opacity: .55; }
+nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); font-size: 13.5px; font-weight: 500; }
+.nav-item:hover { background: var(--panel-2); color: var(--ink); }
+.nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
+.nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
+.nav-item .ic svg { width: 100%; height: 100%; }
+.nav-item.active .ic { opacity: 1; }
+.sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
+.session-line.warn { color: var(--red); }
+
+.content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 860px; }
+
+.top-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.back-link:hover { color: var(--accent); }
+.btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 8px 14px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.btn-ghost { background: var(--panel-2); color: var(--ink); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--accent); }
+
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 16px; }
+
+.type-badge { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; padding: 3px 9px; border-radius: 5px; text-transform: uppercase; margin-bottom: 10px; }
+.case-title { font-size: 19px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
+.case-no { font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
+.reason { font-size: 13px; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--border); padding-top: 14px; margin-top: 16px; white-space: pre-wrap; }
+.tag-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+.tag-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 99px; }
+.tag-x { background: none; border: none; color: inherit; opacity: .6; cursor: pointer; font-size: 13px; line-height: 1; padding: 0; }
+.tag-x:hover { opacity: 1; }
+#tagAdder { background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); font-size: 11.5px; padding: 5px 8px; border-radius: 99px; font-family: inherit; }
+#tagAdder:focus { outline: none; border-color: var(--accent); }
+.meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px 18px; font-size: 12px; color: var(--faint); margin-top: 6px; }
+.meta-grid span b { display: block; color: var(--muted); font-weight: 600; margin-bottom: 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+
+.log { display: flex; flex-direction: column; gap: 2px; }
+.msg { display: flex; gap: 12px; padding: 10px; border-radius: 8px; }
+.msg:hover { background: rgba(255,255,255,0.02); }
+.avatar { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; color: #0a0c11; font-weight: 700; font-size: 12px; margin-top: 2px; }
+.msg .body { flex: 1; min-width: 0; }
+.line1 { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.author { color: var(--ink); font-weight: 700; font-size: 13px; }
+.time { color: var(--faint); font-size: 10.5px; font-family: 'IBM Plex Mono', monospace; }
+.content { color: var(--ink); font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; margin-top: 3px; }
+.content a { color: var(--accent); text-decoration: underline; }
+.attachments { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+.attachments img { max-width: 320px; max-height: 260px; border-radius: 8px; border: 1px solid var(--border); display: block; }
+.attachments a.filelink { display: inline-block; font-size: 11.5px; border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; }
+
+.day-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0 8px; color: var(--faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; }
+.day-divider::before, .day-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+.empty-state, .error-state { text-align: center; padding: 60px 20px; color: var(--faint); }
+.empty-state .icon, .error-state .icon { font-size: 22px; margin-bottom: 8px; display: block; }
+.error-state h2 { font-size: 15px; color: var(--muted); margin: 0 0 4px; font-weight: 700; }
+.error-state p { font-size: 12.5px; margin: 0; }
+
+.opener-note { text-align: center; font-size: 11px; color: var(--faint); margin-top: 14px; }
+
+@media (max-width: 860px) {
+  .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
+  .sidebar.open { transform: translateX(0); }
+  .content-area { padding: 18px 16px 50px; }
 }
-
-/* ---------- top nav ---------- */
-header.site {
-  position: sticky; top: 0; z-index: 30;
-  background: rgba(20,23,26,0.94);
-  backdrop-filter: blur(6px);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+@media (max-width: 520px) { .attachments img { max-width: 100%; } }
+@media print {
+  .sidebar, .top-actions, .opener-note { display: none; }
+  body { background: #fff; color: #111; }
+  .card, .msg:hover { background: transparent; }
 }
-.panel { box-shadow: 0 10px 28px rgba(0,0,0,0.2); }
-.topbar {
-  max-width: 1180px; margin: 0 auto;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 24px; gap: 18px; flex-wrap: wrap;
-}
-.brand { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.brand h1 {
-  font-family: 'Special Elite', monospace; font-size: 21px; color: var(--paper);
-  margin: 0; letter-spacing: .3px; white-space: nowrap;
-  text-shadow: 0 0 18px rgba(214,154,78,0.25);
-}
-nav.rf-tabs { display: flex; gap: 4px; }
-.rf-tab {
-  font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--muted); padding: 7px 12px; border-radius: 4px; border: 1px solid transparent;
-}
-.rf-tab:hover { color: var(--paper); }
-.rf-tab.active { color: var(--amber); border-color: rgba(214,154,78,.35); background: rgba(214,154,78,.08); }
-
-.topbar-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-#sessionClock { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
-#sessionClock.warn { color: var(--red); }
-.btn {
-  font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .05em; text-transform: uppercase;
-  padding: 8px 13px; border-radius: 4px; cursor: pointer;
-  border: 1px solid var(--border); background: transparent; color: var(--ink);
-  transition: border-color .12s ease, color .12s ease, background .12s ease;
-}
-.btn:hover { border-color: var(--amber); color: var(--paper); }
-.btn.primary { background: var(--amber); color: #14171a; border-color: var(--amber); font-weight: 600; }
-.btn.primary:hover { opacity: .88; color: #14171a; }
-.btn.danger { color: var(--red); border-color: rgba(224,90,58,.4); }
-.btn.danger:hover { background: rgba(224,90,58,.1); border-color: var(--red); color: var(--red); }
-.btn:disabled { opacity: .5; cursor: not-allowed; }
-
-/* ---------- "stamp" — the one signature touch, used sparingly ---------- */
-.stamp {
-  font-family: 'Special Elite', monospace;
-  letter-spacing: .12em; text-transform: uppercase;
-  border: 2px solid currentColor; border-radius: 4px;
-  padding: 3px 9px; display: inline-block;
-  transform: rotate(-4deg);
-  opacity: .82;
-}
-
-.footer-note { text-align: center; color: var(--faint); font-size: 11px; margin-top: 10px; font-family: 'IBM Plex Mono', monospace; }
-
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
-
-</style>
-<style>
-  :root { --amber: {{ACCENT_COLOR}}; }
-
-  main { max-width: 860px; margin: 0 auto; padding: 26px 20px 70px; }
-
-  .back-link { display: inline-flex; align-items: center; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin-bottom: 18px; }
-  .back-link:hover { color: var(--amber); }
-
-  .case-header { position: relative; overflow: hidden; background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--type-color, var(--amber)); border-radius: 6px; padding: 22px 22px 18px; margin-bottom: 22px; }
-  .case-header-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
-  .type-tag { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--type-color, var(--amber)); border: 1px solid var(--type-color, var(--amber)); padding: 3px 8px; border-radius: 3px; display: inline-block; margin-bottom: 10px; opacity: .9; }
-  h2 { font-family: 'Special Elite', monospace; font-size: 22px; margin: 0 0 4px; color: var(--paper); }
-  .case-no { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--faint); }
-  .reason { font-size: 13px; color: var(--muted); line-height: 1.6; border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 14px; white-space: pre-wrap; font-family: 'Inter', sans-serif; }
-  .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px 18px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; margin-top: 4px; }
-  .meta-grid span b { display: block; color: var(--muted); font-weight: 500; margin-bottom: 2px; }
-
-  .log { display: flex; flex-direction: column; gap: 2px; }
-  .msg { display: flex; gap: 12px; padding: 10px; border-radius: 6px; }
-  .msg:hover { background: rgba(255,255,255,0.02); }
-  .avatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; background: var(--type-color, var(--amber)); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; color: #14171a; font-weight: 700; font-size: 13px; margin-top: 2px; }
-  .msg .body { flex: 1; min-width: 0; }
-  .line1 { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-  .author { color: var(--paper); font-weight: 600; font-size: 13.5px; }
-  .time { color: var(--faint); font-size: 10.5px; font-family: 'IBM Plex Mono', monospace; }
-  .content { color: var(--ink); font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; margin-top: 3px; }
-  .content a { text-decoration: underline; }
-  .attachments { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
-  .attachments img { max-width: 320px; max-height: 260px; border-radius: 6px; border: 1px solid var(--border); display: block; }
-  .attachments a.filelink { display: inline-block; font-size: 11.5px; border: 1px solid var(--border); padding: 8px 12px; border-radius: 5px; }
-
-  .day-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0 10px; color: var(--faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; font-family: 'IBM Plex Mono', monospace; }
-  .day-divider::before, .day-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
-
-  .empty, .error-state { text-align: center; padding: 70px 20px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
-  .empty .icon, .error-state .icon { font-size: 24px; margin-bottom: 10px; }
-  .error-state h2 { font-family: 'Special Elite', monospace; color: var(--muted); font-size: 16px; margin: 0 0 6px; }
-  .error-state p { font-size: 12.5px; margin: 0; }
-
-  footer.page-footer { text-align: center; margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--border); font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: .08em; color: var(--faint); text-transform: uppercase; }
-  .opener-note { text-align: center; font-size: 11px; color: var(--faint); margin-top: 14px; font-family: 'IBM Plex Mono', monospace; }
-
-  @media (max-width: 520px) { .attachments img { max-width: 100%; } }
-  @media print {
-    header.site, .actions, .opener-note, .back-link { display: none; }
-    body { background: #fff; color: #111; }
-    .case-header, .msg:hover { background: transparent; }
-  }
 </style>
 </head>
 <body>
 
 {{BANNER_HTML}}
 
-<header class="site">
-  <div class="topbar">
-    <div class="brand">
-      <h1>{{SITE_TITLE}}</h1>
-      <nav class="rf-tabs" id="navTabs"></nav>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
+    <nav class="sidebar-nav" id="navTabs"></nav>
+    <div class="sidebar-footer">
+      <span class="session-line mono" id="sessionClock">session --:--</span>
     </div>
-    <div class="topbar-right actions">
-      <span id="sessionClock" class="mono">session --:--</span>
-      <button class="btn" id="copyLinkBtn">Copy link</button>
-      <button class="btn" onclick="window.print()">Print</button>
+  </aside>
+
+  <main class="content-area">
+    <div class="top-actions">
+      <a href="/" class="back-link" id="backLink" style="display:none;">← Back to archive</a>
+      <div>
+        <button class="btn btn-ghost" id="copyLinkBtn">Copy link</button>
+        <button class="btn btn-ghost" onclick="window.print()">Print</button>
+      </div>
     </div>
-  </div>
-</header>
 
-<main>
-  <a href="/" class="back-link" id="backLink" style="display:none;">← Back to archive</a>
-
-  <div id="content">
-    <div class="empty"><div class="icon">📄</div>Pulling the file…</div>
-  </div>
-
-  <footer class="page-footer">{{SITE_TITLE}} · Ticket Records</footer>
-  {{FOOTER_NOTE_HTML}}
-</main>
+    <div id="content">
+      <div class="empty-state"><span class="icon">📄</span>Pulling the file…</div>
+    </div>
+  </main>
+</div>
 
 <script>
-// Shared across index.html / transcript.html / settings.html so the three pages
-// don't drift out of sync with each other over time.
 window.RF = (function () {
-  const TYPE_COLORS = {
-    REDFIELD: '#6fa383',
-    MANAGEMENT: '#5c7d99',
-    BUG: '#c17a3f'
-  };
-  const FALLBACK_COLOR = '#8d7bb0';
-
-  function typeColor(type) {
-    return TYPE_COLORS[type] || FALLBACK_COLOR;
-  }
-
+  const TYPE_COLORS = { REDFIELD: '#22c55e', MANAGEMENT: '#3b82f6', BUG: '#f59e0b' };
+  const FALLBACK_COLOR = '#a78bfa';
+  function typeColor(type) { return TYPE_COLORS[type] || FALLBACK_COLOR; }
   function esc(str) {
     return (str === undefined || str === null ? '' : String(str))
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
-
-  function initials(tag) {
-    if (!tag) return '?';
-    return tag.split('#')[0].slice(0, 2).toUpperCase();
-  }
-
+  function initials(tag) { if (!tag) return '?'; return tag.split('#')[0].slice(0, 2).toUpperCase(); }
   function fmtDateTime(iso) {
     if (!iso) return 'Unknown';
     const d = new Date(iso);
     if (isNaN(d.getTime())) return 'Unknown';
     return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
-
   function fmtDay(iso) {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return 'Unknown date';
     return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   }
-
   function fmtTime(iso) {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return '';
     return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   }
-
   function getCookie(name) {
     const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
     return match ? decodeURIComponent(match[1]) : null;
   }
-
-  function isStaffSession() {
-    return Boolean(getCookie('ticketAuth'));
-  }
-
+  function isStaffSession() { return Boolean(getCookie('ticketAuth')); }
   function copyText(text) {
     if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
     return new Promise((resolve, reject) => {
@@ -255,13 +168,9 @@ window.RF = (function () {
       ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
       document.body.appendChild(ta); ta.select();
       try { document.execCommand('copy') ? resolve() : reject(new Error('copy failed')); }
-      catch (err) { reject(err); }
-      finally { document.body.removeChild(ta); }
+      catch (err) { reject(err); } finally { document.body.removeChild(ta); }
     });
   }
-
-  // Wires up a "session N:SS" clock element + auto-reload when it hits zero,
-  // reading the non-HttpOnly sessionExpires cookie the server sets on login.
   function startSessionClock(el) {
     function tick() {
       const expiresAt = parseInt(getCookie('sessionExpires') || '0', 10);
@@ -272,25 +181,33 @@ window.RF = (function () {
       el.classList.toggle('warn', remaining <= 60);
       if (remaining <= 0) window.location.reload();
     }
-    tick();
-    setInterval(tick, 1000);
+    tick(); setInterval(tick, 1000);
   }
-
-  // Builds the small nav strip shared by all three pages, marking whichever
-  // tab matches the current path as active.
+  const ICONS = {
+    shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5Z"></path></svg>',
+    archive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"></rect><path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"></path><path d="M10 12h4"></path></svg>',
+    tickets: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12h-5l-2 3h-4l-2-3H2"></path><path d="M5.4 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.4-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.8 1.1Z"></path></svg>',
+    panels: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>',
+    tags: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H3v9l10.3 10.3a1 1 0 0 0 1.4 0l7.6-7.6a1 1 0 0 0 0-1.4L12 2Z"></path><circle cx="7.5" cy="7.5" r="1.4"></circle></svg>',
+    blacklist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m5.5 5.5 13 13"></path></svg>',
+    settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.9-2.9l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"></path></svg>',
+    logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>'
+  };
   function renderNav(activePath) {
     const tabs = [
-      { href: '/', label: 'Archive' },
-      { href: '/settings', label: 'Settings' }
+      { href: '/', label: 'Archive', ic: ICONS.archive },
+      { href: '/tickets', label: 'Open Tickets', ic: ICONS.tickets },
+      { href: '/panels', label: 'Panels', ic: ICONS.panels },
+      { href: '/tags', label: 'Tags', ic: ICONS.tags },
+      { href: '/moderation', label: 'Moderation', ic: ICONS.shield },
+      { href: '/blacklist', label: 'Blacklist', ic: ICONS.blacklist },
+      { href: '/settings', label: 'Settings', ic: ICONS.settings }
     ];
-    return tabs.map(t => `<a class="rf-tab${t.href === activePath ? ' active' : ''}" href="${t.href}">${t.label}</a>`).join('');
+    return tabs.map(t => `<a class="nav-item${t.href === activePath ? ' active' : ''}" href="${t.href}"><span class="ic">${t.ic}</span> ${t.label}</a>`).join('');
   }
-
-  return { typeColor, esc, initials, fmtDateTime, fmtDay, fmtTime, getCookie, isStaffSession, copyText, startSessionClock, renderNav };
+  return { typeColor, esc, initials, fmtDateTime, fmtDay, fmtTime, getCookie, isStaffSession, copyText, startSessionClock, renderNav, ICONS };
 })();
 
-</script>
-<script>
 document.getElementById('navTabs').innerHTML = RF.isStaffSession() ? RF.renderNav('/') : '';
 RF.startSessionClock(document.getElementById('sessionClock'));
 document.getElementById('backLink').style.display = RF.isStaffSession() ? 'inline-flex' : 'none';
@@ -309,39 +226,99 @@ function isImage(url, contentType) {
   return /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(url || '');
 }
 
+let allTags = [];
+let currentTicketId = null;
+
+async function loadTags() {
+  if (!RF.isStaffSession()) return; // /api/guild is staff-only; token viewers skip this
+  try {
+    const res = await fetch('/api/guild');
+    if (res.ok) { const data = await res.json(); allTags = data.tags || []; }
+  } catch { /* tag editor just won't offer options if this fails */ }
+}
+
 async function load() {
   const id = window.location.pathname.split('/').pop();
+  currentTicketId = id;
   const params = new URLSearchParams(window.location.search);
   const token = params.get('token');
   const url = token ? `/api/tickets/${encodeURIComponent(id)}?token=${encodeURIComponent(token)}` : `/api/tickets/${encodeURIComponent(id)}`;
 
+  await loadTags();
+
   try {
     const res = await fetch(url);
     if (res.status === 401) {
-      document.getElementById('content').innerHTML = `<div class="error-state"><div class="icon">🔒</div><h2>This link isn't valid</h2><p>The access code or link has expired. Contact staff for a new one.</p></div>`;
+      document.getElementById('content').innerHTML = `<div class="card error-state"><span class="icon">🔒</span><h2>This link isn't valid</h2><p>The access code or link has expired. Contact staff for a new one.</p></div>`;
       return;
     }
     if (!res.ok) {
-      document.getElementById('content').innerHTML = `<div class="error-state"><div class="icon">🗄️</div><h2>Transcript not found</h2><p>This ticket may have been deleted from the archive.</p></div>`;
+      document.getElementById('content').innerHTML = `<div class="card error-state"><span class="icon">🗄️</span><h2>Transcript not found</h2><p>This ticket may have been deleted from the archive.</p></div>`;
       return;
     }
     render(await res.json());
   } catch (err) {
-    document.getElementById('content').innerHTML = `<div class="error-state"><div class="icon">⚠</div><h2>Could not load this transcript</h2><p>Refresh the page and try again.</p></div>`;
+    document.getElementById('content').innerHTML = `<div class="card error-state"><span class="icon">⚠</span><h2>Could not load this transcript</h2><p>Refresh the page and try again.</p></div>`;
   }
 }
 
+function renderTagSection(currentTagIds) {
+  const current = Array.isArray(currentTagIds) ? currentTagIds : [];
+  const chips = current.map(tagId => {
+    const tag = allTags.find(t => t.id === tagId);
+    if (!tag) return '';
+    const removeBtn = RF.isStaffSession() ? `<button class="tag-x" onclick="removeTag('${tag.id}')">×</button>` : '';
+    return `<span class="tag-chip" style="background:${tag.color}22; color:${tag.color};">${RF.esc(tag.name)}${removeBtn}</span>`;
+  }).join('');
+
+  if (!RF.isStaffSession()) {
+    return chips ? `<div class="tag-row">${chips}</div>` : '';
+  }
+
+  const available = allTags.filter(t => !current.includes(t.id));
+  const picker = available.length
+    ? `<select id="tagAdder" onchange="addTag(this.value); this.value='';">
+        <option value="">+ Add tag…</option>
+        ${available.map(t => `<option value="${t.id}">${RF.esc(t.name)}</option>`).join('')}
+      </select>`
+    : (allTags.length ? '' : `<a href="/tags" style="font-size:11.5px;color:var(--faint);">No tags yet — create one</a>`);
+
+  return `<div class="tag-row">${chips}${picker}</div>`;
+}
+
+async function saveTags(newTagIds) {
+  try {
+    const res = await fetch(`/api/tickets/${encodeURIComponent(currentTicketId)}/tags`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tagIds: newTagIds })
+    });
+    if (!res.ok) { alert('Could not update tags — try again.'); return; }
+    lastRenderedTicket.tags = newTagIds;
+    document.getElementById('tagSection').innerHTML = renderTagSection(newTagIds);
+  } catch { alert('Could not update tags — check your connection.'); }
+}
+
+function addTag(tagId) {
+  if (!tagId) return;
+  const current = Array.isArray(lastRenderedTicket.tags) ? lastRenderedTicket.tags : [];
+  if (current.includes(tagId)) return;
+  saveTags([...current, tagId]);
+}
+
+function removeTag(tagId) {
+  const current = Array.isArray(lastRenderedTicket.tags) ? lastRenderedTicket.tags : [];
+  saveTags(current.filter(id => id !== tagId));
+}
+
+let lastRenderedTicket = {};
+
 function render(t) {
+  lastRenderedTicket = t;
   const color = RF.typeColor(t.type);
   const header = `
-    <div class="case-header" style="--type-color:${color}">
-      <div class="case-header-top">
-        <div>
-          <span class="type-tag">${RF.esc(t.type || 'TICKET')}</span>
-          <h2>${RF.esc(t.channelName || 'unnamed-ticket')}</h2>
-          <div class="case-no">CASE ${RF.esc((t.id || '').slice(-6))}</div>
-        </div>
-      </div>
+    <div class="card">
+      <span class="type-badge" style="background:${color}22; color:${color};">${RF.esc(t.type || 'TICKET')}</span>
+      <h2 class="case-title">${RF.esc(t.channelName || 'unnamed-ticket')}</h2>
+      <div class="case-no">CASE ${RF.esc((t.id || '').slice(-6))}</div>
       <div class="meta-grid">
         <span><b>Opened by</b>${RF.esc(t.openedBy || 'Unknown')}</span>
         <span><b>Roblox user</b>${RF.esc(t.robloxUsername || '—')}</span>
@@ -350,13 +327,14 @@ function render(t) {
         <span><b>Opened</b>${RF.fmtDateTime(t.openedAt)}</span>
         <span><b>Closed</b>${RF.fmtDateTime(t.closedAt)}</span>
       </div>
+      <div id="tagSection">${renderTagSection(t.tags)}</div>
       <div class="reason">${RF.esc(t.reason || 'No reason provided')}</div>
     </div>
   `;
 
   const messages = Array.isArray(t.messages) ? t.messages : [];
   if (!messages.length) {
-    document.getElementById('content').innerHTML = header + `<div class="empty"><div class="icon">💬</div>No messages were recorded in this ticket.</div>`;
+    document.getElementById('content').innerHTML = header + `<div class="card empty-state"><span class="icon">💬</span>No messages were recorded in this ticket.</div>`;
     return;
   }
 
@@ -377,7 +355,7 @@ function render(t) {
 
     log += `
       <div class="msg">
-        <div class="avatar">${RF.esc(RF.initials(m.author))}</div>
+        <div class="avatar" style="background:${RF.typeColor(t.type)};">${RF.esc(RF.initials(m.author))}</div>
         <div class="body">
           <div class="line1"><span class="author">${RF.esc(m.author || 'Unknown')}</span><span class="time">${RF.fmtTime(m.timestamp)}</span></div>
           ${m.content ? `<div class="content">${RF.esc(m.content)}</div>` : ''}
@@ -391,7 +369,7 @@ function render(t) {
     ? `<div class="opener-note">This link only shows your own ticket — it doesn't unlock the full staff archive.</div>`
     : '';
 
-  document.getElementById('content').innerHTML = header + `<div class="log">${log}</div>` + openerNote;
+  document.getElementById('content').innerHTML = header + `<div class="card"><div class="log">${log}</div></div>` + openerNote;
 }
 
 load();

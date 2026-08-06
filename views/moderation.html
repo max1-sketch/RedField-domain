@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Moderation</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --accent: {{ACCENT_COLOR}};
+  --bg-0: #0a0c11;
+  --sidebar-bg: #0d0f16;
+  --panel: #141722;
+  --panel-2: #1a1e2b;
+  --border: #262b3a;
+  --ink: #e7e9ee;
+  --muted: #9199a8;
+  --faint: #5b6272;
+  --red: #ef4444;
+  --green: #22c55e;
+  --amber: #f59e0b;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { min-height: 100vh; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+a { color: inherit; text-decoration: none; }
+.mono { font-family: 'IBM Plex Mono', monospace; }
+.site-banner { background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; }
+
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar { width: 250px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.sidebar-brand { display: flex; align-items: center; gap: 10px; background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px; margin-bottom: 18px; line-height: 1.25; }
+.sidebar-brand .dot { width: 8px; height: 8px; border-radius: 50%; background: #0a0c11; flex-shrink: 0; opacity: .55; }
+nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); font-size: 13.5px; font-weight: 500; }
+.nav-item:hover { background: var(--panel-2); color: var(--ink); }
+.nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
+.nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
+.nav-item .ic svg { width: 100%; height: 100%; }
+.nav-item.active .ic { opacity: 1; }
+.sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
+.session-line.warn { color: var(--red); }
+
+.content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 1300px; }
+.page-title { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
+.page-sub { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
+.warn-banner {
+  background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5;
+  border-radius: 8px; padding: 10px 14px; font-size: 12px; margin-bottom: 20px; line-height: 1.6;
+}
+
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 18px 20px; border-bottom: 1px solid var(--border); }
+.card-header h2 { font-size: 15.5px; font-weight: 700; color: var(--ink); margin: 0; }
+.filters-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 18px 20px; }
+input[type=text] { background: var(--panel-2); border: 1px solid var(--border); color: var(--ink); padding: 9px 12px; border-radius: 7px; font-family: inherit; font-size: 13px; }
+input[type=text]:focus { outline: none; border-color: var(--accent); }
+.search-wrap { position: relative; flex: 1 1 260px; min-width: 200px; }
+.search-wrap input { width: 100%; padding-left: 32px; }
+.search-wrap::before { content: "⌕"; position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--faint); font-size: 15px; }
+.count-pill { font-size: 12px; color: var(--faint); white-space: nowrap; margin-left: auto; }
+.count-pill b { color: var(--accent); font-weight: 700; }
+.btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 8px 14px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.btn-ghost { background: var(--panel-2); color: var(--ink); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--accent); }
+.btn-danger { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+.btn-danger:hover { background: rgba(239,68,68,0.2); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+table { width: 100%; border-collapse: collapse; }
+thead th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); font-weight: 600; padding: 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+tbody td { padding: 12px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 13px; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr.clickable { cursor: pointer; }
+tbody tr.clickable:hover { background: rgba(255,255,255,0.03); }
+.cell-main { color: var(--ink); font-weight: 600; }
+.cell-muted { color: var(--muted); }
+.role-chip-row { display: flex; flex-wrap: wrap; gap: 4px; max-width: 220px; }
+.role-chip { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px; margin-left: 6px; }
+.badge.warn { background: var(--amber)22; color: var(--amber); }
+.badge.timeout { background: var(--red)22; color: var(--red); }
+.badge.owner { background: #fbbf2422; color: #fbbf24; }
+
+.empty-row td { text-align: center; padding: 50px 20px; color: var(--faint); }
+.empty-row .icon { font-size: 22px; margin-bottom: 8px; display: block; }
+.empty-row h3 { font-size: 14px; color: var(--muted); margin: 0 0 4px; font-weight: 600; }
+.empty-row p { font-size: 12.5px; margin: 0; }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(5,6,9,.75); display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 24px; width: 380px; max-width: 100%; }
+.modal h3 { font-size: 15px; font-weight: 700; color: var(--ink); margin: 0 0 14px; }
+.modal .field { margin-bottom: 14px; }
+.modal .field label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); font-weight: 600; display: block; margin-bottom: 6px; }
+.modal textarea { width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: var(--ink); padding: 9px 12px; border-radius: 7px; font-family: inherit; font-size: 13px; min-height: 70px; resize: vertical; }
+.modal-error { font-size: 12px; color: var(--red); margin-bottom: 10px; min-height: 1em; }
+.modal-actions { display: flex; gap: 10px; }
+.modal-actions .btn { flex: 1; justify-content: center; }
+
+.dot-loader { display: inline-flex; gap: 4px; align-items: center; }
+.dot-loader span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: dotbounce 1s infinite ease-in-out; }
+.dot-loader span:nth-child(2) { animation-delay: .15s; }
+.dot-loader span:nth-child(3) { animation-delay: .3s; }
+@keyframes dotbounce { 0%, 80%, 100% { transform: scale(.5); opacity: .35; } 40% { transform: scale(1); opacity: 1; } }
+#toastStack { position: fixed; top: 18px; right: 18px; z-index: 200; display: flex; flex-direction: column; gap: 10px; max-width: 320px; }
+.toast { background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--green); border-radius: 6px; padding: 12px 14px; font-size: 12.5px; color: var(--ink); box-shadow: 0 12px 34px rgba(0,0,0,.45); animation: toastin .2s ease; }
+.toast.error { border-left-color: var(--red); }
+.toast .toast-title { font-weight: 700; }
+.toast.fading { animation: toastout .25s ease forwards; }
+@keyframes toastin { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes toastout { to { opacity: 0; transform: translateX(24px); } }
+
+@media (max-width: 860px) {
+  .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
+  .sidebar.open { transform: translateX(0); }
+  .content-area { padding: 18px 16px 50px; }
+}
+</style>
+</head>
+<body>
+
+<div id="toastStack"></div>
+
+{{BANNER_HTML}}
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
+    <nav class="sidebar-nav" id="navTabs"></nav>
+    <div class="sidebar-footer">
+      <span class="session-line mono" id="sessionClock">session --:--</span>
+      <a href="/logout" class="nav-item"><span class="ic" id="logoutIcon"></span> Log out</a>
+    </div>
+  </aside>
+
+  <main class="content-area">
+    <h1 class="page-title">Moderation</h1>
+    <p class="page-sub">View members, leave notes/warnings, timeout, kick, or ban. Actions here are permanent — there's no per-staff login, only the shared site password, so treat access to this page like access to ban powers themselves.</p>
+
+    <div class="card">
+      <div class="filters-row">
+        <div class="search-wrap">
+          <input id="search" type="text" placeholder="Search members by name…" autocomplete="off">
+        </div>
+        <span class="count-pill" id="countPill">loading…</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Roles</th>
+              <th>Joined</th>
+              <th style="text-align:right;">Notes</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr class="empty-row"><td colspan="4">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:14px 20px; display:flex; justify-content:center;">
+        <button class="btn btn-ghost" id="loadMoreBtn" style="display:none;">Load more</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>Banned users</h2></div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>User ID</th><th>Reason</th><th style="text-align:right;">Actions</th></tr></thead>
+          <tbody id="bansTbody">
+            <tr class="empty-row"><td colspan="3">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>Recent moderation actions</h2></div>
+      <p style="padding:0 20px 14px;margin:0;font-size:12px;color:var(--faint);">Last 100 timeouts, kicks, bans, and unbans taken from this website. Discord's own audit log has the full history if you need more.</p>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Action</th><th>Target</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
+          <tbody id="logTbody">
+            <tr class="empty-row"><td colspan="5">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="unbanOverlay">
+  <div class="modal">
+    <h3>Unban <span id="unbanTarget" class="mono"></span>?</h3>
+    <div class="field">
+      <label>Reason (optional)</label>
+      <textarea id="unbanReason" maxlength="400"></textarea>
+    </div>
+    <div class="modal-error" id="unbanError"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="confirmUnban">Unban</button>
+      <button class="btn btn-ghost" id="cancelUnban">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+window.RF = (function () {
+  const ICONS = {
+    archive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"></rect><path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"></path><path d="M10 12h4"></path></svg>',
+    tickets: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12h-5l-2 3h-4l-2-3H2"></path><path d="M5.4 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.4-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.8 1.1Z"></path></svg>',
+    panels: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>',
+    tags: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H3v9l10.3 10.3a1 1 0 0 0 1.4 0l7.6-7.6a1 1 0 0 0 0-1.4L12 2Z"></path><circle cx="7.5" cy="7.5" r="1.4"></circle></svg>',
+    shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5Z"></path></svg>',
+    blacklist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m5.5 5.5 13 13"></path></svg>',
+    settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.9-2.9l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"></path></svg>',
+    logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>'
+  };
+  function esc(str) {
+    return (str === undefined || str === null ? '' : String(str))
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function initials(tag) { if (!tag) return '?'; return tag.split('#')[0].slice(0, 2).toUpperCase(); }
+  function fmtDate(iso) {
+    if (!iso) return 'Unknown';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'Unknown';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  function fmtDateTime(iso) {
+    if (!iso) return 'Unknown';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'Unknown';
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+  function setCookie(name, value, days) {
+    document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${days * 86400}`;
+  }
+  function getSenderName() { return getCookie('websiteSenderName') || ''; }
+  function startSessionClock(el) {
+    function tick() {
+      const expiresAt = parseInt(getCookie('sessionExpires') || '0', 10);
+      if (!expiresAt) { el.textContent = 'session --:--'; return; }
+      const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      const m = Math.floor(remaining / 60), s = remaining % 60;
+      el.textContent = `session ${m}:${s.toString().padStart(2, '0')}`;
+      el.classList.toggle('warn', remaining <= 60);
+      if (remaining <= 0) window.location.reload();
+    }
+    tick(); setInterval(tick, 1000);
+  }
+  function renderNav(activePath) {
+    const tabs = [
+      { href: '/', label: 'Archive', ic: ICONS.archive },
+      { href: '/tickets', label: 'Open Tickets', ic: ICONS.tickets },
+      { href: '/panels', label: 'Panels', ic: ICONS.panels },
+      { href: '/tags', label: 'Tags', ic: ICONS.tags },
+      { href: '/moderation', label: 'Moderation', ic: ICONS.shield },
+      { href: '/blacklist', label: 'Blacklist', ic: ICONS.blacklist },
+      { href: '/settings', label: 'Settings', ic: ICONS.settings }
+    ];
+    return tabs.map(t => `<a class="nav-item${t.href === activePath ? ' active' : ''}" href="${t.href}"><span class="ic">${t.ic}</span> ${t.label}</a>`).join('');
+  }
+  function toast(title, ok) {
+    const stack = document.getElementById('toastStack');
+    if (!stack) return;
+    const el = document.createElement('div');
+    el.className = 'toast' + (ok ? '' : ' error');
+    el.innerHTML = `<div class="toast-title">${ok ? '✓' : '✕'} ${esc(title)}</div>`;
+    stack.appendChild(el);
+    setTimeout(() => { el.classList.add('fading'); setTimeout(() => el.remove(), 260); }, 3400);
+  }
+  async function withLoading(btn, fn, { okMessage, failMessage } = {}) {
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="dot-loader"><span></span><span></span><span></span></span>';
+    const start = Date.now();
+    let result, error;
+    try { result = await fn(); } catch (e) { error = e; }
+    const elapsed = Date.now() - start;
+    if (elapsed < 900) await new Promise(r => setTimeout(r, 900 - elapsed));
+    btn.disabled = false;
+    btn.innerHTML = original;
+    if (error) { toast(failMessage ? `${failMessage}: ${error.message}` : error.message, false); throw error; }
+    if (okMessage) toast(okMessage, true);
+    return result;
+  }
+  async function apiCall(url, options) {
+    const res = await fetch(url, options);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    return data;
+  }
+  return { esc, initials, fmtDate, fmtDateTime, getCookie, setCookie, getSenderName, startSessionClock, renderNav, ICONS, toast, withLoading, apiCall };
+})();
+</script>
+<script>
+document.getElementById('navTabs').innerHTML = RF.renderNav('/moderation');
+RF.startSessionClock(document.getElementById('sessionClock'));
+const _logoutIconEl = document.getElementById('logoutIcon'); if (_logoutIconEl) _logoutIconEl.innerHTML = RF.ICONS.logout;
+
+let allMembers = [];
+let nextAfter = null;
+let currentQuery = '';
+
+async function loadMembers(reset) {
+  if (reset) { allMembers = []; nextAfter = null; }
+  const q = document.getElementById('search').value.trim();
+  currentQuery = q;
+  const params = new URLSearchParams();
+  if (q) params.set('query', q);
+  if (!q && nextAfter) params.set('after', nextAfter);
+
+  try {
+    const res = await fetch(`/api/moderation/members?${params.toString()}`);
+    if (res.status === 401) { window.location.reload(); return; }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="4"><span class="icon">⚠</span><h3>Couldn't load members</h3><p>${RF.esc(err.error || 'Unknown error')}</p></td></tr>`;
+      return;
+    }
+    const data = await res.json();
+    if (q) allMembers = data.members;
+    else allMembers = reset ? data.members : allMembers.concat(data.members);
+    nextAfter = q ? null : data.nextAfter;
+    document.getElementById('loadMoreBtn').style.display = nextAfter ? 'inline-flex' : 'none';
+    document.getElementById('countPill').innerHTML = `<b>${allMembers.length}</b> shown${data.totalMemberCount ? ` of ~${data.totalMemberCount} total` : ''}`;
+    render();
+  } catch (err) {
+    document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="4"><span class="icon">⚠</span><h3>Couldn't reach the server</h3><p>Refresh and try again.</p></td></tr>`;
+  }
+}
+
+function render() {
+  const tbody = document.getElementById('tbody');
+  if (!allMembers.length) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="4"><span class="icon">👤</span><h3>No members found</h3><p>Try a different search.</p></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = allMembers.map(m => {
+    const roleChips = m.roles.slice(0, 4).map(r => `<span class="role-chip" style="color:${r.color || 'var(--muted)'};">${RF.esc(r.name)}</span>`).join('');
+    const extra = m.roles.length > 4 ? `<span class="role-chip">+${m.roles.length - 4}</span>` : '';
+    return `
+    <tr class="clickable" onclick="window.location.href='/moderation/${m.id}'">
+      <td class="cell-main">${RF.esc(m.displayName)}
+        <div class="cell-muted mono" style="font-size:11px;font-weight:400;">${RF.esc(m.tag)}</div>
+        ${m.isOwner ? '<span class="badge owner">Owner</span>' : ''}
+        ${m.isTimedOut ? '<span class="badge timeout">Timed out</span>' : ''}
+      </td>
+      <td><div class="role-chip-row">${roleChips}${extra}</div></td>
+      <td class="cell-muted">${RF.fmtDate(m.joinedAt)}</td>
+      <td style="text-align:right;">${m.noteCount ? `${m.noteCount} note${m.noteCount === 1 ? '' : 's'}` : '—'}${m.warningCount ? `<span class="badge warn">${m.warningCount} warn</span>` : ''}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadBans() {
+  try {
+    const res = await fetch('/api/moderation/bans');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      document.getElementById('bansTbody').innerHTML = `<tr class="empty-row"><td colspan="3"><span class="icon">⚠</span><h3>Couldn't load bans</h3><p>${RF.esc(err.error || 'Unknown error')}</p></td></tr>`;
+      return;
+    }
+    const bans = await res.json();
+    if (!bans.length) {
+      document.getElementById('bansTbody').innerHTML = `<tr class="empty-row"><td colspan="3">Nobody currently banned.</td></tr>`;
+      return;
+    }
+    document.getElementById('bansTbody').innerHTML = bans.map(b => `
+      <tr>
+        <td class="cell-main mono">${RF.esc(b.tag)}</td>
+        <td class="cell-muted">${RF.esc(b.reason || 'No reason recorded')}</td>
+        <td style="text-align:right;"><button class="btn btn-danger" onclick="askUnban('${RF.esc(b.id)}','${RF.esc(b.tag)}')">Unban</button></td>
+      </tr>
+    `).join('');
+  } catch {
+    document.getElementById('bansTbody').innerHTML = `<tr class="empty-row"><td colspan="3">Couldn't reach the server.</td></tr>`;
+  }
+}
+
+let pendingUnbanId = null;
+function askUnban(id, tag) {
+  pendingUnbanId = id;
+  document.getElementById('unbanTarget').textContent = tag;
+  document.getElementById('unbanReason').value = '';
+  document.getElementById('unbanError').textContent = '';
+  document.getElementById('unbanOverlay').classList.add('show');
+}
+document.getElementById('cancelUnban').addEventListener('click', () => {
+  document.getElementById('unbanOverlay').classList.remove('show');
+});
+document.getElementById('confirmUnban').addEventListener('click', async (e) => {
+  const errEl = document.getElementById('unbanError');
+  const target = pendingUnbanId;
+  try {
+    await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/bans/${encodeURIComponent(target)}`, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: document.getElementById('unbanReason').value.trim(), byName: RF.getSenderName() })
+    }), { okMessage: 'Unbanned' });
+    document.getElementById('unbanOverlay').classList.remove('show');
+    loadBans();
+  } catch (err) { errEl.textContent = err.message; }
+});
+
+let searchDebounce;
+document.getElementById('search').addEventListener('input', () => {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => loadMembers(true), 350);
+});
+document.getElementById('loadMoreBtn').addEventListener('click', () => loadMembers(false));
+
+function actionLabel(action) {
+  return { timeout: 'Timeout', timeout_clear: 'Timeout cleared', kick: 'Kick', ban: 'Ban', unban: 'Unban' }[action] || action;
+}
+function actionColor(action) {
+  return { timeout: 'var(--amber)', timeout_clear: 'var(--muted)', kick: 'var(--red)', ban: 'var(--red)', unban: 'var(--green)' }[action] || 'var(--muted)';
+}
+
+async function loadLog() {
+  try {
+    const res = await fetch('/api/moderation/log');
+    if (!res.ok) {
+      document.getElementById('logTbody').innerHTML = `<tr class="empty-row"><td colspan="5">Couldn't load the log.</td></tr>`;
+      return;
+    }
+    const entries = await res.json();
+    if (!entries.length) {
+      document.getElementById('logTbody').innerHTML = `<tr class="empty-row"><td colspan="5">Nothing logged yet.</td></tr>`;
+      return;
+    }
+    document.getElementById('logTbody').innerHTML = entries.map(e => `
+      <tr>
+        <td><span class="type-badge" style="background:${actionColor(e.action)}22; color:${actionColor(e.action)};">${RF.esc(actionLabel(e.action))}</span></td>
+        <td class="cell-main mono">${RF.esc(e.targetTag)}</td>
+        <td class="cell-muted">${RF.esc(e.reason || '—')}</td>
+        <td class="cell-muted">${RF.esc(e.byName)}</td>
+        <td class="cell-muted">${RF.fmtDateTime(e.at)}</td>
+      </tr>
+    `).join('');
+  } catch {
+    document.getElementById('logTbody').innerHTML = `<tr class="empty-row"><td colspan="5">Couldn't reach the server.</td></tr>`;
+  }
+}
+
+loadMembers(true);
+loadBans();
+loadLog();
+</script>
+</body>
+</html>

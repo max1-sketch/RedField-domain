@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{SITE_TITLE}} — Settings</title>
+<title>{{SITE_TITLE}} — Blacklist</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
@@ -45,7 +45,6 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 900px; }
 .page-title { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
 .page-sub { font-size: 13px; color: var(--muted); margin: 0 0 22px; }
-.page-sub b { color: var(--ink); }
 
 .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 18px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
@@ -54,46 +53,25 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 
 .btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 9px 15px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .btn-accent { background: var(--accent); color: #0a0c11; }
-.btn-accent:hover { opacity: .9; }
-.btn-ghost { background: var(--panel-2); color: var(--ink); border: 1px solid var(--border); }
-.btn-ghost:hover { border-color: var(--accent); }
 .btn-danger { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
 .btn-danger:hover { background: rgba(239,68,68,0.2); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 
-input[type=text], select {
-  background: var(--panel-2); border: 1px solid var(--border); color: var(--ink);
-  padding: 9px 12px; border-radius: 7px; font-family: inherit; font-size: 13px;
-}
-input[type=text]:focus, select:focus { outline: none; border-color: var(--accent); }
+input[type=text] { background: var(--panel-2); border: 1px solid var(--border); color: var(--ink); padding: 9px 12px; border-radius: 7px; font-family: inherit; font-size: 13px; width: 100%; }
+input[type=text]:focus { outline: none; border-color: var(--accent); }
 
-.owner-row { display: flex; align-items: center; gap: 10px; padding: 11px 13px; background: var(--panel-2); border-radius: 8px; margin-bottom: 14px; font-size: 12.5px; }
-.owner-badge { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; font-weight: 700; color: #fbbf24; border: 1px solid #fbbf2455; background: #fbbf2415; padding: 3px 8px; border-radius: 5px; }
-
-.tier-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 16px; font-size: 11.5px; color: var(--faint); }
-.tier-legend span b { color: var(--muted); }
+.bl-search { position: relative; margin-bottom: 16px; }
+.bl-results { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; z-index: 5; display: none; }
+.bl-results.show { display: block; }
+.bl-result { padding: 9px 12px; font-size: 12.5px; cursor: pointer; }
+.bl-result:hover { background: var(--panel); color: var(--accent); }
 
 table { width: 100%; border-collapse: collapse; }
-thead th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); font-weight: 600; padding: 9px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
-tbody td { padding: 11px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 13px; }
+thead th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); font-weight: 600; padding: 9px 8px; border-bottom: 1px solid var(--border); }
+tbody td { padding: 12px 8px; border-bottom: 1px solid var(--border); font-size: 13px; }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: rgba(255,255,255,0.02); }
-
-.role-swatch { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 8px; vertical-align: middle; }
-.role-list-wrap { max-height: 340px; overflow-y: auto; }
-
-.cat-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--border); }
-.cat-row:last-of-type { border-bottom: none; }
-.cat-row .cat-label { width: 150px; flex-shrink: 0; font-size: 13px; font-weight: 600; color: var(--ink); }
-.cat-row select, .cat-row input[type=text] { flex: 1; min-width: 180px; }
-
-
-.empty-note { font-size: 12.5px; color: var(--faint); padding: 12px 2px; }
-
-.panel-actions { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
-.save-status { font-size: 11.5px; color: var(--green); opacity: 0; transition: opacity .2s; font-weight: 600; }
-.save-status.show { opacity: 1; }
-
+.empty-note { font-size: 12.5px; color: var(--faint); padding: 12px 2px; text-align: center; }
 .loading-line { font-size: 13px; color: var(--faint); padding: 24px 0; text-align: center; }
 
 @media (max-width: 860px) {
@@ -118,8 +96,8 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
   </aside>
 
   <main class="content-area" id="main">
-    <h1 class="page-title">Settings</h1>
-    <div class="loading-line">Reading server roles and channels…</div>
+    <h1 class="page-title">Blacklist</h1>
+    <div class="loading-line">Loading…</div>
   </main>
 </div>
 
@@ -170,11 +148,11 @@ window.RF = (function () {
   return { esc, getCookie, startSessionClock, renderNav, ICONS };
 })();
 
-document.getElementById('navTabs').innerHTML = RF.renderNav('/settings');
+document.getElementById('navTabs').innerHTML = RF.renderNav('/blacklist');
 const _logoutIconEl = document.getElementById('logoutIcon'); if (_logoutIconEl) _logoutIconEl.innerHTML = RF.ICONS.logout;
 RF.startSessionClock(document.getElementById('sessionClock'));
 
-let guildData = null;
+let blacklistedUsers = {};
 
 async function load() {
   try {
@@ -182,169 +160,109 @@ async function load() {
     if (res.status === 401) { window.location.reload(); return; }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      document.getElementById('main').innerHTML = `<h1 class="page-title">Settings</h1><div class="card"><h2 style="margin:0 0 6px;font-size:15px;">Couldn't load server data</h2><p class="card-sub" style="margin-top:0;">${RF.esc(err.error || 'Unknown error — check the bot is online and in the server.')}</p></div>`;
+      document.getElementById('main').innerHTML = `<h1 class="page-title">Blacklist</h1><div class="card"><p class="card-sub" style="margin-top:0;">${RF.esc(err.error || 'Could not load — check the bot is online.')}</p></div>`;
       return;
     }
-    guildData = await res.json();
+    const data = await res.json();
+    blacklistedUsers = data.blacklistedUsers || {};
     renderPage();
   } catch (err) {
-    document.getElementById('main').innerHTML = `<h1 class="page-title">Settings</h1><div class="card"><h2 style="margin:0 0 6px;font-size:15px;">Couldn't reach the server</h2><p class="card-sub" style="margin-top:0;">Refresh the page and try again.</p></div>`;
+    document.getElementById('main').innerHTML = `<h1 class="page-title">Blacklist</h1><div class="card"><p class="card-sub" style="margin-top:0;">Couldn't reach the server. Refresh and try again.</p></div>`;
   }
 }
 
 function renderPage() {
-  const g = guildData;
   document.getElementById('main').innerHTML = `
-    <h1 class="page-title">Settings</h1>
-    <p class="page-sub">Managing <b>${RF.esc(g.guildName)}</b></p>
+    <h1 class="page-title">Blacklist</h1>
+    <p class="page-sub">Blacklisted members can't open new tickets.</p>
 
     <div class="card">
-      <div class="card-header"><h2>Roles &amp; Tiers</h2></div>
-      <p class="card-sub">Pick what each role can do. Admins can do everything staff can, plus they're the only ones who can use this Settings tab. No role assigned = normal member (can only open tickets). Also settable with <code>/configure</code> in Discord.</p>
-
-      <div class="owner-row"><span class="owner-badge">Owner</span> ${RF.esc(g.ownerTag || g.ownerId)} <span style="color:var(--faint)">— always full access, can't be changed here</span></div>
-
-      <div class="tier-legend">
-        <span><b>Admin</b> — full control, including Settings</span>
-        <span><b>Staff</b> — claim/force-close tickets</span>
-        <span><b>Normal</b> — can only open tickets</span>
-      </div>
-
-      <div class="role-list-wrap">
-        <table>
-          <thead><tr><th>Role</th><th>Members</th><th style="width:140px;">Tier</th></tr></thead>
-          <tbody id="roleTbody"></tbody>
-        </table>
-      </div>
-
-      <div class="panel-actions">
-        <button class="btn btn-accent" id="saveRolesBtn">Save roles</button>
-        <span class="save-status" id="rolesStatus">Saved ✓</span>
+      <div class="card-header"><h2>Add someone</h2></div>
+      <div class="bl-search">
+        <input type="text" id="blSearch" placeholder="Search server members…" autocomplete="off">
+        <div class="bl-results" id="blResults"></div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header"><h2>Ticket Categories</h2></div>
-      <p class="card-sub">Which Discord category each ticket type gets created under. Pick an existing one or type a new name — it's created automatically the next time that ticket type is opened.</p>
-      <div id="catGrid"></div>
-      <div class="panel-actions">
-        <button class="btn btn-accent" id="saveCatBtn">Save categories</button>
-        <span class="save-status" id="catStatus">Saved ✓</span>
-      </div>
+    <div class="card" style="padding:0; overflow-x:auto;">
+      <table>
+        <thead><tr><th style="padding-left:22px;">User</th><th>Reason</th><th style="width:100px;text-align:right;padding-right:22px;">Remove</th></tr></thead>
+        <tbody id="blTbody"></tbody>
+      </table>
     </div>
   `;
-
-  renderRoles();
-  renderCategories();
-  wireRoleSave();
-  wireCategorySave();
+  renderBlacklist();
+  wireBlacklistSearch();
 }
 
-function tierOf(roleId) {
-  if (guildData.adminRoleIds.includes(roleId)) return 'admin';
-  if (guildData.staffRoleIds.includes(roleId)) return 'staff';
-  return 'normal';
-}
-
-function renderRoles() {
-  const tbody = document.getElementById('roleTbody');
-  if (!guildData.roles.length) {
-    tbody.innerHTML = `<tr><td colspan="3" class="empty-note">No assignable roles found in this server.</td></tr>`;
+function renderBlacklist() {
+  const tbody = document.getElementById('blTbody');
+  const entries = Object.entries(blacklistedUsers);
+  if (!entries.length) {
+    tbody.innerHTML = `<tr><td colspan="3" class="empty-note">Nobody blacklisted right now.</td></tr>`;
     return;
   }
-  tbody.innerHTML = guildData.roles.map(r => `
-    <tr data-role-id="${r.id}">
-      <td><span class="role-swatch" style="background:${r.color || '#8d9297'}"></span>${RF.esc(r.name)}</td>
-      <td class="mono" style="color:var(--faint);">${r.memberCount}</td>
-      <td>
-        <select data-role-id="${r.id}" style="width:100%;">
-          <option value="normal" ${tierOf(r.id) === 'normal' ? 'selected' : ''}>Normal</option>
-          <option value="staff" ${tierOf(r.id) === 'staff' ? 'selected' : ''}>Staff</option>
-          <option value="admin" ${tierOf(r.id) === 'admin' ? 'selected' : ''}>Admin</option>
-        </select>
-      </td>
+  tbody.innerHTML = entries.map(([userId, info]) => `
+    <tr>
+      <td style="font-weight:600;padding-left:22px;">${RF.esc(info.tag)}</td>
+      <td style="color:var(--faint);">${RF.esc(info.reason || 'No reason given')}</td>
+      <td style="text-align:right;padding-right:22px;"><button class="btn btn-danger" data-user-id="${RF.esc(userId)}" onclick="removeBlacklist(this)">Remove</button></td>
     </tr>
   `).join('');
 }
 
-function wireRoleSave() {
-  document.getElementById('saveRolesBtn').addEventListener('click', async () => {
-    const staffRoleIds = [], adminRoleIds = [];
-    document.querySelectorAll('#roleTbody select').forEach(sel => {
-      const id = sel.getAttribute('data-role-id');
-      if (sel.value === 'staff') staffRoleIds.push(id);
-      if (sel.value === 'admin') adminRoleIds.push(id);
-    });
-    const btn = document.getElementById('saveRolesBtn');
-    btn.disabled = true;
+async function removeBlacklist(btn) {
+  const userId = btn.getAttribute('data-user-id');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/guild/blacklist/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+    if (res.ok) { delete blacklistedUsers[userId]; renderBlacklist(); }
+    else { alert('Could not remove — try again.'); btn.disabled = false; }
+  } catch { alert('Could not remove — check your connection.'); btn.disabled = false; }
+}
+
+function wireBlacklistSearch() {
+  const input = document.getElementById('blSearch');
+  const results = document.getElementById('blResults');
+  let debounceTimer;
+
+  input.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    const q = input.value.trim();
+    if (q.length < 2) { results.classList.remove('show'); return; }
+    debounceTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/guild/members?query=${encodeURIComponent(q)}`);
+        const members = await res.json();
+        if (!members.length) { results.innerHTML = '<div class="bl-result" style="color:var(--faint);cursor:default;">No members found</div>'; }
+        else { results.innerHTML = members.map(m => `<div class="bl-result" data-user-id="${RF.esc(m.id)}" data-tag="${RF.esc(m.tag)}">${RF.esc(m.displayName)} <span style="color:var(--faint)">(${RF.esc(m.tag)})</span></div>`).join(''); }
+        results.classList.add('show');
+      } catch { results.classList.remove('show'); }
+    }, 300);
+  });
+
+  results.addEventListener('click', async (e) => {
+    const row = e.target.closest('.bl-result');
+    if (!row || !row.getAttribute('data-user-id')) return;
+    const userId = row.getAttribute('data-user-id');
+    const tag = row.getAttribute('data-tag');
+    const reason = prompt(`Reason for blacklisting ${tag}? (optional)`) || '';
     try {
-      const res = await fetch('/api/guild/roles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ staffRoleIds, adminRoleIds }) });
-      if (res.ok) { guildData.staffRoleIds = staffRoleIds; guildData.adminRoleIds = adminRoleIds; flashStatus('rolesStatus'); }
-      else alert('Could not save — try again.');
-    } catch { alert('Could not save — check your connection.'); }
-    btn.disabled = false;
+      const res = await fetch('/api/guild/blacklist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, tag, reason }) });
+      if (res.ok) {
+        blacklistedUsers[userId] = { tag, reason: reason || 'No reason given' };
+        renderBlacklist();
+        input.value = ''; results.classList.remove('show');
+      } else alert('Could not blacklist — try again.');
+    } catch { alert('Could not blacklist — check your connection.'); }
   });
 }
 
-function renderCategories() {
-  const grid = document.getElementById('catGrid');
-  const catNames = guildData.categories.map(c => c.name.toUpperCase());
-  grid.innerHTML = Object.entries(guildData.panels).map(([typeKey, panel]) => {
-    const current = (panel.categoryName || '').toUpperCase();
-    const options = [...new Set([current, ...catNames])].filter(Boolean);
-    return `
-      <div class="cat-row" data-type="${typeKey}">
-        <span class="cat-label">${RF.esc(panel.buttonLabel || typeKey)}</span>
-        <select class="cat-select" data-type="${typeKey}">
-          ${options.map(name => `<option value="${RF.esc(name)}" ${name === current ? 'selected' : ''}>${RF.esc(name)}</option>`).join('')}
-          <option value="__new__">+ New category…</option>
-        </select>
-        <input type="text" class="cat-new-input" data-type="${typeKey}" placeholder="New category name" maxlength="90" style="display:none;">
-      </div>
-    `;
-  }).join('');
-
-  grid.querySelectorAll('.cat-select').forEach(sel => {
-    sel.addEventListener('change', () => {
-      const input = grid.querySelector(`.cat-new-input[data-type="${sel.getAttribute('data-type')}"]`);
-      input.style.display = sel.value === '__new__' ? 'block' : 'none';
-      if (sel.value === '__new__') input.focus();
-    });
-  });
-}
-
-function wireCategorySave() {
-  document.getElementById('saveCatBtn').addEventListener('click', async () => {
-    const updates = {};
-    const blankRows = [];
-    document.querySelectorAll('.cat-row').forEach(row => {
-      const type = row.getAttribute('data-type');
-      const sel = row.querySelector('.cat-select');
-      const input = row.querySelector('.cat-new-input');
-      const value = sel.value === '__new__' ? input.value.trim() : sel.value;
-      if (sel.value === '__new__' && (!value || value.length > 90)) { blankRows.push(type); return; }
-      updates[type] = value;
-    });
-    if (blankRows.length) {
-      alert(`Category name for ${blankRows.join(', ')} is blank or too long (max 90 characters) — fix that before saving.`);
-      return;
-    }
-    const btn = document.getElementById('saveCatBtn');
-    btn.disabled = true;
-    try {
-      const res = await fetch('/api/guild/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
-      if (res.ok) { flashStatus('catStatus'); load(); }
-      else alert('Could not save — try again.');
-    } catch { alert('Could not save — check your connection.'); }
-    btn.disabled = false;
-  });
-}
-
-function flashStatus(id) {
-  const el = document.getElementById(id);
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 1800);
-}
+document.addEventListener('click', (e) => {
+  if (e.target.closest('.bl-search')) return;
+  const results = document.getElementById('blResults');
+  if (results) results.classList.remove('show');
+});
 
 load();
 </script>

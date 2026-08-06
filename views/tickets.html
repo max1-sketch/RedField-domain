@@ -3,13 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{SITE_TITLE}} — Archive</title>
+<title>{{SITE_TITLE}} — Open Tickets</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 :root {
   --accent: {{ACCENT_COLOR}};
-  --accent-dim: color-mix(in srgb, {{ACCENT_COLOR}} 55%, #000000);
   --bg-0: #0a0c11;
   --sidebar-bg: #0d0f16;
   --panel: #141722;
@@ -23,126 +22,67 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
-body {
-  min-height: 100vh; background: var(--bg-0); color: var(--ink);
-  font-family: 'Inter', sans-serif; font-size: 14px;
-}
+body { min-height: 100vh; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
 a { color: inherit; text-decoration: none; }
 .mono { font-family: 'IBM Plex Mono', monospace; }
-
 .site-banner { background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; }
 
-/* ---------- shell ---------- */
 .app-shell { display: flex; min-height: 100vh; }
-
-.sidebar {
-  width: 250px; flex-shrink: 0; background: var(--sidebar-bg);
-  border-right: 1px solid var(--border);
-  padding: 18px 14px; display: flex; flex-direction: column;
-  position: sticky; top: 0; height: 100vh; overflow-y: auto;
-}
-.sidebar-brand {
-  display: flex; align-items: center; gap: 10px;
-  background: var(--accent); color: #0a0c11;
-  padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px;
-  margin-bottom: 18px; line-height: 1.25;
-}
+.sidebar { width: 250px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.sidebar-brand { display: flex; align-items: center; gap: 10px; background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px; margin-bottom: 18px; line-height: 1.25; }
 .sidebar-brand .dot { width: 8px; height: 8px; border-radius: 50%; background: #0a0c11; flex-shrink: 0; opacity: .55; }
-
 nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
-.nav-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 13px; border-radius: 8px;
-  color: var(--muted); font-size: 13.5px; font-weight: 500;
-}
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); font-size: 13.5px; font-weight: 500; }
 .nav-item:hover { background: var(--panel-2); color: var(--ink); }
 .nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
 .nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
 .nav-item .ic svg { width: 100%; height: 100%; }
 .nav-item.active .ic { opacity: 1; }
-
 .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
 .session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
 .session-line.warn { color: var(--red); }
 
-.content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 1400px; }
+.content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 1300px; }
+.page-title { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0 0 4px; display: flex; align-items: center; gap: 10px; }
+.page-sub { font-size: 13px; color: var(--muted); margin: 0 0 20px; }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 0 rgba(34,197,94,.6); animation: livepulse 1.8s infinite; }
+@keyframes livepulse { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,.55); } 70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
 
-.page-title { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0 0 20px; }
-
-/* ---------- card ---------- */
-.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 16px; }
-.card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
-.card-header h2 { font-size: 15.5px; font-weight: 700; color: var(--ink); margin: 0; }
-.card-sub { font-size: 12.5px; color: var(--muted); margin: -10px 0 16px; }
-
-/* ---------- buttons ---------- */
-.btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 9px 15px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
-.btn-accent { background: var(--accent); color: #0a0c11; }
-.btn-accent:hover { opacity: .9; }
-.btn-ghost { background: var(--panel-2); color: var(--ink); border: 1px solid var(--border); }
-.btn-ghost:hover { border-color: var(--accent); }
-.btn-danger { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
-.btn-danger:hover { background: rgba(239,68,68,0.2); }
-.btn:disabled { opacity: .5; cursor: not-allowed; }
-
-/* ---------- inputs ---------- */
-input[type=text], select {
-  background: var(--panel-2); border: 1px solid var(--border); color: var(--ink);
-  padding: 9px 12px; border-radius: 7px; font-family: inherit; font-size: 13px;
-}
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; }
+.filters-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 18px 20px; }
+input[type=text], select { background: var(--panel-2); border: 1px solid var(--border); color: var(--ink); padding: 9px 12px; border-radius: 7px; font-family: inherit; font-size: 13px; }
 input[type=text]:focus, select:focus { outline: none; border-color: var(--accent); }
-
-/* ---------- filters row ---------- */
-.filters-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 4px; }
 .search-wrap { position: relative; flex: 1 1 260px; min-width: 200px; }
 .search-wrap input { width: 100%; padding-left: 32px; }
 .search-wrap::before { content: "⌕"; position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--faint); font-size: 15px; }
 .count-pill { font-size: 12px; color: var(--faint); white-space: nowrap; margin-left: auto; }
 .count-pill b { color: var(--accent); font-weight: 700; }
+.btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 8px 14px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.btn-ghost { background: var(--panel-2); color: var(--ink); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--accent); }
 
-.stats-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-.stat-chip { font-size: 12px; color: var(--muted); background: var(--panel); border: 1px solid var(--border); padding: 7px 13px; border-radius: 8px; }
-.stat-chip b { color: var(--ink); font-weight: 700; margin-left: 4px; }
-.stat-chip.total { border-color: var(--accent); color: var(--accent); }
-
-/* ---------- table ---------- */
 table { width: 100%; border-collapse: collapse; }
-thead th {
-  text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
-  color: var(--faint); font-weight: 600; padding: 10px 10px; border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
+thead th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); font-weight: 600; padding: 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 tbody td { padding: 13px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 13px; }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: rgba(255,255,255,0.02); }
 .cell-main { color: var(--ink); font-weight: 600; }
-.cell-sub { color: var(--faint); font-size: 11.5px; margin-top: 2px; }
 .cell-muted { color: var(--muted); }
-
-.type-badge {
-  display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .03em;
-  padding: 3px 9px; border-radius: 5px; text-transform: uppercase;
-}
-.tag-chip-row { display: flex; flex-wrap: wrap; gap: 5px; max-width: 220px; }
+.type-badge { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; padding: 3px 9px; border-radius: 5px; text-transform: uppercase; }
+.tag-chip-row { display: flex; flex-wrap: wrap; gap: 5px; max-width: 200px; }
 .tag-chip { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: 99px; white-space: nowrap; }
 .actions-cell { display: flex; gap: 8px; justify-content: flex-end; }
+.btn-accent { background: var(--accent); color: #0a0c11; }
+.btn-accent:hover { opacity: .9; }
+.status-badge { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 5px; }
+.status-badge.open { background: #22c55e22; color: var(--green); }
+.status-badge.closing { background: #ef444422; color: var(--red); }
 
 .empty-row td { text-align: center; padding: 50px 20px; color: var(--faint); }
 .empty-row .icon { font-size: 22px; margin-bottom: 8px; display: block; }
 .empty-row h3 { font-size: 14px; color: var(--muted); margin: 0 0 4px; font-weight: 600; }
 .empty-row p { font-size: 12.5px; margin: 0; }
-
-.skeleton-row td { color: var(--faint); opacity: .4; animation: pulse 1.3s ease-in-out infinite; }
-@keyframes pulse { 0%,100% { opacity: .25; } 50% { opacity: .5; } }
-
-/* ---------- modal ---------- */
-.modal-overlay { position: fixed; inset: 0; background: rgba(5,6,9,.75); display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
-.modal-overlay.show { display: flex; }
-.modal { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 24px; width: 340px; max-width: 100%; }
-.modal h3 { font-size: 15px; font-weight: 700; color: var(--ink); margin: 0 0 8px; }
-.modal p { font-size: 12.5px; color: var(--muted); margin: 0 0 18px; line-height: 1.6; }
-.modal-actions { display: flex; gap: 10px; }
-.modal-actions .btn { flex: 1; justify-content: center; }
+.skeleton-row td { color: var(--faint); opacity: .4; }
 
 @media (max-width: 860px) {
   .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
@@ -166,9 +106,8 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
   </aside>
 
   <main class="content-area">
-    <h1 class="page-title">Ticket Archive</h1>
-
-    <div class="stats-row" id="statsRow" style="display:none;"></div>
+    <h1 class="page-title"><span class="live-dot"></span> Open Tickets</h1>
+    <p class="page-sub">Tickets currently in progress — closing still happens in Discord, this is view-only.</p>
 
     <div class="card">
       <div class="filters-row">
@@ -177,46 +116,30 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         </div>
         <select id="typeFilter"><option value="">All types</option></select>
         <select id="tagFilter"><option value="">All tags</option></select>
-        <select id="sortOrder">
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-        </select>
+        <button class="btn btn-ghost" id="refreshBtn">↻ Refresh</button>
         <span class="count-pill" id="countPill">loading…</span>
       </div>
     </div>
 
-    <div class="card" style="padding:0; overflow-x:auto;">
+    <div class="card" style="overflow-x:auto;">
       <table>
         <thead>
           <tr>
             <th>Type</th>
-            <th>Ticket</th>
             <th>Opened by</th>
             <th>Claimed by</th>
-            <th>Closed</th>
+            <th>Opened</th>
+            <th>Status</th>
             <th>Tags</th>
             <th style="text-align:right;">Actions</th>
           </tr>
         </thead>
         <tbody id="tbody">
-          <tr class="skeleton-row"><td colspan="7">Loading archive…</td></tr>
+          <tr class="skeleton-row"><td colspan="7">Loading…</td></tr>
         </tbody>
       </table>
     </div>
-
-    {{FOOTER_NOTE_HTML}}
   </main>
-</div>
-
-<div class="modal-overlay" id="deleteOverlay">
-  <div class="modal">
-    <h3>Delete this record?</h3>
-    <p>This permanently removes the archived transcript from the site. Can't be undone.</p>
-    <div class="modal-actions">
-      <button class="btn btn-danger" id="confirmDelete">Delete it</button>
-      <button class="btn btn-ghost" id="cancelDelete">Never mind</button>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -228,37 +151,15 @@ window.RF = (function () {
     return (str === undefined || str === null ? '' : String(str))
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
-  function initials(tag) { if (!tag) return '?'; return tag.split('#')[0].slice(0, 2).toUpperCase(); }
   function fmtDateTime(iso) {
     if (!iso) return 'Unknown';
     const d = new Date(iso);
     if (isNaN(d.getTime())) return 'Unknown';
-    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  }
-  function fmtDay(iso) {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return 'Unknown date';
-    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  }
-  function fmtTime(iso) {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
   function getCookie(name) {
     const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
     return match ? decodeURIComponent(match[1]) : null;
-  }
-  function isStaffSession() { return Boolean(getCookie('ticketAuth')); }
-  function copyText(text) {
-    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
-    return new Promise((resolve, reject) => {
-      const ta = document.createElement('textarea');
-      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.select();
-      try { document.execCommand('copy') ? resolve() : reject(new Error('copy failed')); }
-      catch (err) { reject(err); } finally { document.body.removeChild(ta); }
-    });
   }
   function startSessionClock(el) {
     function tick() {
@@ -294,16 +195,15 @@ window.RF = (function () {
     ];
     return tabs.map(t => `<a class="nav-item${t.href === activePath ? ' active' : ''}" href="${t.href}"><span class="ic">${t.ic}</span> ${t.label}</a>`).join('');
   }
-  return { typeColor, esc, initials, fmtDateTime, fmtDay, fmtTime, getCookie, isStaffSession, copyText, startSessionClock, renderNav, ICONS };
+  return { typeColor, esc, fmtDateTime, getCookie, startSessionClock, renderNav, ICONS };
 })();
 
-document.getElementById('navTabs').innerHTML = RF.renderNav('/');
+document.getElementById('navTabs').innerHTML = RF.renderNav('/tickets');
 const _logoutIconEl = document.getElementById('logoutIcon'); if (_logoutIconEl) _logoutIconEl.innerHTML = RF.ICONS.logout;
 RF.startSessionClock(document.getElementById('sessionClock'));
 
 let allTickets = [];
 let allTags = [];
-let pendingDeleteId = null;
 
 async function loadTags() {
   try {
@@ -318,81 +218,60 @@ async function loadTags() {
         sel.appendChild(opt);
       }
     }
-  } catch { /* tag filter just stays empty if this fails — not fatal */ }
+  } catch { /* tag filter just stays empty if this fails */ }
 }
-
 function tagById(id) { return allTags.find(t => t.id === id); }
 
 async function loadTickets() {
   try {
-    const res = await fetch('/api/tickets');
+    const res = await fetch('/api/open-tickets');
     if (res.status === 401) {
       document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="7"><span class="icon">🔒</span><h3>Session expired</h3><p><a href="/" style="color:var(--accent)">Log in again</a></p></td></tr>`;
       return;
     }
     if (!res.ok) {
-      let bodyText = '';
-      try { bodyText = await res.text(); } catch {}
-      document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="7"><span class="icon">⚠</span><h3>Server error</h3><p>HTTP ${res.status}${bodyText ? ' — ' + RF.esc(bodyText.slice(0, 200)) : ''}</p></td></tr>`;
-      document.getElementById('countPill').textContent = `error ${res.status}`;
+      document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="7"><span class="icon">⚠</span><h3>Server error</h3><p>HTTP ${res.status}</p></td></tr>`;
       return;
     }
     allTickets = await res.json();
-    if (!Array.isArray(allTickets)) throw new Error('Unexpected response shape');
     populateTypeFilter();
     render();
   } catch (err) {
-    document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="7"><span class="icon">⚠</span><h3>Couldn't load the archive</h3><p>${RF.esc(err.message || 'Unknown error')}</p></td></tr>`;
-    document.getElementById('countPill').textContent = 'failed to load';
+    document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="7"><span class="icon">⚠</span><h3>Couldn't load open tickets</h3><p>${RF.esc(err.message || 'Unknown error')}</p></td></tr>`;
   }
 }
 
 function populateTypeFilter() {
-  const types = [...new Set(allTickets.map(t => t.type).filter(Boolean))].sort();
   const sel = document.getElementById('typeFilter');
+  const existing = new Set(Array.from(sel.options).map(o => o.value));
+  const types = [...new Set(allTickets.map(t => t.type).filter(Boolean))].sort();
   for (const t of types) {
+    if (existing.has(t)) continue;
     const opt = document.createElement('option');
     opt.value = t; opt.textContent = t;
     sel.appendChild(opt);
   }
 }
 
-function renderStats(list) {
-  const row = document.getElementById('statsRow');
-  if (!list.length) { row.style.display = 'none'; return; }
-  row.style.display = 'flex';
-  const byType = {};
-  for (const t of list) byType[t.type || 'OTHER'] = (byType[t.type || 'OTHER'] || 0) + 1;
-  const chips = Object.entries(byType).sort((a, b) => b[1] - a[1])
-    .map(([type, count]) => `<span class="stat-chip" style="border-color:${RF.typeColor(type)}55">${count} <b>${RF.esc(type)}</b></span>`).join('');
-  row.innerHTML = `<span class="stat-chip total">${list.length} <b>shown</b></span>${chips}`;
-}
-
 function render() {
   const q = document.getElementById('search').value.trim().toLowerCase();
   const typeFilter = document.getElementById('typeFilter').value;
-  const tagFilter = document.getElementById('tagFilter').value;
-  const sort = document.getElementById('sortOrder').value;
 
+  const tagFilter = document.getElementById('tagFilter').value;
   let filtered = allTickets.filter(t => {
     if (typeFilter && t.type !== typeFilter) return false;
     if (tagFilter && !(Array.isArray(t.tags) && t.tags.includes(tagFilter))) return false;
     if (!q) return true;
-    const haystack = [t.openedBy, t.claimedBy, t.closedBy, t.reason, t.robloxUsername, t.channelName].join(' ').toLowerCase();
+    const haystack = [t.userTag, t.claimedBy, t.reason, t.robloxUsername].join(' ').toLowerCase();
     return haystack.includes(q);
   });
-  filtered.sort((a, b) => {
-    const da = new Date(a.closedAt || 0).getTime();
-    const db = new Date(b.closedAt || 0).getTime();
-    return sort === 'oldest' ? da - db : db - da;
-  });
+  filtered.sort((a, b) => new Date(b.openedAt || 0).getTime() - new Date(a.openedAt || 0).getTime());
 
-  document.getElementById('countPill').innerHTML = `<b>${filtered.length}</b> of ${allTickets.length} filed`;
-  renderStats(filtered);
+  document.getElementById('countPill').innerHTML = `<b>${filtered.length}</b> of ${allTickets.length} open`;
 
   const tbody = document.getElementById('tbody');
   if (!filtered.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="7"><span class="icon">🗄️</span><h3>${allTickets.length ? 'No matches' : 'Nothing filed yet'}</h3><p>${allTickets.length ? 'Try a different search or type filter.' : 'Closed tickets will show up here once staff archive them.'}</p></td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="7"><span class="icon">📭</span><h3>${allTickets.length ? 'No matches' : 'Nothing open right now'}</h3><p>${allTickets.length ? 'Try a different search or type filter.' : 'Tickets show up here the moment someone opens one.'}</p></td></tr>`;
     return;
   }
 
@@ -406,50 +285,28 @@ function render() {
     return `
     <tr>
       <td><span class="type-badge" style="background:${color}22; color:${color};">${RF.esc(t.type || 'TICKET')}</span></td>
-      <td>
-        <div class="cell-main">${RF.esc(t.channelName || 'unnamed-ticket')}</div>
-        <div class="cell-sub mono">#${RF.esc((t.id || '').slice(-6))}</div>
-      </td>
-      <td class="cell-muted">${RF.esc(t.openedBy || 'Unknown')}</td>
+      <td class="cell-main">${RF.esc(t.userTag || 'Unknown')}${t.robloxUsername ? `<div class="cell-muted" style="font-size:11.5px;">Roblox: ${RF.esc(t.robloxUsername)}</div>` : ''}</td>
       <td class="cell-muted">${RF.esc(t.claimedBy || '—')}</td>
-      <td class="cell-muted">${RF.fmtDateTime(t.closedAt)}</td>
+      <td class="cell-muted">${RF.fmtDateTime(t.openedAt)}</td>
+      <td><span class="status-badge ${t.closing ? 'closing' : 'open'}">${t.closing ? 'Closing…' : 'Open'}</span></td>
       <td><div class="tag-chip-row">${tagChips || '<span class="cell-muted" style="font-size:11.5px;">—</span>'}</div></td>
-      <td>
+      <td style="text-align:right;">
         <div class="actions-cell">
-          <a class="btn btn-accent" href="/transcript/${encodeURIComponent(t.id)}">Open</a>
-          <button class="btn btn-danger" data-id="${RF.esc(t.id)}" onclick="askDelete(this)">Delete</button>
+          <a class="btn btn-accent" href="/tickets/${encodeURIComponent(t.channelId)}">View &amp; Reply</a>
+          ${t.discordUrl ? `<a class="btn btn-ghost" href="${RF.esc(t.discordUrl)}" target="_blank" rel="noopener">Discord</a>` : ''}
         </div>
       </td>
     </tr>`;
   }).join('');
 }
 
-function askDelete(btn) {
-  pendingDeleteId = btn.getAttribute('data-id');
-  document.getElementById('deleteOverlay').classList.add('show');
-}
-document.getElementById('cancelDelete').addEventListener('click', () => {
-  pendingDeleteId = null;
-  document.getElementById('deleteOverlay').classList.remove('show');
-});
-document.getElementById('confirmDelete').addEventListener('click', async () => {
-  if (!pendingDeleteId) return;
-  const id = pendingDeleteId;
-  document.getElementById('deleteOverlay').classList.remove('show');
-  try {
-    const res = await fetch(`/api/tickets/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    if (res.ok) { allTickets = allTickets.filter(t => t.id !== id); render(); }
-    else alert('Could not delete — try refreshing the page.');
-  } catch { alert('Could not delete — check your connection.'); }
-  pendingDeleteId = null;
-});
-
 document.getElementById('search').addEventListener('input', render);
 document.getElementById('typeFilter').addEventListener('change', render);
 document.getElementById('tagFilter').addEventListener('change', render);
-document.getElementById('sortOrder').addEventListener('change', render);
+document.getElementById('refreshBtn').addEventListener('click', loadTickets);
 
 loadTags().then(loadTickets);
+setInterval(loadTickets, 20000);
 </script>
 </body>
 </html>

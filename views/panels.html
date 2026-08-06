@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Panels</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --accent: {{ACCENT_COLOR}};
+  --bg-0: #0a0c11;
+  --sidebar-bg: #0d0f16;
+  --panel: #141722;
+  --panel-2: #1a1e2b;
+  --border: #262b3a;
+  --ink: #e7e9ee;
+  --muted: #9199a8;
+  --faint: #5b6272;
+  --red: #ef4444;
+  --green: #22c55e;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { min-height: 100vh; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+a { color: inherit; text-decoration: none; }
+.mono { font-family: 'IBM Plex Mono', monospace; }
+.site-banner { background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; }
+
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar { width: 250px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.sidebar-brand { display: flex; align-items: center; gap: 10px; background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px; margin-bottom: 18px; line-height: 1.25; }
+.sidebar-brand .dot { width: 8px; height: 8px; border-radius: 50%; background: #0a0c11; flex-shrink: 0; opacity: .55; }
+nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); font-size: 13.5px; font-weight: 500; }
+.nav-item:hover { background: var(--panel-2); color: var(--ink); }
+.nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
+.nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
+.nav-item .ic svg { width: 100%; height: 100%; }
+.nav-item.active .ic { opacity: 1; }
+.sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
+.session-line.warn { color: var(--red); }
+
+.content-area { flex: 1; min-width: 0; padding: 26px 30px 70px; max-width: 900px; }
+.page-title { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
+.page-sub { font-size: 13px; color: var(--muted); margin: 0 0 22px; line-height: 1.6; }
+
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 16px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.card-header h2 { font-size: 15.5px; font-weight: 700; color: var(--ink); margin: 0; display: flex; align-items: center; gap: 9px; }
+.type-badge { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; padding: 3px 9px; border-radius: 5px; text-transform: uppercase; }
+.cat-note { font-size: 11.5px; color: var(--faint); }
+.cat-note a { color: var(--accent); }
+
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; margin-bottom: 14px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field.full { grid-column: 1 / -1; }
+.team-roles { display: flex; flex-wrap: wrap; gap: 8px; max-height: 160px; overflow-y: auto; padding: 10px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px; }
+.restrict-check { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: var(--ink); font-weight: 600; text-transform: none; letter-spacing: 0; cursor: pointer; }
+.restrict-check input { margin-top: 3px; cursor: pointer; flex-shrink: 0; }
+.role-check { display: flex; align-items: center; gap: 6px; font-size: 12.5px; background: var(--bg-0); border: 1px solid var(--border); padding: 5px 10px; border-radius: 99px; cursor: pointer; }
+.role-check input { margin: 0; cursor: pointer; }
+.role-swatch { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.field label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); font-weight: 600; }
+.field .hint { font-size: 11px; color: var(--faint); font-weight: 400; text-transform: none; letter-spacing: 0; }
+input[type=text], select, textarea {
+  background: var(--panel-2); border: 1px solid var(--border); color: var(--ink);
+  padding: 9px 12px; border-radius: 7px; font-family: inherit; font-size: 13px; width: 100%;
+}
+textarea { resize: vertical; min-height: 70px; font-family: inherit; }
+input[type=text]:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+input[type=color] { width: 44px; height: 34px; padding: 2px; border-radius: 7px; border: 1px solid var(--border); background: var(--panel-2); cursor: pointer; }
+.color-row { display: flex; align-items: center; gap: 10px; }
+.color-row input[type=text] { flex: 1; }
+.char-count { font-size: 10.5px; color: var(--faint); text-align: right; margin-top: -2px; }
+.char-count.over { color: var(--red); }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 10px 18px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-accent { background: var(--accent); color: #0a0c11; }
+.btn-accent:hover { opacity: .9; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.save-bar { position: sticky; bottom: 0; background: var(--bg-0); padding: 16px 0 4px; margin-top: 4px; display: flex; align-items: center; gap: 14px; border-top: 1px solid var(--border); }
+.save-status { font-size: 12px; color: var(--green); opacity: 0; transition: opacity .2s; font-weight: 600; }
+.save-status.show { opacity: 1; }
+.save-error { font-size: 12px; color: var(--red); }
+
+.loading-line { font-size: 13px; color: var(--faint); padding: 24px 0; text-align: center; }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(5,6,9,.75); display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 24px; width: 340px; max-width: 100%; }
+.modal h3 { font-size: 15px; font-weight: 700; color: var(--ink); margin: 0 0 14px; }
+.modal p { font-size: 12.5px; color: var(--muted); margin: 0 0 18px; line-height: 1.6; }
+.modal .field { margin-bottom: 14px; }
+.modal-error { font-size: 12px; color: var(--red); margin-bottom: 10px; min-height: 1em; }
+.modal-actions { display: flex; gap: 10px; }
+.modal-actions .btn { flex: 1; justify-content: center; }
+
+@media (max-width: 700px) { .field-grid { grid-template-columns: 1fr; } }
+@media (max-width: 860px) {
+  .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
+  .sidebar.open { transform: translateX(0); }
+  .content-area { padding: 18px 16px 50px; }
+}
+</style>
+</head>
+<body>
+
+{{BANNER_HTML}}
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
+    <nav class="sidebar-nav" id="navTabs"></nav>
+    <div class="sidebar-footer">
+      <span class="session-line mono" id="sessionClock">session --:--</span>
+      <a href="/logout" class="nav-item"><span class="ic" id="logoutIcon"></span> Log out</a>
+    </div>
+  </aside>
+
+  <main class="content-area" id="main">
+    <h1 class="page-title">Ticket Panels</h1>
+    <div class="loading-line">Loading…</div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="createPanelOverlay">
+  <div class="modal">
+    <h3>New panel</h3>
+    <div class="field">
+      <label>Name</label>
+      <input type="text" id="newPanelName" maxlength="40" placeholder="e.g. Appeals">
+    </div>
+    <div class="modal-error" id="createPanelError"></div>
+    <div class="modal-actions">
+      <button class="btn btn-accent" id="confirmCreatePanel">Create</button>
+      <button class="btn btn-ghost" id="cancelCreatePanel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="deletePanelOverlay">
+  <div class="modal">
+    <h3>Delete <span id="deletePanelName" class="mono"></span>?</h3>
+    <p>This removes the panel and its button from the site — you'll need to run <code>/sendpanels</code> again to clear the old posted panel from Discord. Tickets already open under this type aren't affected.</p>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="confirmDeletePanel">Delete it</button>
+      <button class="btn btn-ghost" id="cancelDeletePanel">Never mind</button>
+    </div>
+  </div>
+</div>
+
+<script>
+window.RF = (function () {
+  const TYPE_COLORS = { REDFIELD: '#22c55e', MANAGEMENT: '#3b82f6', BUG: '#f59e0b' };
+  const FALLBACK_COLOR = '#a78bfa';
+  function typeColor(type) { return TYPE_COLORS[type] || FALLBACK_COLOR; }
+  function esc(str) {
+    return (str === undefined || str === null ? '' : String(str))
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+  function startSessionClock(el) {
+    function tick() {
+      const expiresAt = parseInt(getCookie('sessionExpires') || '0', 10);
+      if (!expiresAt) { el.textContent = 'session --:--'; return; }
+      const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      const m = Math.floor(remaining / 60), s = remaining % 60;
+      el.textContent = `session ${m}:${s.toString().padStart(2, '0')}`;
+      el.classList.toggle('warn', remaining <= 60);
+      if (remaining <= 0) window.location.reload();
+    }
+    tick(); setInterval(tick, 1000);
+  }
+  const ICONS = {
+    shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5Z"></path></svg>',
+    archive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"></rect><path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"></path><path d="M10 12h4"></path></svg>',
+    tickets: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12h-5l-2 3h-4l-2-3H2"></path><path d="M5.4 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.4-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.8 1.1Z"></path></svg>',
+    panels: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>',
+    tags: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H3v9l10.3 10.3a1 1 0 0 0 1.4 0l7.6-7.6a1 1 0 0 0 0-1.4L12 2Z"></path><circle cx="7.5" cy="7.5" r="1.4"></circle></svg>',
+    blacklist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m5.5 5.5 13 13"></path></svg>',
+    settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.9-2.9l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"></path></svg>',
+    logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>'
+  };
+  function renderNav(activePath) {
+    const tabs = [
+      { href: '/', label: 'Archive', ic: ICONS.archive },
+      { href: '/tickets', label: 'Open Tickets', ic: ICONS.tickets },
+      { href: '/panels', label: 'Panels', ic: ICONS.panels },
+      { href: '/tags', label: 'Tags', ic: ICONS.tags },
+      { href: '/moderation', label: 'Moderation', ic: ICONS.shield },
+      { href: '/blacklist', label: 'Blacklist', ic: ICONS.blacklist },
+      { href: '/settings', label: 'Settings', ic: ICONS.settings }
+    ];
+    return tabs.map(t => `<a class="nav-item${t.href === activePath ? ' active' : ''}" href="${t.href}"><span class="ic">${t.ic}</span> ${t.label}</a>`).join('');
+  }
+  return { typeColor, esc, getCookie, startSessionClock, renderNav, ICONS };
+})();
+
+document.getElementById('navTabs').innerHTML = RF.renderNav('/panels');
+const _logoutIconEl = document.getElementById('logoutIcon'); if (_logoutIconEl) _logoutIconEl.innerHTML = RF.ICONS.logout;
+RF.startSessionClock(document.getElementById('sessionClock'));
+
+let panels = {};
+let roles = [];
+
+async function load() {
+  try {
+    const res = await fetch('/api/guild');
+    if (res.status === 401) { window.location.reload(); return; }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      document.getElementById('main').innerHTML = `<h1 class="page-title">Ticket Panels</h1><div class="card"><p style="margin:0;color:var(--muted);font-size:12.5px;">${RF.esc(err.error || 'Could not load — check the bot is online.')}</p></div>`;
+      return;
+    }
+    const data = await res.json();
+    panels = data.panels || {};
+    roles = data.roles || [];
+    renderPage();
+  } catch (err) {
+    document.getElementById('main').innerHTML = `<h1 class="page-title">Ticket Panels</h1><div class="card"><p style="margin:0;color:var(--muted);font-size:12.5px;">Couldn't reach the server. Refresh and try again.</p></div>`;
+  }
+}
+
+function renderPage() {
+  const cards = Object.entries(panels).map(([typeKey, p]) => {
+    const color = RF.typeColor(typeKey);
+    const teamSet = new Set(p.teamRoleIds || []);
+    const roleCheckboxes = roles.length
+      ? roles.map(r => `
+          <label class="role-check">
+            <input type="checkbox" class="f-team-role" value="${r.id}" ${teamSet.has(r.id) ? 'checked' : ''}>
+            <span class="role-swatch" style="background:${r.color || '#8d9297'}"></span>${RF.esc(r.name)}
+          </label>
+        `).join('')
+      : `<span class="hint">No assignable roles in this server.</span>`;
+
+    return `
+    <div class="card" data-type="${typeKey}">
+      <div class="card-header">
+        <h2><span class="type-badge" style="background:${color}22; color:${color};">${RF.esc(typeKey)}</span></h2>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <span class="cat-note">Category: <b>${RF.esc(p.categoryName || 'TICKETS')}</b> — change on <a href="/settings">Settings</a></span>
+          <button class="btn btn-danger" onclick="askDeletePanel('${typeKey}')">Delete panel</button>
+        </div>
+      </div>
+
+      <div class="field-grid">
+        <div class="field">
+          <label>Button text <span class="hint">(shown on the panel)</span></label>
+          <input type="text" class="f-buttonLabel" value="${RF.esc(p.buttonLabel)}" maxlength="80">
+          <div class="char-count" data-count-for="buttonLabel">0/80</div>
+        </div>
+        <div class="field">
+          <label>Button emoji <span class="hint">(optional)</span></label>
+          <input type="text" class="f-emoji" value="${RF.esc(p.emoji)}" placeholder="🛡️ or blank">
+        </div>
+        <div class="field">
+          <label>Button style</label>
+          <select class="f-style">
+            ${['Primary', 'Secondary', 'Success', 'Danger'].map(s => `<option value="${s}" ${p.style === s ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>Embed color</label>
+          <div class="color-row">
+            <input type="color" class="f-color-picker" value="${RF.esc(p.color)}">
+            <input type="text" class="f-color" value="${RF.esc(p.color)}" maxlength="7">
+          </div>
+        </div>
+        <div class="field full">
+          <label>Panel title</label>
+          <input type="text" class="f-title" value="${RF.esc(p.title)}" maxlength="256">
+          <div class="char-count" data-count-for="title">0/256</div>
+        </div>
+        <div class="field full">
+          <label>Panel description <span class="hint">(shown in the embed)</span></label>
+          <textarea class="f-description" maxlength="4096">${RF.esc(p.description)}</textarea>
+          <div class="char-count" data-count-for="description">0/4096</div>
+        </div>
+        <div class="field full">
+          <label>Modal question <span class="hint">(asked when someone opens a ticket)</span></label>
+          <input type="text" class="f-promptLabel" value="${RF.esc(p.promptLabel)}" maxlength="45">
+          <div class="char-count" data-count-for="promptLabel">0/45</div>
+        </div>
+        <div class="field full">
+          <label>Ping team <span class="hint">(who gets pinged + channel access for this panel's tickets — leave empty to just use the global Staff list from Settings)</span></label>
+          <div class="team-roles">${roleCheckboxes}</div>
+        </div>
+        <div class="field full">
+          <label class="restrict-check">
+            <input type="checkbox" class="f-restrict-team" ${p.restrictToTeamOnly ? 'checked' : ''}>
+            Restrict to this team only <span class="hint">(hides these tickets from everyone else, including the global Staff list — e.g. only your Owners/Managers team sees Management tickets. Requires at least one role checked above. Server Administrators can still always see every channel — that's a Discord permission, not something this can override.)</span>
+          </label>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('main').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+      <div>
+        <h1 class="page-title">Ticket Panels</h1>
+        <p class="page-sub">Edit what each panel says, its button, its color, and which roles get pinged. Run <code>/sendpanels</code> in Discord after saving to repost updated panels — existing posted panels don't update themselves.</p>
+      </div>
+      <button class="btn btn-accent" id="newPanelBtn" style="flex-shrink:0;">+ New panel</button>
+    </div>
+    ${cards}
+    <div class="save-bar">
+      <button class="btn btn-accent" id="saveBtn">Save all panels</button>
+      <span class="save-status" id="saveStatus">Saved ✓</span>
+      <span class="save-error" id="saveError"></span>
+    </div>
+  `;
+
+  wireCharCounts();
+  wireColorSync();
+  wireSave();
+  document.getElementById('newPanelBtn').addEventListener('click', openCreateModal);
+}
+
+function openCreateModal() {
+  document.getElementById('newPanelName').value = '';
+  document.getElementById('createPanelError').textContent = '';
+  document.getElementById('createPanelOverlay').classList.add('show');
+  document.getElementById('newPanelName').focus();
+}
+
+let pendingDeleteType = null;
+function askDeletePanel(typeKey) {
+  pendingDeleteType = typeKey;
+  document.getElementById('deletePanelName').textContent = typeKey;
+  document.getElementById('deletePanelOverlay').classList.add('show');
+}
+
+function wireCharCounts() {
+  document.querySelectorAll('.card[data-type]').forEach(card => {
+    const pairs = [
+      ['.f-buttonLabel', 'buttonLabel'],
+      ['.f-title', 'title'],
+      ['.f-description', 'description'],
+      ['.f-promptLabel', 'promptLabel']
+    ];
+    pairs.forEach(([sel, key]) => {
+      const input = card.querySelector(sel);
+      const counter = card.querySelector(`[data-count-for="${key}"]`);
+      const max = input.getAttribute('maxlength');
+      function update() {
+        const len = input.value.length;
+        counter.textContent = `${len}/${max}`;
+        counter.classList.toggle('over', len > parseInt(max, 10));
+      }
+      input.addEventListener('input', update);
+      update();
+    });
+  });
+}
+
+function wireColorSync() {
+  document.querySelectorAll('.card[data-type]').forEach(card => {
+    const picker = card.querySelector('.f-color-picker');
+    const text = card.querySelector('.f-color');
+    picker.addEventListener('input', () => { text.value = picker.value; });
+    text.addEventListener('input', () => {
+      if (/^#[0-9A-Fa-f]{6}$/.test(text.value)) picker.value = text.value;
+    });
+  });
+}
+
+function wireSave() {
+  document.getElementById('saveBtn').addEventListener('click', async () => {
+    const updates = {};
+    document.querySelectorAll('.card[data-type]').forEach(card => {
+      const typeKey = card.getAttribute('data-type');
+      updates[typeKey] = {
+        title: card.querySelector('.f-title').value,
+        description: card.querySelector('.f-description').value,
+        buttonLabel: card.querySelector('.f-buttonLabel').value,
+        emoji: card.querySelector('.f-emoji').value,
+        style: card.querySelector('.f-style').value,
+        color: card.querySelector('.f-color').value,
+        promptLabel: card.querySelector('.f-promptLabel').value,
+        teamRoleIds: Array.from(card.querySelectorAll('.f-team-role:checked')).map(cb => cb.value),
+        restrictToTeamOnly: card.querySelector('.f-restrict-team').checked
+      };
+    });
+
+    const btn = document.getElementById('saveBtn');
+    const errEl = document.getElementById('saveError');
+    errEl.textContent = '';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/guild/panels', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) });
+      if (res.ok) {
+        flashStatus('saveStatus');
+        Object.assign(panels, updates);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        errEl.textContent = err.error || 'Could not save — check your inputs.';
+      }
+    } catch { errEl.textContent = 'Could not save — check your connection.'; }
+    btn.disabled = false;
+  });
+}
+
+function flashStatus(id) {
+  const el = document.getElementById(id);
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+document.getElementById('cancelCreatePanel').addEventListener('click', () => {
+  document.getElementById('createPanelOverlay').classList.remove('show');
+});
+document.getElementById('confirmCreatePanel').addEventListener('click', async () => {
+  const name = document.getElementById('newPanelName').value.trim();
+  const errEl = document.getElementById('createPanelError');
+  errEl.textContent = '';
+  if (!name) { errEl.textContent = 'Give it a name first.'; return; }
+
+  const btn = document.getElementById('confirmCreatePanel');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/guild/panels/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById('createPanelOverlay').classList.remove('show');
+      load();
+    } else {
+      errEl.textContent = data.error || 'Could not create — try again.';
+    }
+  } catch { errEl.textContent = 'Could not reach the server.'; }
+  btn.disabled = false;
+});
+
+document.getElementById('cancelDeletePanel').addEventListener('click', () => {
+  pendingDeleteType = null;
+  document.getElementById('deletePanelOverlay').classList.remove('show');
+});
+document.getElementById('confirmDeletePanel').addEventListener('click', async () => {
+  if (!pendingDeleteType) return;
+  const typeKey = pendingDeleteType;
+  document.getElementById('deletePanelOverlay').classList.remove('show');
+  try {
+    const res = await fetch(`/api/guild/panels/${encodeURIComponent(typeKey)}`, { method: 'DELETE' });
+    if (res.ok) { load(); }
+    else { const data = await res.json().catch(() => ({})); alert(data.error || 'Could not delete — try again.'); }
+  } catch { alert('Could not delete — check your connection.'); }
+  pendingDeleteType = null;
+});
+
+load();
+</script>
+</body>
+</html>

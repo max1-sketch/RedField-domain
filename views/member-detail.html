@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Member</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --accent: {{ACCENT_COLOR}};
+  --bg-0: #0a0c11;
+  --sidebar-bg: #0d0f16;
+  --panel: #141722;
+  --panel-2: #1a1e2b;
+  --border: #262b3a;
+  --ink: #e7e9ee;
+  --muted: #9199a8;
+  --faint: #5b6272;
+  --red: #ef4444;
+  --green: #22c55e;
+  --amber: #f59e0b;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { min-height: 100vh; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+a { color: inherit; text-decoration: none; }
+.mono { font-family: 'IBM Plex Mono', monospace; }
+.site-banner { background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; }
+
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar { width: 250px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.sidebar-brand { display: flex; align-items: center; gap: 10px; background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px; margin-bottom: 18px; line-height: 1.25; }
+.sidebar-brand .dot { width: 8px; height: 8px; border-radius: 50%; background: #0a0c11; flex-shrink: 0; opacity: .55; }
+nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); font-size: 13.5px; font-weight: 500; }
+.nav-item:hover { background: var(--panel-2); color: var(--ink); }
+.nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
+.nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
+.nav-item .ic svg { width: 100%; height: 100%; }
+.nav-item.active .ic { opacity: 1; }
+.sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
+.session-line.warn { color: var(--red); }
+
+.content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 800px; }
+.back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); margin-bottom: 16px; }
+.back-link:hover { color: var(--accent); }
+
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 16px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.card-header h2 { font-size: 15.5px; font-weight: 700; color: var(--ink); margin: 0; }
+
+.profile-top { display: flex; align-items: center; gap: 14px; }
+.avatar-big { width: 52px; height: 52px; border-radius: 50%; }
+.profile-name { font-size: 18px; font-weight: 800; color: var(--ink); margin: 0; }
+.profile-tag { font-size: 12.5px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
+.badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px; margin-left: 6px; vertical-align: middle; }
+.badge.timeout { background: var(--red)22; color: var(--red); }
+.badge.owner { background: #fbbf2422; color: #fbbf24; }
+
+.meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px 16px; font-size: 12px; color: var(--faint); margin-top: 16px; }
+.meta-grid span b { display: block; color: var(--muted); font-weight: 600; margin-bottom: 2px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; }
+.role-chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.role-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; padding: 3px 6px 3px 9px; border-radius: 99px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); }
+.role-chip .role-x { background: none; border: none; color: inherit; opacity: .6; cursor: pointer; font-size: 12px; line-height: 1; padding: 0 2px; }
+.role-chip .role-x:hover { opacity: 1; color: var(--red); }
+.role-chip.admin { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.08); }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 8px; padding: 9px 15px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; min-height: 36px; transition: opacity .15s; }
+.btn-accent { background: var(--accent); color: #0a0c11; }
+.btn-accent:hover { opacity: .9; }
+.btn-ghost { background: var(--panel-2); color: var(--ink); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--accent); }
+.btn-amber { background: rgba(245,158,11,0.12); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+.btn-amber:hover { background: rgba(245,158,11,0.2); }
+.btn-danger { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+.btn-danger:hover { background: rgba(239,68,68,0.2); }
+.btn-danger.solid { background: var(--red); color: #fff; border: none; }
+.btn-danger.solid:hover { opacity: .9; }
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+.action-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.dot-loader { display: inline-flex; gap: 4px; align-items: center; }
+.dot-loader span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: dotbounce 1s infinite ease-in-out; }
+.dot-loader span:nth-child(2) { animation-delay: .15s; }
+.dot-loader span:nth-child(3) { animation-delay: .3s; }
+@keyframes dotbounce { 0%, 80%, 100% { transform: scale(.5); opacity: .35; } 40% { transform: scale(1); opacity: 1; } }
+
+.note-item { padding: 12px; background: var(--panel-2); border-radius: 8px; margin-bottom: 8px; border-left: 3px solid var(--faint); }
+.note-item.warning { border-left-color: var(--amber); }
+.note-item .note-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.note-item .note-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); }
+.note-item.warning .note-type { color: var(--amber); }
+.note-item .note-meta { font-size: 10.5px; color: var(--faint); }
+.note-item .note-content { font-size: 13px; color: var(--ink); margin-top: 6px; white-space: pre-wrap; }
+.note-item .note-del { background: none; border: none; color: var(--faint); cursor: pointer; font-size: 11px; margin-top: 8px; padding: 0; }
+.note-item .note-del:hover { color: var(--red); }
+.empty-note { font-size: 12.5px; color: var(--faint); text-align: center; padding: 16px; }
+
+input[type=text], select, textarea {
+  background: var(--panel-2); border: 1px solid var(--border); color: var(--ink);
+  padding: 9px 12px; border-radius: 7px; font-family: inherit; font-size: 13px; width: 100%;
+}
+textarea { resize: vertical; min-height: 60px; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+.field { margin-bottom: 12px; }
+.field label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); font-weight: 600; display: block; margin-bottom: 6px; }
+.inline-row { display: flex; gap: 10px; align-items: flex-end; }
+.inline-row .field { flex: 1; margin-bottom: 0; }
+
+.loading-line, .error-state { font-size: 13px; color: var(--faint); padding: 30px 0; text-align: center; }
+.sender-name-note { font-size: 10.5px; color: var(--faint); margin-top: 6px; }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(5,6,9,.75); display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 24px; width: 380px; max-width: 100%; }
+.modal h3 { font-size: 15px; font-weight: 700; color: var(--ink); margin: 0 0 6px; }
+.modal .warn-text { font-size: 12px; color: var(--red); margin: 0 0 14px; line-height: 1.5; }
+.modal-error { font-size: 12px; color: var(--red); margin-bottom: 10px; min-height: 1em; }
+.modal-actions { display: flex; gap: 10px; margin-top: 4px; }
+.modal-actions .btn { flex: 1; }
+
+/* toasts — deliberately a bit stamped/case-file feeling rather than a generic
+   library toast: solid left bar, monospace timestamp-style meta, no rounded
+   pill shape */
+#toastStack { position: fixed; top: 18px; right: 18px; z-index: 200; display: flex; flex-direction: column; gap: 10px; max-width: 320px; }
+.toast {
+  background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--green);
+  border-radius: 6px; padding: 12px 14px; font-size: 12.5px; color: var(--ink);
+  box-shadow: 0 12px 34px rgba(0,0,0,.45); animation: toastin .2s ease;
+}
+.toast.error { border-left-color: var(--red); }
+.toast .toast-title { font-weight: 700; margin-bottom: 2px; }
+.toast.fading { animation: toastout .25s ease forwards; }
+@keyframes toastin { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes toastout { to { opacity: 0; transform: translateX(24px); } }
+
+@media (max-width: 860px) {
+  .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
+  .sidebar.open { transform: translateX(0); }
+  .content-area { padding: 18px 16px 50px; }
+}
+</style>
+</head>
+<body>
+
+{{BANNER_HTML}}
+
+<div id="toastStack"></div>
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
+    <nav class="sidebar-nav" id="navTabs"></nav>
+    <div class="sidebar-footer">
+      <span class="session-line mono" id="sessionClock">session --:--</span>
+      <a href="/logout" class="nav-item"><span class="ic" id="logoutIcon"></span> Log out</a>
+    </div>
+  </aside>
+
+  <main class="content-area">
+    <a href="/moderation" class="back-link">← Back to members</a>
+    <div id="content">
+      <div class="loading-line">Loading…</div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="kickOverlay">
+  <div class="modal">
+    <h3>Kick <span id="kickTarget" class="mono"></span>?</h3>
+    <p class="warn-text">They can rejoin with a new invite. This is logged.</p>
+    <div class="field"><label>Reason (required)</label><textarea id="kickReason" maxlength="400"></textarea></div>
+    <div class="modal-error" id="kickError"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger solid" id="confirmKick">Kick</button>
+      <button class="btn btn-ghost" id="cancelKick">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="banOverlay">
+  <div class="modal">
+    <h3>Ban <span id="banTarget" class="mono"></span>?</h3>
+    <p class="warn-text">This is permanent until someone manually unbans them. This is logged.</p>
+    <div class="field"><label>Reason (required)</label><textarea id="banReason" maxlength="400"></textarea></div>
+    <div class="field"><label>Also delete their recent messages</label>
+      <select id="banDeleteDays">
+        <option value="0">Don't delete any</option>
+        <option value="1">Last 24 hours</option>
+        <option value="3">Last 3 days</option>
+        <option value="7">Last 7 days</option>
+      </select>
+    </div>
+    <div class="modal-error" id="banError"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger solid" id="confirmBan">Ban</button>
+      <button class="btn btn-ghost" id="cancelBan">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="timeoutOverlay">
+  <div class="modal">
+    <h3>Timeout <span id="timeoutTarget" class="mono"></span>?</h3>
+    <p class="warn-text" id="timeoutSummary"></p>
+    <div class="modal-error" id="timeoutError"></div>
+    <div class="modal-actions">
+      <button class="btn btn-amber" id="confirmTimeout">Apply timeout</button>
+      <button class="btn btn-ghost" id="cancelTimeout">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="adminRoleOverlay">
+  <div class="modal">
+    <h3>Give <span id="adminRoleTarget" class="mono"></span> an admin role?</h3>
+    <p class="warn-text">"<span id="adminRoleName"></span>" grants full Administrator permissions in this server — same as an owner, including the ability to manage every channel, role, and member. Only add this if you mean it.</p>
+    <div class="modal-error" id="adminRoleError"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger solid" id="confirmAdminRole">Yes, add it</button>
+      <button class="btn btn-ghost" id="cancelAdminRole">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+window.RF = (function () {
+  const ICONS = {
+    archive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"></rect><path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"></path><path d="M10 12h4"></path></svg>',
+    tickets: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12h-5l-2 3h-4l-2-3H2"></path><path d="M5.4 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.4-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.8 1.1Z"></path></svg>',
+    panels: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>',
+    tags: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H3v9l10.3 10.3a1 1 0 0 0 1.4 0l7.6-7.6a1 1 0 0 0 0-1.4L12 2Z"></path><circle cx="7.5" cy="7.5" r="1.4"></circle></svg>',
+    shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5Z"></path></svg>',
+    blacklist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m5.5 5.5 13 13"></path></svg>',
+    settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.9-2.9l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"></path></svg>',
+    logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>'
+  };
+  function esc(str) {
+    return (str === undefined || str === null ? '' : String(str))
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function fmtDate(iso) {
+    if (!iso) return 'Unknown';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'Unknown';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  function fmtDateTime(iso) {
+    if (!iso) return 'Unknown';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'Unknown';
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+  function setCookie(name, value, days) {
+    document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${days * 86400}`;
+  }
+  function getSenderName() { return getCookie('websiteSenderName') || ''; }
+  function startSessionClock(el) {
+    function tick() {
+      const expiresAt = parseInt(getCookie('sessionExpires') || '0', 10);
+      if (!expiresAt) { el.textContent = 'session --:--'; return; }
+      const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      const m = Math.floor(remaining / 60), s = remaining % 60;
+      el.textContent = `session ${m}:${s.toString().padStart(2, '0')}`;
+      el.classList.toggle('warn', remaining <= 60);
+      if (remaining <= 0) window.location.reload();
+    }
+    tick(); setInterval(tick, 1000);
+  }
+  function renderNav(activePath) {
+    const tabs = [
+      { href: '/', label: 'Archive', ic: ICONS.archive },
+      { href: '/tickets', label: 'Open Tickets', ic: ICONS.tickets },
+      { href: '/panels', label: 'Panels', ic: ICONS.panels },
+      { href: '/tags', label: 'Tags', ic: ICONS.tags },
+      { href: '/moderation', label: 'Moderation', ic: ICONS.shield },
+      { href: '/blacklist', label: 'Blacklist', ic: ICONS.blacklist },
+      { href: '/settings', label: 'Settings', ic: ICONS.settings }
+    ];
+    return tabs.map(t => `<a class="nav-item${t.href === activePath ? ' active' : ''}" href="${t.href}"><span class="ic">${t.ic}</span> ${t.label}</a>`).join('');
+  }
+
+  // Toasts — small, blunt, no exclamation-point-everything. Auto-dismiss.
+  function toast(title, ok) {
+    const stack = document.getElementById('toastStack');
+    if (!stack) return;
+    const el = document.createElement('div');
+    el.className = 'toast' + (ok ? '' : ' error');
+    el.innerHTML = `<div class="toast-title">${ok ? '✓' : '✕'} ${esc(title)}</div>`;
+    stack.appendChild(el);
+    setTimeout(() => {
+      el.classList.add('fading');
+      setTimeout(() => el.remove(), 260);
+    }, 3400);
+  }
+
+  // Wraps a button action: shows a dot-loader in place of the label for at
+  // least ~900ms (so fast responses don't just flicker), disables the button,
+  // then restores it and fires a toast based on outcome.
+  async function withLoading(btn, fn, { okMessage, failMessage } = {}) {
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="dot-loader"><span></span><span></span><span></span></span>';
+    const start = Date.now();
+    let result, error;
+    try { result = await fn(); } catch (e) { error = e; }
+    const elapsed = Date.now() - start;
+    const minDelay = 900;
+    if (elapsed < minDelay) await new Promise(r => setTimeout(r, minDelay - elapsed));
+    btn.disabled = false;
+    btn.innerHTML = original;
+    if (error) {
+      toast(failMessage ? `${failMessage}: ${error.message}` : error.message, false);
+      throw error;
+    }
+    if (okMessage) toast(okMessage, true);
+    return result;
+  }
+
+  async function apiCall(url, options) {
+    const res = await fetch(url, options);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    return data;
+  }
+
+  return { esc, fmtDate, fmtDateTime, getCookie, setCookie, getSenderName, startSessionClock, renderNav, ICONS, toast, withLoading, apiCall };
+})();
+
+document.getElementById('navTabs').innerHTML = RF.renderNav('/moderation');
+RF.startSessionClock(document.getElementById('sessionClock'));
+const _logoutIconEl = document.getElementById('logoutIcon'); if (_logoutIconEl) _logoutIconEl.innerHTML = RF.ICONS.logout;
+
+const userId = window.location.pathname.split('/').pop();
+let lastMember = null;
+let pendingAdminRoleId = null;
+
+async function load() {
+  try {
+    const data = await RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}`);
+    lastMember = data;
+    render();
+  } catch (err) {
+    document.getElementById('content').innerHTML = `<div class="card error-state">${RF.esc(err.message)}</div>`;
+  }
+}
+
+function render() {
+  const m = lastMember;
+  const roleChips = m.roles.length
+    ? m.roles.map(r => `<span class="role-chip${r.isAdmin ? ' admin' : ''}" style="color:${r.color || 'var(--muted)'};">${r.isAdmin ? '⚡ ' : ''}${RF.esc(r.name)}<button class="role-x" onclick="removeRole('${r.id}')" title="Remove role">×</button></span>`).join('')
+    : '<span class="role-chip">No roles</span>';
+
+  const availableRoles = m.allGuildRoles.filter(r => !m.roles.some(mr => mr.id === r.id));
+  const addRoleOptions = availableRoles.length
+    ? `<option value="">+ Add a role…</option>${availableRoles.map(r => `<option value="${r.id}" data-admin="${r.isAdmin ? '1' : '0'}">${r.isAdmin ? '⚡ ' : ''}${RF.esc(r.name)}</option>`).join('')}`
+    : `<option value="">No more roles to add</option>`;
+
+  document.getElementById('content').innerHTML = `
+    <div class="card">
+      <div class="profile-top">
+        <img class="avatar-big" src="${RF.esc(m.avatarURL)}" alt="">
+        <div>
+          <h2 class="profile-name">${RF.esc(m.displayName)}${m.isOwner ? '<span class="badge owner">Owner</span>' : ''}${m.isTimedOut ? '<span class="badge timeout">Timed out</span>' : ''}</h2>
+          <div class="profile-tag">${RF.esc(m.tag)} · ${RF.esc(m.id)}</div>
+        </div>
+      </div>
+      <div class="meta-grid">
+        <span><b>Joined server</b>${RF.fmtDate(m.joinedAt)}</span>
+        <span><b>Account created</b>${RF.fmtDate(m.createdAt)}</span>
+        <span><b>Timeout until</b>${m.timeoutUntil ? RF.fmtDateTime(m.timeoutUntil) : '—'}</span>
+      </div>
+      <div class="role-chip-row">${roleChips}</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>Nickname &amp; roles</h2></div>
+      <div class="inline-row" style="margin-bottom:14px;">
+        <div class="field">
+          <label>Nickname ${m.isOwner ? '(unavailable for the owner)' : ''}</label>
+          <input type="text" id="nicknameInput" maxlength="32" placeholder="${RF.esc(m.displayName)}" value="" ${m.isOwner ? 'disabled' : ''}>
+        </div>
+        <button class="btn btn-ghost" id="setNicknameBtn" ${m.isOwner ? 'disabled' : ''}>Set</button>
+      </div>
+      <div class="inline-row">
+        <div class="field">
+          <label>Add role</label>
+          <select id="addRoleSelect">${addRoleOptions}</select>
+        </div>
+        <button class="btn btn-ghost" id="addRoleBtn" ${availableRoles.length ? '' : 'disabled'}>Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>Actions</h2></div>
+
+      <div class="field">
+        <label>Send as (your name — shown on notes and in the mod log)</label>
+        <input type="text" id="senderName" maxlength="40" value="${RF.esc(RF.getSenderName())}">
+      </div>
+
+      <div class="field">
+        <label>Timeout</label>
+        <div class="inline-row">
+          <select id="timeoutMinutes">
+            <option value="10">10 minutes</option>
+            <option value="60">1 hour</option>
+            <option value="360">6 hours</option>
+            <option value="1440">1 day</option>
+            <option value="10080">1 week</option>
+          </select>
+          <input type="text" id="timeoutReason" placeholder="Reason (optional)" style="flex:2;">
+          <button class="btn btn-amber" id="applyTimeoutBtn" ${m.isOwner ? 'disabled' : ''}>Apply</button>
+        </div>
+        ${m.isTimedOut ? '<button class="btn btn-ghost" id="clearTimeoutBtn" style="margin-top:8px;">Clear timeout</button>' : ''}
+      </div>
+
+      <div class="action-row" style="margin-top:16px;">
+        <button class="btn btn-danger" id="kickBtn" ${m.isOwner ? 'disabled' : ''}>Kick</button>
+        <button class="btn btn-danger" id="banBtn" ${m.isOwner ? 'disabled' : ''}>Ban</button>
+      </div>
+      ${m.isOwner ? '<p class="sender-name-note">This member owns the server — kick, ban, and timeout are not available for them.</p>' : ''}
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2>Notes &amp; warnings</h2></div>
+      <div class="inline-row" style="margin-bottom:14px;">
+        <select id="noteType" style="flex:0 0 120px;">
+          <option value="note">Note</option>
+          <option value="warning">Warning</option>
+        </select>
+        <input type="text" id="noteContent" placeholder="What happened…" maxlength="500">
+        <button class="btn btn-accent" id="addNoteBtn">Add</button>
+      </div>
+      <div id="notesList"></div>
+    </div>
+  `;
+
+  renderNotes();
+  wireActions();
+}
+
+function renderNotes() {
+  const list = document.getElementById('notesList');
+  const notes = lastMember.notes || [];
+  if (!notes.length) { list.innerHTML = '<div class="empty-note">No notes yet.</div>'; return; }
+  list.innerHTML = notes.slice().reverse().map(n => `
+    <div class="note-item ${n.type}">
+      <div class="note-top">
+        <span class="note-type">${n.type === 'warning' ? '⚠ Warning' : 'Note'}</span>
+        <span class="note-meta">${RF.esc(n.byName)} · ${RF.fmtDateTime(n.at)}</span>
+      </div>
+      <div class="note-content">${RF.esc(n.content)}</div>
+      <button class="note-del" onclick="deleteNote('${n.id}')">Delete</button>
+    </div>
+  `).join('');
+}
+
+function currentSenderName() {
+  const el = document.getElementById('senderName');
+  return el ? el.value.trim() : RF.getSenderName();
+}
+
+async function deleteNote(noteId) {
+  try {
+    await RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/notes/${encodeURIComponent(noteId)}`, { method: 'DELETE' });
+    lastMember.notes = lastMember.notes.filter(n => n.id !== noteId);
+    renderNotes();
+    RF.toast('Note deleted', true);
+  } catch (err) { RF.toast(err.message, false); }
+}
+
+async function removeRole(roleId) {
+  const btn = event.target;
+  try {
+    await RF.withLoading(btn, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/roles`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remove: roleId, byName: currentSenderName() })
+    }), { okMessage: 'Role removed', failMessage: "Couldn't remove role" });
+    load();
+  } catch { /* toast already shown */ }
+}
+
+function wireActions() {
+  document.getElementById('senderName').addEventListener('change', (e) => RF.setCookie('websiteSenderName', e.target.value.trim(), 90));
+
+  document.getElementById('setNicknameBtn').addEventListener('click', async (e) => {
+    const nickname = document.getElementById('nicknameInput').value.trim();
+    try {
+      await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/nickname`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname, byName: currentSenderName() })
+      }), { okMessage: nickname ? `Nickname set to "${nickname}"` : 'Nickname cleared', failMessage: "Couldn't set nickname" });
+      load();
+    } catch { /* toast already shown */ }
+  });
+
+  document.getElementById('addRoleBtn').addEventListener('click', async (e) => {
+    const select = document.getElementById('addRoleSelect');
+    const roleId = select.value;
+    if (!roleId) return;
+    const selectedOption = select.options[select.selectedIndex];
+    const isAdmin = selectedOption.getAttribute('data-admin') === '1';
+
+    if (isAdmin) {
+      pendingAdminRoleId = roleId;
+      document.getElementById('adminRoleTarget').textContent = lastMember.tag;
+      document.getElementById('adminRoleName').textContent = selectedOption.textContent.replace('⚡ ', '');
+      document.getElementById('adminRoleError').textContent = '';
+      document.getElementById('adminRoleOverlay').classList.add('show');
+      return;
+    }
+
+    try {
+      await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/roles`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ add: roleId, byName: currentSenderName() })
+      }), { okMessage: 'Role added', failMessage: "Couldn't add role" });
+      load();
+    } catch { /* toast already shown */ }
+  });
+
+  document.getElementById('addNoteBtn').addEventListener('click', async (e) => {
+    const type = document.getElementById('noteType').value;
+    const content = document.getElementById('noteContent').value.trim();
+    if (!content) return;
+    try {
+      const data = await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/notes`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, content, byName: currentSenderName() })
+      }), { okMessage: type === 'warning' ? 'Warning added' : 'Note added', failMessage: "Couldn't add that" });
+      lastMember.notes = (lastMember.notes || []).concat([data.note]);
+      document.getElementById('noteContent').value = '';
+      renderNotes();
+    } catch { /* toast already shown */ }
+  });
+
+  document.getElementById('applyTimeoutBtn').addEventListener('click', () => {
+    const minutes = parseInt(document.getElementById('timeoutMinutes').value, 10);
+    const label = document.getElementById('timeoutMinutes').selectedOptions[0].textContent;
+    document.getElementById('timeoutTarget').textContent = lastMember.tag;
+    document.getElementById('timeoutSummary').textContent = `They won't be able to send messages, react, or join voice channels for ${label.toLowerCase()}. This is logged.`;
+    document.getElementById('timeoutError').textContent = '';
+    document.getElementById('timeoutOverlay').classList.add('show');
+  });
+
+  const clearBtn = document.getElementById('clearTimeoutBtn');
+  if (clearBtn) clearBtn.addEventListener('click', async (e) => {
+    try {
+      await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/timeout`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ minutes: null, reason: 'Cleared from website', byName: currentSenderName() })
+      }), { okMessage: 'Timeout cleared', failMessage: "Couldn't clear timeout" });
+      load();
+    } catch { /* toast already shown */ }
+  });
+
+  document.getElementById('kickBtn').addEventListener('click', () => {
+    document.getElementById('kickTarget').textContent = lastMember.tag;
+    document.getElementById('kickReason').value = '';
+    document.getElementById('kickError').textContent = '';
+    document.getElementById('kickOverlay').classList.add('show');
+  });
+  document.getElementById('banBtn').addEventListener('click', () => {
+    document.getElementById('banTarget').textContent = lastMember.tag;
+    document.getElementById('banReason').value = '';
+    document.getElementById('banDeleteDays').value = '0';
+    document.getElementById('banError').textContent = '';
+    document.getElementById('banOverlay').classList.add('show');
+  });
+}
+
+document.getElementById('cancelKick').addEventListener('click', () => document.getElementById('kickOverlay').classList.remove('show'));
+document.getElementById('confirmKick').addEventListener('click', async (e) => {
+  const reason = document.getElementById('kickReason').value.trim();
+  const errEl = document.getElementById('kickError');
+  if (!reason) { errEl.textContent = 'A reason is required.'; return; }
+  try {
+    await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/kick`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason, byName: currentSenderName() })
+    }), { okMessage: `Kicked ${lastMember.tag}` });
+    document.getElementById('kickOverlay').classList.remove('show');
+    setTimeout(() => { window.location.href = '/moderation'; }, 600);
+  } catch (err) { errEl.textContent = err.message; }
+});
+
+document.getElementById('cancelBan').addEventListener('click', () => document.getElementById('banOverlay').classList.remove('show'));
+document.getElementById('confirmBan').addEventListener('click', async (e) => {
+  const reason = document.getElementById('banReason').value.trim();
+  const errEl = document.getElementById('banError');
+  if (!reason) { errEl.textContent = 'A reason is required.'; return; }
+  const deleteMessageDays = document.getElementById('banDeleteDays').value;
+  try {
+    await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/ban`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason, deleteMessageDays, byName: currentSenderName() })
+    }), { okMessage: `Banned ${lastMember.tag}` });
+    document.getElementById('banOverlay').classList.remove('show');
+    setTimeout(() => { window.location.href = '/moderation'; }, 600);
+  } catch (err) { errEl.textContent = err.message; }
+});
+
+document.getElementById('cancelTimeout').addEventListener('click', () => document.getElementById('timeoutOverlay').classList.remove('show'));
+document.getElementById('confirmTimeout').addEventListener('click', async (e) => {
+  const minutes = parseInt(document.getElementById('timeoutMinutes').value, 10);
+  const reason = document.getElementById('timeoutReason').value.trim();
+  const errEl = document.getElementById('timeoutError');
+  try {
+    await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/timeout`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ minutes, reason, byName: currentSenderName() })
+    }), { okMessage: 'Timed out' });
+    document.getElementById('timeoutOverlay').classList.remove('show');
+    load();
+  } catch (err) { errEl.textContent = err.message; }
+});
+
+document.getElementById('cancelAdminRole').addEventListener('click', () => { pendingAdminRoleId = null; document.getElementById('adminRoleOverlay').classList.remove('show'); });
+document.getElementById('confirmAdminRole').addEventListener('click', async (e) => {
+  const errEl = document.getElementById('adminRoleError');
+  if (!pendingAdminRoleId) return;
+  try {
+    await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/roles`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ add: pendingAdminRoleId, byName: currentSenderName() })
+    }), { okMessage: 'Admin role added' });
+    document.getElementById('adminRoleOverlay').classList.remove('show');
+    pendingAdminRoleId = null;
+    load();
+  } catch (err) { errEl.textContent = err.message; }
+});
+
+load();
+</script>
+</body>
+</html>
