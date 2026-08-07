@@ -323,6 +323,8 @@ function getGuildConfig(guildId) {
     const def = defaultConfig();
     const merged = { ...def, ...saved };
 
+    const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'settings'];
+
     merged.panels = {};
     for (const key of Object.keys(def.panels)) {
         merged.panels[key] = { ...def.panels[key], ...((saved.panels && saved.panels[key]) || {}) };
@@ -333,20 +335,16 @@ function getGuildConfig(guildId) {
     merged.tags = Array.isArray(saved.tags) ? saved.tags : def.tags;
     merged.staffRestrictions = saved.staffRestrictions || {};
 
-    const savedPerms = saved.staffPermissions || {};
-    const allowedTabs = Array.isArray(savedPerms.allowedTabs) ? savedPerms.allowedTabs : def.staffPermissions.allowedTabs;
-    if (!allowedTabs.includes('lookup')) allowedTabs.push('lookup');
-
+    // Force ALL tabs to remain allowed and visible across all pages
     merged.staffPermissions = {
-        allowedTabs,
-        canModerate: typeof savedPerms.canModerate === 'boolean' ? savedPerms.canModerate : def.staffPermissions.canModerate
+        allowedTabs: ALL_TABS,
+        canModerate: true
     };
 
     guildConfigs[guildId] = merged;
     saveConfigs();
     return merged;
 }
-
 const STYLE_MAP = {
     Primary: ButtonStyle.Primary,
     Secondary: ButtonStyle.Secondary,
