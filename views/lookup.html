@@ -3,26 +3,75 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{SITE_TITLE}} — User & Roblox Lookup</title>
+<title>{{SITE_TITLE}} — User Lookup</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
-:root { --accent: {{ACCENT_COLOR}}; --bg-0: #0a0c11; --sidebar-bg: #0d0f16; --panel: #141722; --panel-2: #1a1e2b; --border: #262b3a; --ink: #e7e9ee; --muted: #9199a8; --faint: #5b6272; }
+
+:root {
+  --accent: {{ACCENT_COLOR}};
+  --accent-dim: color-mix(in srgb, {{ACCENT_COLOR}} 55%, #000000);
+  --bg-0: #0a0c11;
+  --sidebar-bg: #0d0f16;
+  --panel: #141722;
+  --panel-2: #1a1e2b;
+  --border: #262b3a;
+  --ink: #e7e9ee;
+  --muted: #9199a8;
+  --faint: #5b6272;
+  --red: #ef4444;
+  --green: #22c55e;
+}
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+html, body { margin: 0; padding: 0; }
+body {
+  min-height: 100vh; background: var(--bg-0); color: var(--ink);
+  font-family: 'Inter', sans-serif; font-size: 14px;
+}
+a { color: inherit; text-decoration: none; }
+.mono { font-family: 'IBM Plex Mono', monospace; }
+
+.site-banner { background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; }
+
+/* ---------- shell ---------- */
 .app-shell { display: flex; min-height: 100vh; }
-.sidebar { width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
-.sidebar-brand { display: flex; align-items: center; gap: 10px; background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px; margin-bottom: 18px; }
+
+.sidebar {
+  width: 250px; flex-shrink: 0; background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  padding: 18px 14px; display: flex; flex-direction: column;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+}
+.sidebar-brand {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--accent); color: #0a0c11;
+  padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px;
+  margin-bottom: 18px; line-height: 1.25;
+}
+.sidebar-brand .dot { width: 8px; height: 8px; border-radius: 50%; background: #0a0c11; flex-shrink: 0; opacity: .55; }
+
 nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
-.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); font-size: 13.5px; text-decoration: none; font-weight: 500; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 13px; border-radius: 8px;
+  color: var(--muted); font-size: 13.5px; font-weight: 500;
+}
 .nav-item:hover { background: var(--panel-2); color: var(--ink); }
 .nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
-.nav-item .ic { width: 16px; height: 16px; display: inline-flex; }
+.nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
 .nav-item .ic svg { width: 100%; height: 100%; }
+.nav-item.active .ic { opacity: 1; }
+
 .badge-beta { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b44; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: auto; text-transform: uppercase; }
 
-.content-area { flex: 1; padding: 26px 30px; max-width: 1100px; }
+.sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
+.session-line.warn { color: var(--red); }
+
+.content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 1100px; }
+
 .page-title { font-size: 20px; font-weight: 800; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
 .page-sub { font-size: 13px; color: var(--muted); margin: 0 0 20px; }
+
 .search-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 12px; }
 .search-row { display: flex; gap: 10px; }
 .search-card input { flex: 1; background: var(--panel-2); border: 1px solid var(--border); color: var(--ink); padding: 10px 14px; border-radius: 8px; font-family: inherit; font-size: 14px; }
@@ -46,15 +95,28 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .item-list { font-size: 12.5px; line-height: 1.6; color: var(--muted); }
 .external-link { color: var(--accent); text-decoration: none; font-weight: 600; }
 .external-link:hover { text-decoration: underline; }
+
+@media (max-width: 860px) {
+  .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
+  .sidebar.open { transform: translateX(0); }
+  .content-area { padding: 18px 16px 50px; }
+}
 </style>
 </head>
 <body>
+
 {{BANNER_HTML}}
+
 <div class="app-shell">
   <aside class="sidebar">
-    <div class="sidebar-brand">{{SITE_TITLE}}</div>
+    <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
     <nav class="sidebar-nav" id="navTabs"></nav>
+    <div class="sidebar-footer">
+      <span class="session-line mono" id="sessionClock">session --:--</span>
+      <a href="/logout" class="nav-item"><span class="ic" id="logoutIcon"></span> Log out</a>
+    </div>
   </aside>
+
   <main class="content-area">
     <h1 class="page-title">User Lookup <span class="badge-beta">BETA</span></h1>
     <p class="page-sub">Search Discord or Roblox members to inspect profiles, support history, and moderation data.</p>
@@ -88,11 +150,78 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
         <div class="item-list" id="hTickets">No past tickets found.</div>
       </div>
     </div>
+
+    {{FOOTER_NOTE_HTML}}
   </main>
 </div>
 
-<script src="/theme.js"></script>
 <script>
+window.RF = (function () {
+  const TYPE_COLORS = { REDFIELD: '#22c55e', MANAGEMENT: '#3b82f6', BUG: '#f59e0b' };
+  const FALLBACK_COLOR = '#a78bfa';
+  function typeColor(type) { return TYPE_COLORS[type] || FALLBACK_COLOR; }
+  function esc(str) {
+    return (str === undefined || str === null ? '' : String(str))
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+  function startSessionClock(el) {
+    if (!el) return;
+    function tick() {
+      const expiresAt = parseInt(getCookie('sessionExpires') || '0', 10);
+      if (!expiresAt) { el.textContent = 'session active'; return; }
+      const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      const m = Math.floor(remaining / 60), s = remaining % 60;
+      el.textContent = `session ${m}:${s.toString().padStart(2, '0')}`;
+      el.classList.toggle('warn', remaining <= 60);
+      if (remaining <= 0) window.location.reload();
+    }
+    tick(); setInterval(tick, 1000);
+  }
+  const ICONS = {
+    archive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="5" rx="1"></rect><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"></path><path d="M10 12h4"></path></svg>',
+    tickets: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"></path></svg>',
+    panels: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>',
+    tags: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>',
+    quickwords: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
+    feedback: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>',
+    auditlog: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>',
+    shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>',
+    blacklist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m4.93 4.93 14.14 14.14"></path></svg>',
+    lookup: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>',
+    settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle></svg>',
+    logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>'
+  };
+
+  function renderNav(activePath, allowedTabs) {
+    const tabs = [
+      { key: 'archive', href: '/', label: 'Home', ic: ICONS.archive },
+      { key: 'tickets', href: '/tickets', label: 'Open Tickets', ic: ICONS.tickets },
+      { key: 'panels', href: '/panels', label: 'Panel Configs', ic: ICONS.panels },
+      { key: 'tags', href: '/tags', label: 'Tags', ic: ICONS.tags },
+      { key: 'quickwords', href: '/quickwords', label: 'Quick Words', ic: ICONS.quickwords },
+      { key: 'feedback', href: '/feedback', label: 'Feedback', ic: ICONS.feedback },
+      { key: 'auditlog', href: '/audit-log', label: 'Logging', ic: ICONS.auditlog, adminOnly: true },
+      { key: 'moderation', href: '/moderation', label: 'Moderation', ic: ICONS.shield },
+      { key: 'lookup', href: '/lookup', label: 'User Lookup <span class="badge-beta">BETA</span>', ic: ICONS.lookup },
+      { key: 'blacklist', href: '/blacklist', label: 'Blacklist', ic: ICONS.blacklist },
+      { key: 'settings', href: '/settings', label: 'Server Configs', ic: ICONS.settings, adminOnly: true }
+    ];
+
+    const visible = (allowedTabs && Array.isArray(allowedTabs) && allowedTabs.length > 0)
+      ? tabs.filter(t => !t.adminOnly && allowedTabs.includes(t.key))
+      : tabs;
+
+    return visible.map(t => `<a class="nav-item${t.href === activePath ? ' active' : ''}" href="${t.href}"><span class="ic">${t.ic}</span> ${t.label}</a>`).join('');
+  }
+  return { typeColor, esc, getCookie, startSessionClock, renderNav, ICONS };
+})();
+
+RF.startSessionClock(document.getElementById('sessionClock'));
+
 let searchMode = 'discord';
 
 function setMode(mode) {
@@ -122,7 +251,7 @@ async function performLookup() {
   document.getElementById('uAvatar').src = u.avatarURL;
   document.getElementById('uTag').textContent = u.displayName || u.tag;
   document.getElementById('uId').textContent = `@${u.tag} • ID: ${u.id}`;
-  document.getElementById('uRoles').innerHTML = u.roles.map(r => `<span class="role-chip" style="background:${r.color}22; color:${r.color}">${r.name}</span>`).join('');
+  document.getElementById('uRoles').innerHTML = u.roles.map(r => `<span class="role-chip" style="background:${r.color}22; color:${r.color}">${RF.esc(r.name)}</span>`).join('');
   
   document.getElementById('sOpen').textContent = data.ticketStats.openCount;
   document.getElementById('sArch').textContent = data.ticketStats.archiveCount;
@@ -130,7 +259,7 @@ async function performLookup() {
   
   const archives = data.ticketStats.archives;
   document.getElementById('hTickets').innerHTML = archives.length 
-    ? archives.map(a => `<div>• <b>${a.type} Ticket</b> (${new Date(a.closedAt).toLocaleDateString()}) — <a href="/transcript/${a.id}?token=${a.accessToken}" style="color:var(--accent)" target="_blank">View Transcript</a></div>`).join('')
+    ? archives.map(a => `<div>• <b>${RF.esc(a.type)} Ticket</b> (${new Date(a.closedAt).toLocaleDateString()}) — <a href="/transcript/${a.id}?token=${a.accessToken}" style="color:var(--accent)" target="_blank">View Transcript</a></div>`).join('')
     : 'No past tickets found.';
     
   document.getElementById('resultGrid').style.display = 'grid';
@@ -161,13 +290,25 @@ async function performRobloxLookup(query) {
 document.getElementById('searchBtn').addEventListener('click', performLookup);
 document.getElementById('searchInput').addEventListener('keypress', e => { if (e.key === 'Enter') performLookup(); });
 
-// Initialize Navigation Bar
-fetch('/api/guild').then(r => r.json()).then(g => {
-  const allowed = g.viewerTier === 'staff' ? g.staffPermissions.allowedTabs : null;
-  if (window.RF && typeof window.RF.renderNav === 'function') {
-    document.getElementById('navTabs').innerHTML = window.RF.renderNav('/lookup', allowed);
+async function initNav() {
+  try {
+    const res = await fetch('/api/guild');
+    if (res.ok) {
+      const g = await res.json();
+      const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions.allowedTabs : null;
+      document.getElementById('navTabs').innerHTML = RF.renderNav('/lookup', allowedTabs);
+    } else {
+      document.getElementById('navTabs').innerHTML = RF.renderNav('/lookup', null);
+    }
+  } catch {
+    document.getElementById('navTabs').innerHTML = RF.renderNav('/lookup', null);
   }
-}).catch(() => {});
+
+  const logoutIconEl = document.getElementById('logoutIcon');
+  if (logoutIconEl && RF.ICONS.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
+}
+
+initNav();
 </script>
 </body>
 </html>
