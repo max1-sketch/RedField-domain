@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Quick Words</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+:root { --accent: {{ACCENT_COLOR}}; --bg-0: #0a0c11; --sidebar-bg: #0d0f16; --panel: #141722; --border: #262b3a; --ink: #e7e9ee; --muted: #9199a8; --red: #ef4444; }
+* { box-sizing: border-box; } body { margin:0; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar { width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+.sidebar-brand { background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); text-decoration: none; }
+.nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
+.content-area { flex: 1; padding: 26px 30px; max-width: 900px; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+input, textarea, select { width: 100%; background: #1a1e2b; border: 1px solid var(--border); color: var(--ink); padding: 10px; border-radius: 6px; margin-bottom: 10px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: #0a0c11; border: none; font-weight: 700; padding: 10px 16px; border-radius: 6px; cursor: pointer; }
+.dot-loader { display: inline-flex; gap: 4px; }
+.dot-loader span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: dotbounce 1s infinite ease-in-out; }
+.dot-loader span:nth-child(2) { animation-delay: .15s; } .dot-loader span:nth-child(3) { animation-delay: .3s; }
+@keyframes dotbounce { 0%, 80%, 100% { transform: scale(.5); opacity: .35; } 40% { transform: scale(1); opacity: 1; } }
+table { width: 100%; border-collapse: collapse; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">{{SITE_TITLE}}</div>
+    <nav class="sidebar-nav" id="navTabs"></nav>
+  </aside>
+  <main class="content-area">
+    <h1>Quick Words Config</h1>
+    <div class="card">
+      <h2>Add New Quick Word Response</h2>
+      <input type="text" id="label" placeholder="Short Title / Label (e.g. Rules Reminder)">
+      <textarea id="text" placeholder="Full message text sent into Discord ticket..."></textarea>
+      <select id="isGlobal">
+        <option value="true">Admin: Global (Visible to All Staff)</option>
+        <option value="false">Personal (Only Visible to You)</option>
+      </select>
+      <button class="btn" id="saveBtn">Save Quick Word</button>
+    </div>
+
+    <div class="card" style="padding:0;">
+      <table>
+        <thead><tr><th>Type</th><th>Label</th><th>Text</th><th>Action</th></tr></thead>
+        <tbody id="tbody"><tr><td colspan="4">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+<script>
+document.getElementById('navTabs').innerHTML = `
+  <a class="nav-item" href="/">Archive</a>
+  <a class="nav-item" href="/tickets">Tickets</a>
+  <a class="nav-item active" href="/quickwords">Quick Words</a>
+  <a class="nav-item" href="/feedback">Feedback</a>
+  <a class="nav-item" href="/audit-log">Audit Log</a>
+  <a class="nav-item" href="/settings">Settings</a>
+`;
+
+async function with2SecLoading(btn, action) {
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="dot-loader"><span></span><span></span><span></span></span>';
+  const start = Date.now();
+  await action();
+  const elapsed = Date.now() - start;
+  if (elapsed < 2000) await new Promise(r => setTimeout(r, 2000 - elapsed));
+  btn.disabled = false;
+  btn.innerHTML = orig;
+}
+
+async function load() {
+  const res = await fetch('/api/quickwords');
+  const data = await res.json();
+  const list = [...(data.global || []).map(g => ({ ...g, type: 'Global' }))];
+  
+  document.getElementById('tbody').innerHTML = list.map(q => `
+    <tr>
+      <td><b>${q.type}</b></td>
+      <td>${q.label}</td>
+      <td>${q.text}</td>
+      <td><button style="background:var(--red);color:#fff;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;" onclick="del('${q.id}')">Delete</button></td>
+    </tr>
+  `).join('') || '<tr><td colspan="4">No Quick Words created yet.</td></tr>';
+}
+
+document.getElementById('saveBtn').addEventListener('click', async (e) => {
+  const label = document.getElementById('label').value.trim();
+  const text = document.getElementById('text').value.trim();
+  const isGlobal = document.getElementById('isGlobal').value === 'true';
+
+  if(!label || !text) return alert('Fill in all fields');
+
+  await with2SecLoading(e.currentTarget, async () => {
+    await fetch('/api/quickwords', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label, text, isGlobal })
+    });
+    document.getElementById('label').value = '';
+    document.getElementById('text').value = '';
+    load();
+  });
+});
+
+async function del(id) {
+  await fetch(`/api/quickwords/${id}`, { method: 'DELETE' });
+  load();
+}
+
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Feedback</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+:root { --accent: {{ACCENT_COLOR}}; --bg-0: #0a0c11; --sidebar-bg: #0d0f16; --panel: #141722; --border: #262b3a; --ink: #e7e9ee; --muted: #9199a8; --faint: #5b6272; --amber: #f59e0b; }
+* { box-sizing: border-box; } body { margin:0; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar { width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+.sidebar-brand { background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); text-decoration: none; }
+.nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
+.content-area { flex: 1; padding: 26px 30px; max-width: 1000px; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+.star-rating { color: var(--amber); font-weight: 700; font-size: 16px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 12px; border-bottom: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">{{SITE_TITLE}}</div>
+    <nav class="sidebar-nav" id="navTabs"></nav>
+  </aside>
+  <main class="content-area">
+    <h1>Support Feedback</h1>
+    <div class="card" id="avgCard">Loading average rating...</div>
+    <div class="card" style="padding:0;">
+      <table>
+        <thead><tr><th>Rating</th><th>User</th><th>Ticket ID</th><th>Date</th></tr></thead>
+        <tbody id="tbody"><tr><td colspan="4">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+<script>
+document.getElementById('navTabs').innerHTML = `
+  <a class="nav-item" href="/">Archive</a>
+  <a class="nav-item" href="/tickets">Tickets</a>
+  <a class="nav-item" href="/quickwords">Quick Words</a>
+  <a class="nav-item active" href="/feedback">Feedback</a>
+  <a class="nav-item" href="/audit-log">Audit Log</a>
+  <a class="nav-item" href="/settings">Settings</a>
+`;
+
+async function load() {
+  const res = await fetch('/api/feedback');
+  const list = await res.json();
+  if(!list.length) { document.getElementById('tbody').innerHTML = '<tr><td colspan="4">No feedback ratings recorded yet.</td></tr>'; return; }
+  
+  const avg = (list.reduce((acc, c) => acc + c.rating, 0) / list.length).toFixed(1);
+  document.getElementById('avgCard').innerHTML = `<h2>Average Score: <span class="star-rating">⭐ ${avg} / 5.0</span> (${list.length} total reviews)</h2>`;
+
+  document.getElementById('tbody').innerHTML = list.map(item => `
+    <tr>
+      <td><span class="star-rating">${'⭐'.repeat(item.rating)}</span> (${item.rating}/5)</td>
+      <td><b>${item.userTag}</b></td>
+      <td><code>#${item.ticketId.slice(-6)}</code></td>
+      <td>${new Date(item.at).toLocaleString()}</td>
+    </tr>
+  `).join('');
+}
+load();
+</script>
+</body>
+</html>
