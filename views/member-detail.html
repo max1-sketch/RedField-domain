@@ -327,14 +327,15 @@ RF.startSessionClock(document.getElementById('sessionClock'));
 const userId = window.location.pathname.split('/').pop();
 let lastMember = null;
 let pendingAdminRoleId = null;
+let viewerTier = 'none';
 
 async function initNav() {
   try {
     const res = await fetch('/api/guild');
     if (res.ok) {
       const g = await res.json();
-      // If user is non-admin staff, pass allowedTabs. If Master/Admin, pass null (shows all tabs).
-      const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions.allowedTabs : null;
+      viewerTier = g.viewerTier || 'none';
+      const allowedTabs = viewerTier === 'staff' ? g.staffPermissions.allowedTabs : null;
       document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, allowedTabs);
     } else {
       document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
@@ -358,13 +359,24 @@ async function load() {
 
 function render() {
   const m = lastMember;
+  const canAdmin = viewerTier === 'admin' || viewerTier === 'master';
+  const protectedRoleIds = new Set([...(m.staffRoleIds || []), ...(m.adminRoleIds || [])]);
+
   const roleChips = m.roles.length
-    ? m.roles.map(r => `<span class="role-chip${r.isAdmin ? ' admin' : ''}" style="color:${r.color || 'var(--muted)'};">${r.isAdmin ? '⚡ ' : ''}${RF.esc(r.name)}<button class="role-x" onclick="removeRole('${r.id}')" title="Remove role">×</button></span>`).join('')
+    ? m.roles.map(r => {
+        const isProtected = protectedRoleIds.has(r.id);
+        const removeButton = isProtected && !canAdmin ? '' : `<button class="role-x" onclick="removeRole('${r.id}')" title="Remove role">×</button>`;
+        return `<span class="role-chip${r.isAdmin ? ' admin' : ''}" style="color:${r.color || 'var(--muted)'};">${r.isAdmin ? '⚡ ' : ''}${RF.esc(r.name)}${removeButton}</span>`;
+      }).join('')
     : '<span class="role-chip">No roles</span>';
 
   const availableRoles = m.allGuildRoles.filter(r => !m.roles.some(mr => mr.id === r.id));
   const addRoleOptions = availableRoles.length
-    ? `<option value="">+ Add a role…</option>${availableRoles.map(r => `<option value="${r.id}" data-admin="${r.isAdmin ? '1' : '0'}">${r.isAdmin ? '⚡ ' : ''}${RF.esc(r.name)}</option>`).join('')}`
+    ? `<option value="">+ Add a role…</option>${availableRoles.map(r => {
+        const isProtected = protectedRoleIds.has(r.id);
+        if (isProtected && !canAdmin) return '';
+        return `<option value="${r.id}" data-admin="${r.isAdmin ? '1' : '0'}">${r.isAdmin ? '⚡ ' : ''}${RF.esc(r.name)}</option>`;
+      }).join('')}`
     : `<option value="">No more roles to add</option>`;
 
   const hasAccess = Boolean(m.isStaff);
@@ -505,7 +517,8 @@ function wireActions() {
   document.getElementById('senderName').addEventListener('change', (e) => RF.setCookie('websiteSenderName', e.target.value.trim(), 90));
 
   const toggleBtn = document.getElementById('toggleAccessBtn');
-  toggleBtn.addEventListener('click', async (e) => {
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', async (e) => {
     const hasAccess = Boolean(lastMember.isStaff);
     try {
       if (hasAccess) {
@@ -545,12 +558,8 @@ function wireActions() {
     const selectedOption = select.options[select.selectedIndex];
     const isAdminRole = selectedOption.getAttribute('data-admin') === '1';
 
-    if (isAdminRole) {
-      pendingAdminRoleId = roleId;
-      document.getElementById('adminRoleTarget').textContent = lastMember.tag;
-      document.getElementById('adminRoleName').textContent = selectedOption.textContent.replace('⚡ ', '');
-      document.getElementById('adminRoleError').textContent = '';
-      document.getElementById('adminRoleOverlay').classList.add('show');
+    if (isAdminRole && !(viewerTier === 'admin' || viewerTier === 'master')) {
+      RF.toast('Only Administrators can assign Admin roles.', false);
       return;
     }
 

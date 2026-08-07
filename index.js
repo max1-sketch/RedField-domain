@@ -447,6 +447,16 @@ async function notifyTicketOfModerationAction(guild, targetUserId, action, reaso
     }
 }
 
+async function sendModerationDM(member, subject, message) {
+    if (!member || !member.user) return;
+    try {
+        const dm = await member.createDM();
+        await dm.send({ content: `**${subject}**\n\n${message}` });
+    } catch (err) {
+        console.error('Could not send moderation DM:', err.message);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // PERMISSION CHECK MIDDLEWARE
 // ---------------------------------------------------------------------------
@@ -1404,7 +1414,9 @@ app.get('/api/moderation/members/:userId', maintenanceGate, requireAuth, require
     }
 });
 
-app.post('/api/moderation/members/:userId/notes', maintenanceGate, requireAuth, requireTabPermission('moderation'), requireModerationCapability, (req, res) => {
+app.post('/api/moderation/members/:userId/notes', maintenanceGate, requireAuth, requireTabPermission('moderation'), requireModerationCapability, async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const type = req.body?.type === 'warning' ? 'warning' : 'note';
     const content = String(req.body?.content || '').trim();
     const byName = resolveActorName(req);
@@ -1415,6 +1427,14 @@ app.post('/api/moderation/members/:userId/notes', maintenanceGate, requireAuth, 
     moderationNotes.set(req.params.userId, list);
     saveModerationNotes();
     logAudit('ADD_NOTE', byName, `Added ${type} to user ID ${req.params.userId}`);
+
+    const member = await guild.members.fetch(req.params.userId).catch(() => null);
+    if (member) {
+        const subject = type === 'warning' ? 'You received a warning' : 'You received a note';
+        const body = `A staff member (${byName}) added a ${type} to your record on **${guild.name}**.\n\n${content}`;
+        sendModerationDM(member, subject, body);
+    }
+
     res.json({ success: true, note });
 });
 
@@ -1450,10 +1470,22 @@ app.post('/api/moderation/members/:userId/nickname', maintenanceGate, requireAut
 app.post('/api/moderation/members/:userId/roles', maintenanceGate, requireAuth, requireTabPermission('moderation'), requireModerationCapability, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const guildConfig = getGuildConfig(guild.id);
     const addRoleId = req.body?.add;
     const removeRoleId = req.body?.remove;
     const byName = resolveActorName(req);
     if (!addRoleId && !removeRoleId) return res.status(400).json({ error: 'Nothing to change.' });
+
+    const actorMember = req.authUser?.id ? await guild.members.fetch(req.authUser.id).catch(() => null) : null;
+    const actorIsAdmin = actorMember && isAdmin(actorMember, guildConfig);
+    const protectedRoleIds = new Set([...(guildConfig.staffRoleIds || []), ...(guildConfig.adminRoleIds || [])]);
+
+    if (addRoleId && protectedRoleIds.has(addRoleId) && !actorIsAdmin) {
+        return res.status(403).json({ error: 'Only Administrators can assign Staff or Admin roles.' });
+    }
+    if (removeRoleId && protectedRoleIds.has(removeRoleId) && !actorIsAdmin) {
+        return res.status(403).json({ error: 'Only Administrators can remove Staff or Admin roles.' });
+    }
 
     try {
         const member = await guild.members.fetch(req.params.userId).catch(() => null);
@@ -2097,7 +2129,12 @@ client.on('interactionCreate', async (interaction) => {
                 if (!panel) {
                     return interaction.reply({ content: '⚠️ This ticket type is no longer available.', ephemeral: true });
                 }
-                return await interaction.showModal(ticketModal(typeKey, panel));
+                try {
+                    return await interaction.showModal(ticketModal(typeKey, panel));
+                } catch (err) {
+                    console.error('[showModal failed] type=%s:', typeKey, err);
+                    return interaction.reply({ content: '⚠️ Could not open the ticket form. Please contact staff.', ephemeral: true });
+                }
             }
         }
 
@@ -2119,8 +2156,13 @@ client.on('interactionCreate', async (interaction) => {
                 try { robloxUsername = interaction.fields.getTextInputValue('robloxUsername'); } catch (e) {}
 
                 await interaction.deferReply({ ephemeral: true });
-                const ticketChannel = await createTicketChannel(interaction.guild, interaction.user, typeKey, reason, robloxUsername, guildConfig);
-                return await interaction.editReply({ content: `✅ Ticket created: ${ticketChannel}` });
+                try {
+                    const ticketChannel = await createTicketChannel(interaction.guild, interaction.user, typeKey, reason, robloxUsername, guildConfig);
+                    return await interaction.editReply({ content: `✅ Ticket created: ${ticketChannel}` });
+                } catch (err) {
+                    console.error('[ticket modal submit] failed:', err);
+                    return await interaction.editReply({ content: `⚠️ Could not create ticket: ${err.message}` });
+                }
             }
         }
     } catch (error) {
