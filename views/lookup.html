@@ -20,6 +20,7 @@
   --faint: #5b6272;
   --red: #ef4444;
   --green: #22c55e;
+  --amber: #f59e0b;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
@@ -67,39 +68,58 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
 .session-line.warn { color: var(--red); }
 
-.content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 1100px; }
+.content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 1000px; }
 
 .page-title { font-size: 20px; font-weight: 800; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
 .page-sub { font-size: 13px; color: var(--muted); margin: 0 0 20px; }
 
-.search-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 12px; }
-.search-row { display: flex; gap: 10px; }
-.search-card input { flex: 1; background: var(--panel-2); border: 1px solid var(--border); color: var(--ink); padding: 10px 14px; border-radius: 8px; font-family: inherit; font-size: 14px; }
-.search-card input:focus { outline: none; border-color: var(--accent); }
-.type-selector { display: flex; gap: 8px; }
-.type-btn { background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
-.type-btn.active { background: var(--accent); color: #0a0c11; border-color: var(--accent); }
-.btn { background: var(--accent); color: #0a0c11; border: none; border-radius: 8px; padding: 10px 18px; font-weight: 700; cursor: pointer; }
+/* ---------- search box ---------- */
+.search-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+.mode-toggle { display: flex; gap: 6px; background: var(--panel-2); border: 1px solid var(--border); padding: 4px; border-radius: 8px; width: fit-content; margin-bottom: 14px; }
+.type-btn { background: transparent; border: none; color: var(--muted); padding: 7px 16px; border-radius: 6px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all .15s; }
+.type-btn.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
 
-.profile-grid { display: grid; grid-template-columns: 300px 1fr; gap: 20px; display: none; }
-.profile-card, .detail-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
-.avatar { width: 80px; height: 80px; border-radius: 50%; margin-bottom: 12px; object-fit: cover; background: var(--panel-2); }
-.user-tag { font-size: 16px; font-weight: 700; margin: 0 0 4px; }
-.user-id { font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; margin-bottom: 14px; }
-.role-chip { display: inline-block; font-size: 11px; padding: 3px 8px; border-radius: 99px; margin: 2px; font-weight: 600; }
-.section-title { font-size: 14px; font-weight: 700; color: var(--accent); margin: 0 0 12px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
-.stat-row { display: flex; gap: 20px; margin-bottom: 16px; }
-.stat-box { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; flex: 1; }
-.stat-num { font-size: 20px; font-weight: 800; color: var(--accent); }
-.stat-label { font-size: 11px; color: var(--muted); }
-.item-list { font-size: 12.5px; line-height: 1.6; color: var(--muted); }
-.external-link { color: var(--accent); text-decoration: none; font-weight: 600; }
-.external-link:hover { text-decoration: underline; }
+.search-row { display: flex; gap: 10px; }
+.search-card input { flex: 1; background: var(--panel-2); border: 1px solid var(--border); color: var(--ink); padding: 11px 16px; border-radius: 8px; font-family: inherit; font-size: 13.5px; }
+.search-card input:focus { outline: none; border-color: var(--accent); }
+.btn-search { background: var(--accent); color: #0a0c11; border: none; border-radius: 8px; padding: 0 22px; font-weight: 700; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.btn-search:hover { opacity: .9; }
+
+/* ---------- profile results ---------- */
+.profile-grid { display: grid; grid-template-columns: 280px 1fr; gap: 20px; display: none; }
+.profile-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 22px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.avatar-wrap { position: relative; margin-bottom: 14px; }
+.avatar { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; background: var(--panel-2); border: 2px solid var(--border); }
+.platform-badge { position: absolute; bottom: 0; right: 0; background: var(--panel-2); border: 1px solid var(--border); padding: 4px 8px; border-radius: 99px; font-size: 10px; font-weight: 700; }
+
+.user-name { font-size: 17px; font-weight: 800; margin: 0 0 2px; color: var(--ink); }
+.user-meta { font-size: 11.5px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; margin-bottom: 16px; }
+
+.role-chip-container { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; width: 100%; margin-top: 10px; }
+.role-chip { font-size: 11px; padding: 4px 10px; border-radius: 99px; font-weight: 600; border: 1px solid transparent; }
+
+.detail-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 22px; }
+.section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); margin: 0 0 14px; display: flex; align-items: center; justify-content: space-between; }
+
+.stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 22px; }
+.stat-box { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
+.stat-num { font-size: 22px; font-weight: 800; color: var(--ink); margin-bottom: 2px; }
+.stat-label { font-size: 11px; color: var(--muted); font-weight: 500; }
+
+.history-list { font-size: 13px; display: flex; flex-direction: column; gap: 10px; }
+.history-item { background: var(--panel-2); border: 1px solid var(--border); padding: 12px 14px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+.history-item .t-info b { color: var(--ink); }
+.history-item .t-info span { font-size: 11.5px; color: var(--faint); display: block; margin-top: 2px; }
+
+.empty-history { text-align: center; padding: 30px; color: var(--faint); font-size: 13px; }
+
+.btn-open { background: var(--accent); color: #0a0c11; font-size: 11.5px; font-weight: 700; padding: 6px 12px; border-radius: 6px; }
 
 @media (max-width: 860px) {
   .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
   .sidebar.open { transform: translateX(0); }
   .content-area { padding: 18px 16px 50px; }
+  .profile-grid { grid-template-columns: 1fr; }
 }
 </style>
 </head>
@@ -112,42 +132,49 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
     <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
     <nav class="sidebar-nav" id="navTabs"></nav>
     <div class="sidebar-footer">
-      <span class="session-line mono" id="sessionClock">session --:--</span>
+      <span class="session-line mono" id="sessionClock">session active</span>
       <a href="/logout" class="nav-item"><span class="ic" id="logoutIcon"></span> Log out</a>
     </div>
   </aside>
 
   <main class="content-area">
     <h1 class="page-title">User Lookup <span class="badge-beta">BETA</span></h1>
-    <p class="page-sub">Search Discord or Roblox members to inspect profiles, support history, and moderation data.</p>
+    <p class="page-sub">Search Discord or Roblox members to inspect support history and profiles.</p>
     
     <div class="search-card">
-      <div class="type-selector">
+      <div class="mode-toggle">
         <button class="type-btn active" id="modeDiscord" onclick="setMode('discord')">Discord Member</button>
-        <button class="type-btn" id="modeRoblox" onclick="setMode('roblox')">Roblox User</button>
+        <button class="type-btn" id="modeRoblox" onclick="setMode('roblox')">Roblox Account</button>
       </div>
       <div class="search-row">
-        <input id="searchInput" type="text" placeholder="Enter Discord User ID or Username..." />
-        <button class="btn" id="searchBtn">Lookup Member</button>
+        <input id="searchInput" type="text" placeholder="Enter Discord User ID or @Username..." autocomplete="off" />
+        <button class="btn-search" id="searchBtn" onclick="performLookup()">Search</button>
       </div>
     </div>
 
     <div class="profile-grid" id="resultGrid">
       <div class="profile-card">
-        <img class="avatar" id="uAvatar" src="" alt="Avatar" />
-        <div class="user-tag" id="uTag"></div>
-        <div class="user-id" id="uId"></div>
-        <div id="uRoles"></div>
+        <div class="avatar-wrap">
+          <img class="avatar" id="uAvatar" src="" alt="Avatar" />
+          <span class="platform-badge" id="platformBadge">DISCORD</span>
+        </div>
+        <div class="user-name" id="uTag"></div>
+        <div class="user-meta mono" id="uId"></div>
+        <div class="role-chip-container" id="uRoles"></div>
       </div>
+
       <div class="detail-card">
-        <div class="section-title" id="sectionActivity">Support Activity</div>
+        <div class="section-title">Support Activity Overview</div>
         <div class="stat-row">
-          <div class="stat-box"><div class="stat-num" id="sOpen">0</div><div class="stat-label">Open Tickets</div></div>
-          <div class="stat-box"><div class="stat-num" id="sArch">0</div><div class="stat-label">Past Tickets</div></div>
+          <div class="stat-box"><div class="stat-num" id="sOpen">0</div><div class="stat-label">Active Tickets</div></div>
+          <div class="stat-box"><div class="stat-num" id="sArch">0</div><div class="stat-label">Closed Transcripts</div></div>
           <div class="stat-box"><div class="stat-num" id="sNotes">0</div><div class="stat-label">Mod Notes</div></div>
         </div>
-        <div class="section-title" id="sectionHistory">Ticket History</div>
-        <div class="item-list" id="hTickets">No past tickets found.</div>
+
+        <div class="section-title">Ticket &amp; Support History</div>
+        <div class="history-list" id="hTickets">
+          <div class="empty-history">No tickets recorded.</div>
+        </div>
       </div>
     </div>
 
@@ -155,71 +182,8 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
   </main>
 </div>
 
+<script src="/theme.js"></script>
 <script>
-window.RF = (function () {
-  const TYPE_COLORS = { REDFIELD: '#22c55e', MANAGEMENT: '#3b82f6', BUG: '#f59e0b' };
-  const FALLBACK_COLOR = '#a78bfa';
-  function typeColor(type) { return TYPE_COLORS[type] || FALLBACK_COLOR; }
-  function esc(str) {
-    return (str === undefined || str === null ? '' : String(str))
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
-  function getCookie(name) {
-    const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
-    return match ? decodeURIComponent(match[1]) : null;
-  }
-  function startSessionClock(el) {
-    if (!el) return;
-    function tick() {
-      const expiresAt = parseInt(getCookie('sessionExpires') || '0', 10);
-      if (!expiresAt) { el.textContent = 'session active'; return; }
-      const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
-      const m = Math.floor(remaining / 60), s = remaining % 60;
-      el.textContent = `session ${m}:${s.toString().padStart(2, '0')}`;
-      el.classList.toggle('warn', remaining <= 60);
-      if (remaining <= 0) window.location.reload();
-    }
-    tick(); setInterval(tick, 1000);
-  }
-  const ICONS = {
-    archive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="5" rx="1"></rect><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"></path><path d="M10 12h4"></path></svg>',
-    tickets: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"></path></svg>',
-    panels: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>',
-    tags: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>',
-    quickwords: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
-    feedback: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>',
-    auditlog: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>',
-    shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>',
-    blacklist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m4.93 4.93 14.14 14.14"></path></svg>',
-    lookup: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>',
-    settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle></svg>',
-    logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>'
-  };
-
-  function renderNav(activePath, allowedTabs) {
-    const tabs = [
-      { key: 'archive', href: '/', label: 'Home', ic: ICONS.archive },
-      { key: 'tickets', href: '/tickets', label: 'Open Tickets', ic: ICONS.tickets },
-      { key: 'panels', href: '/panels', label: 'Panel Configs', ic: ICONS.panels },
-      { key: 'tags', href: '/tags', label: 'Tags', ic: ICONS.tags },
-      { key: 'quickwords', href: '/quickwords', label: 'Quick Words', ic: ICONS.quickwords },
-      { key: 'feedback', href: '/feedback', label: 'Feedback', ic: ICONS.feedback },
-      { key: 'auditlog', href: '/audit-log', label: 'Logging', ic: ICONS.auditlog, adminOnly: true },
-      { key: 'moderation', href: '/moderation', label: 'Moderation', ic: ICONS.shield },
-      { key: 'lookup', href: '/lookup', label: 'User Lookup <span class="badge-beta">BETA</span>', ic: ICONS.lookup },
-      { key: 'blacklist', href: '/blacklist', label: 'Blacklist', ic: ICONS.blacklist },
-      { key: 'settings', href: '/settings', label: 'Server Configs', ic: ICONS.settings, adminOnly: true }
-    ];
-
-    const visible = (allowedTabs && Array.isArray(allowedTabs) && allowedTabs.length > 0)
-      ? tabs.filter(t => !t.adminOnly && allowedTabs.includes(t.key))
-      : tabs;
-
-    return visible.map(t => `<a class="nav-item${t.href === activePath ? ' active' : ''}" href="${t.href}"><span class="ic">${t.ic}</span> ${t.label}</a>`).join('');
-  }
-  return { typeColor, esc, getCookie, startSessionClock, renderNav, ICONS };
-})();
-
 RF.startSessionClock(document.getElementById('sessionClock'));
 
 let searchMode = 'discord';
@@ -229,73 +193,144 @@ function setMode(mode) {
   document.getElementById('modeDiscord').classList.toggle('active', mode === 'discord');
   document.getElementById('modeRoblox').classList.toggle('active', mode === 'roblox');
   document.getElementById('searchInput').placeholder = mode === 'discord' 
-    ? 'Enter Discord User ID or Username...' 
-    : 'Enter Roblox Username or User ID...';
+    ? 'Enter Discord User ID or @Username...' 
+    : 'Enter Roblox Username or Numeric ID...';
   document.getElementById('resultGrid').style.display = 'none';
 }
 
 async function performLookup() {
-  const query = document.getElementById('searchInput').value.trim();
+  let query = document.getElementById('searchInput').value.trim();
   if (!query) return;
-  
-  if (searchMode === 'roblox') {
-    return performRobloxLookup(query);
-  }
 
+  // Strip leading '@' if typed by user
+  if (query.startsWith('@')) query = query.slice(1);
+
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+  btn.textContent = 'Searching...';
+
+  try {
+    if (searchMode === 'roblox') {
+      await performRobloxLookup(query);
+    } else {
+      await performDiscordLookup(query);
+    }
+  } catch (err) {
+    alert(err.message || 'Lookup failed.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Search';
+  }
+}
+
+async function performDiscordLookup(query) {
   const res = await fetch(`/api/lookup/${encodeURIComponent(query)}`);
-  if (!res.ok) { alert('Discord member not found or error loading profile'); return; }
+  if (!res.ok) throw new Error('Discord member not found in server.');
   
   const data = await res.json();
   const u = data.user;
-  
-  document.getElementById('uAvatar').src = u.avatarURL;
+
+  document.getElementById('platformBadge').textContent = 'DISCORD';
+  document.getElementById('platformBadge').style.color = '#3b82f6';
+  document.getElementById('uAvatar').src = u.avatarURL || 'https://cdn.discordapp.com/embed/avatars/0.png';
   document.getElementById('uTag').textContent = u.displayName || u.tag;
-  document.getElementById('uId').textContent = `@${u.tag} • ID: ${u.id}`;
-  document.getElementById('uRoles').innerHTML = u.roles.map(r => `<span class="role-chip" style="background:${r.color}22; color:${r.color}">${RF.esc(r.name)}</span>`).join('');
+  document.getElementById('uId').textContent = `@${u.tag} • ${u.id}`;
   
-  document.getElementById('sOpen').textContent = data.ticketStats.openCount;
-  document.getElementById('sArch').textContent = data.ticketStats.archiveCount;
-  document.getElementById('sNotes').textContent = data.notes.length;
-  
-  const archives = data.ticketStats.archives;
+  document.getElementById('uRoles').innerHTML = (u.roles || []).map(r => 
+    `<span class="role-chip" style="background:${r.color}15; color:${r.color}; border-color:${r.color}33;">${RF.esc(r.name)}</span>`
+  ).join('');
+
+  document.getElementById('sOpen').textContent = data.ticketStats?.openCount || 0;
+  document.getElementById('sArch').textContent = data.ticketStats?.archiveCount || 0;
+  document.getElementById('sNotes').textContent = (data.notes || []).length;
+
+  const archives = data.ticketStats?.archives || [];
   document.getElementById('hTickets').innerHTML = archives.length 
-    ? archives.map(a => `<div>• <b>${RF.esc(a.type)} Ticket</b> (${new Date(a.closedAt).toLocaleDateString()}) — <a href="/transcript/${a.id}?token=${a.accessToken}" style="color:var(--accent)" target="_blank">View Transcript</a></div>`).join('')
-    : 'No past tickets found.';
-    
+    ? archives.map(a => `
+        <div class="history-item">
+          <div class="t-info">
+            <b>${RF.esc(a.type || 'TICKET')} Ticket</b>
+            <span>Closed on ${new Date(a.closedAt).toLocaleDateString()}</span>
+          </div>
+          <a class="btn-open" href="/transcript/${a.id}?token=${a.accessToken}" target="_blank">View Transcript</a>
+        </div>
+      `).join('')
+    : '<div class="empty-history">No past support tickets found for this user.</div>';
+
   document.getElementById('resultGrid').style.display = 'grid';
 }
 
 async function performRobloxLookup(query) {
-  try {
-    const res = await fetch(`/api/roblox/lookup/${encodeURIComponent(query)}`);
-    if (!res.ok) { alert('Roblox user not found'); return; }
-    const data = await res.json();
-
-    document.getElementById('uAvatar').src = data.avatarUrl || 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-Placeholder';
-    document.getElementById('uTag').textContent = data.username;
-    document.getElementById('uId').textContent = `Roblox User ID: ${data.id}`;
-    document.getElementById('uRoles').innerHTML = `<a href="https://www.roblox.com/users/${data.id}/profile" target="_blank" class="external-link">View Roblox Profile ↗</a>`;
+  const res = await fetch(`/api/roblox/lookup/${encodeURIComponent(query)}`);
+  
+  if (!res.ok) {
+    // If backend direct search throws, fallback cleanly to direct Web Profile
+    const isId = !isNaN(query);
+    const fallbackId = isId ? query : null;
     
+    document.getElementById('platformBadge').textContent = 'ROBLOX';
+    document.getElementById('platformBadge').style.color = '#ef4444';
+    document.getElementById('uAvatar').src = 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-Placeholder';
+    document.getElementById('uTag').textContent = query;
+    document.getElementById('uId').textContent = isId ? `Roblox ID: ${query}` : `Roblox Username: ${query}`;
+    
+    document.getElementById('uRoles').innerHTML = fallbackId 
+      ? `<a href="https://www.roblox.com/users/${fallbackId}/profile" target="_blank" style="color:var(--accent); font-weight:700;">Open Profile on Roblox.com ↗</a>`
+      : `<span style="color:var(--faint);">Search via Roblox Website</span>`;
+
     document.getElementById('sOpen').textContent = '-';
     document.getElementById('sArch').textContent = '-';
     document.getElementById('sNotes').textContent = '-';
-    document.getElementById('hTickets').innerHTML = `Direct Roblox account lookup. <a href="https://www.roblox.com/users/${data.id}/profile" target="_blank" class="external-link">Open profile on Roblox.com</a>`;
-    
+    document.getElementById('hTickets').innerHTML = `
+      <div class="history-item">
+        <div class="t-info">
+          <b>Roblox Profile Lookup</b>
+          <span>Could not resolve automatically via Roblox API.</span>
+        </div>
+        <a class="btn-open" href="https://www.roblox.com/search/users?keyword=${encodeURIComponent(query)}" target="_blank">Search on Roblox ↗</a>
+      </div>`;
+      
     document.getElementById('resultGrid').style.display = 'grid';
-  } catch (err) {
-    alert('Error looking up Roblox user: ' + err.message);
+    return;
   }
+
+  const data = await res.json();
+  document.getElementById('platformBadge').textContent = 'ROBLOX';
+  document.getElementById('platformBadge').style.color = '#ef4444';
+  document.getElementById('uAvatar').src = data.avatarUrl || 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-Placeholder';
+  document.getElementById('uTag').textContent = data.username;
+  document.getElementById('uId').textContent = `Roblox ID: ${data.id}`;
+  
+  document.getElementById('uRoles').innerHTML = `
+    <a href="https://www.roblox.com/users/${data.id}/profile" target="_blank" style="color:var(--accent); font-weight:700; font-size:12px;">
+      View Profile on Roblox.com ↗
+    </a>`;
+
+  document.getElementById('sOpen').textContent = '-';
+  document.getElementById('sArch').textContent = '-';
+  document.getElementById('sNotes').textContent = '-';
+  document.getElementById('hTickets').innerHTML = `
+    <div class="history-item">
+      <div class="t-info">
+        <b>Direct Roblox Account Found</b>
+        <span>Roblox accounts are verified via ticket transcripts or linked tags.</span>
+      </div>
+      <a class="btn-open" href="https://www.roblox.com/users/${data.id}/profile" target="_blank">Roblox Profile ↗</a>
+    </div>`;
+
+  document.getElementById('resultGrid').style.display = 'grid';
 }
 
-document.getElementById('searchBtn').addEventListener('click', performLookup);
-document.getElementById('searchInput').addEventListener('keypress', e => { if (e.key === 'Enter') performLookup(); });
+document.getElementById('searchInput').addEventListener('keypress', e => { 
+  if (e.key === 'Enter') performLookup(); 
+});
 
 async function initNav() {
   try {
     const res = await fetch('/api/guild');
     if (res.ok) {
       const g = await res.json();
-      const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions.allowedTabs : null;
+      const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions?.allowedTabs : null;
       document.getElementById('navTabs').innerHTML = RF.renderNav('/lookup', allowedTabs);
     } else {
       document.getElementById('navTabs').innerHTML = RF.renderNav('/lookup', null);
@@ -305,7 +340,7 @@ async function initNav() {
   }
 
   const logoutIconEl = document.getElementById('logoutIcon');
-  if (logoutIconEl && RF.ICONS.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
+  if (logoutIconEl && RF.ICONS?.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
 }
 
 initNav();
