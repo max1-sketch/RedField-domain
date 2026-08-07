@@ -263,12 +263,12 @@ function renderPage() {
   const perms = g.staffPermissions || { allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'moderation', 'blacklist'], canModerate: true };
 
   document.getElementById('main').innerHTML = `
-    <h1 class="page-title">Settings</h1>
+    <h1 class="page-title">Server Configs</h1>
     <p class="page-sub">Managing <b>${RF.esc(g.guildName)}</b></p>
 
     <div class="card">
       <div class="card-header"><h2>Roles &amp; Tiers</h2></div>
-      <p class="card-sub">Pick what each role can do. Admins can do everything staff can, plus they're the only ones who can use this Settings tab. No role assigned = normal member (can only open tickets). Also settable with <code>/configure</code> in Discord.</p>
+      <p class="card-sub">Pick what each role can do. Admins can do everything staff can, plus they're the only ones who can use this Server Configs tab. No role assigned = normal member (can only open tickets). Also settable with <code>/configure</code> in Discord.</p>
 
       <div class="owner-row"><span class="owner-badge">Owner</span> ${RF.esc(g.ownerTag || g.ownerId)} <span style="color:var(--faint)">— always full access, can't be changed here</span></div>
 
