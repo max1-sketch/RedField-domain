@@ -501,34 +501,6 @@ function getViewerContext(req, guild, guildConfig) {
     return { tier: 'none', allowedTabs: [], canModerate: false };
 }
 
-function getGuildConfig(guildId) {
-    const saved = guildConfigs[guildId] || {};
-    const def = defaultConfig();
-    const merged = { ...def, ...saved };
-
-    merged.panels = {};
-    for (const key of Object.keys(def.panels)) {
-        merged.panels[key] = { ...def.panels[key], ...((saved.panels && saved.panels[key]) || {}) };
-        if (!Array.isArray(merged.panels[key].teamRoleIds)) merged.panels[key].teamRoleIds = [];
-    }
-    merged.staffRoleIds = Array.isArray(saved.staffRoleIds) ? saved.staffRoleIds : def.staffRoleIds;
-    merged.adminRoleIds = Array.isArray(saved.adminRoleIds) ? saved.adminRoleIds : def.adminRoleIds;
-    merged.tags = Array.isArray(saved.tags) ? saved.tags : def.tags;
-    merged.staffRestrictions = saved.staffRestrictions || {};
-
-    const savedPerms = saved.staffPermissions || {};
-    merged.staffPermissions = {
-        allowedTabs: Array.isArray(savedPerms.allowedTabs) && savedPerms.allowedTabs.length > 0 
-            ? savedPerms.allowedTabs 
-            : def.staffPermissions.allowedTabs,
-        canModerate: typeof savedPerms.canModerate === 'boolean' ? savedPerms.canModerate : def.staffPermissions.canModerate
-    };
-
-    guildConfigs[guildId] = merged;
-    saveConfigs();
-    return merged;
-}
-
 function requireTabPermission(tabName) {
     return async (req, res, next) => {
         const guild = getTargetGuild();
@@ -623,8 +595,8 @@ function lockPageHtml(error, returnTo, allowCode = true) {
     const shouldShowTranscriptMessage = returnTo && returnTo.startsWith('/transcript');
     const errorText = error
       ? (error === 'discord_required' && shouldShowTranscriptMessage
-          ? 'Please sign in with Discord to view this transcript.'
-          : (errorMessages[error] || errorMessages['1']))
+        ? 'Please sign in with Discord to view this transcript.'
+        : (errorMessages[error] || errorMessages['1']))
       : null;
     const discordSection = DISCORD_LOGIN_CONFIGURED ? `
     <a class="discord-btn" href="/auth/discord?returnTo=${encodeURIComponent((returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/')}">
@@ -878,6 +850,16 @@ app.use((req, res, next) => {
     if (req.path === '/index.html' || req.path === '/transcript.html' || req.path === '/settings.html') return res.status(403).send('Forbidden');
     next();
 });
+
+// Explicit static JS routes to prevent 404 / MIME type fallbacks
+app.get('/theme.js', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'theme.js'));
+});
+
+app.get('/version-check.js', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'version-check.js'));
+});
+
 app.use(express.static(path.join(__dirname, 'views'), { index: false }));
 
 function requireDiscordOrTicketToken(req, res, next) {
@@ -1429,22 +1411,6 @@ app.post('/api/guild/roles', maintenanceGate, requireAuth, async (req, res) => {
     saveConfigs();
     logAudit('UPDATE_ROLES', resolveActorName(req), 'Updated staff & admin role assignments');
     res.json({ success: true });
-});
-
-app.post('/api/guild/permissions', maintenanceGate, requireAuth, async (req, res) => {
-    const guild = getTargetGuild();
-    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
-    const { allowedTabs, canModerate } = req.body || {};
-    const guildConfig = getGuildConfig(guild.id);
-
-    guildConfig.staffPermissions = {
-        allowedTabs: Array.isArray(allowedTabs) ? allowedTabs : guildConfig.staffPermissions.allowedTabs,
-        canModerate: typeof canModerate === 'boolean' ? canModerate : guildConfig.staffPermissions.canModerate
-    };
-
-    saveConfigs();
-    logAudit('UPDATE_PERMISSIONS', resolveActorName(req), 'Updated staff dashboard permissions');
-    res.json({ success: true, staffPermissions: guildConfig.staffPermissions });
 });
 
 app.post('/api/guild/categories', maintenanceGate, requireAuth, async (req, res) => {
