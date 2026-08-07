@@ -585,7 +585,12 @@ function lockPageHtml(error, returnTo, allowCode = true) {
         discord_failed: 'Discord login failed — try again or use the access code.',
         discord_required: 'Please sign in with Discord to continue.'
     };
-    const errorText = errorMessages[error] || (error ? errorMessages['1'] : null);
+    const shouldShowTranscriptMessage = returnTo && returnTo.startsWith('/transcript');
+    const errorText = error
+      ? (error === 'discord_required' && shouldShowTranscriptMessage
+          ? 'Please sign in with Discord to view this transcript.'
+          : (errorMessages[error] || errorMessages['1']))
+      : null;
     const discordSection = DISCORD_LOGIN_CONFIGURED ? `
     <a class="discord-btn" href="/auth/discord?returnTo=${encodeURIComponent((returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/')}">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20.3 4.4A19.7 19.7 0 0 0 15.6 3l-.3.6a14 14 0 0 1 4 1.6c-2.9-1.4-6.7-1.4-9.6 0a10 10 0 0 1 4-1.6L13.4 3a19.7 19.7 0 0 0-4.7 1.4C5.6 8.6 4.8 12.7 5.2 16.7a19.9 19.9 0 0 0 5.1 2.5l.7-1.1a13 13 0 0 1-2-1c.2-.1.3-.2.5-.3a14 14 0 0 0 11 0l.5.3c-.6.4-1.3.7-2 1l.7 1.1a19.8 19.8 0 0 0 5.1-2.5c.5-4.6-.7-8.7-2.9-12.3ZM9.7 14.3c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.5.8 1.5 1.7c0 1-.7 1.7-1.5 1.7Zm5.6 0c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.5.8 1.5 1.7c0 1-.7 1.7-1.5 1.7Z"/></svg>
