@@ -477,19 +477,56 @@ function getViewerContext(req, guild, guildConfig) {
     const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'settings'];
     const authUser = req.authUser;
     
-    if (!authUser) return { tier: 'none', allowedTabs: ALL_TABS, canModerate: false };
+    // Master access code or no auth user
+    if (!authUser) return { tier: 'none', allowedTabs: [], canModerate: false };
     if (!authUser.id) return { tier: 'master', allowedTabs: ALL_TABS, canModerate: true };
 
     const member = guild.members.cache.get(authUser.id);
+    
+    // Server Owner or Admin Role
     if (isAdmin(member, guildConfig)) {
         return { tier: 'admin', allowedTabs: ALL_TABS, canModerate: true };
     }
 
+    // Staff Role: strictly use the allowedTabs configured by Administrators
     if (isStaff(member, guildConfig)) {
-        return { tier: 'staff', allowedTabs: ALL_TABS, canModerate: true };
+        const allowed = guildConfig.staffPermissions?.allowedTabs || ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'lookup', 'blacklist'];
+        return { 
+            tier: 'staff', 
+            allowedTabs: allowed, 
+            canModerate: Boolean(guildConfig.staffPermissions?.canModerate) 
+        };
     }
 
-    return { tier: 'none', allowedTabs: ALL_TABS, canModerate: false };
+    return { tier: 'none', allowedTabs: [], canModerate: false };
+}
+
+function getGuildConfig(guildId) {
+    const saved = guildConfigs[guildId] || {};
+    const def = defaultConfig();
+    const merged = { ...def, ...saved };
+
+    merged.panels = {};
+    for (const key of Object.keys(def.panels)) {
+        merged.panels[key] = { ...def.panels[key], ...((saved.panels && saved.panels[key]) || {}) };
+        if (!Array.isArray(merged.panels[key].teamRoleIds)) merged.panels[key].teamRoleIds = [];
+    }
+    merged.staffRoleIds = Array.isArray(saved.staffRoleIds) ? saved.staffRoleIds : def.staffRoleIds;
+    merged.adminRoleIds = Array.isArray(saved.adminRoleIds) ? saved.adminRoleIds : def.adminRoleIds;
+    merged.tags = Array.isArray(saved.tags) ? saved.tags : def.tags;
+    merged.staffRestrictions = saved.staffRestrictions || {};
+
+    const savedPerms = saved.staffPermissions || {};
+    merged.staffPermissions = {
+        allowedTabs: Array.isArray(savedPerms.allowedTabs) && savedPerms.allowedTabs.length > 0 
+            ? savedPerms.allowedTabs 
+            : def.staffPermissions.allowedTabs,
+        canModerate: typeof savedPerms.canModerate === 'boolean' ? savedPerms.canModerate : def.staffPermissions.canModerate
+    };
+
+    guildConfigs[guildId] = merged;
+    saveConfigs();
+    return merged;
 }
 
 function requireTabPermission(tabName) {
