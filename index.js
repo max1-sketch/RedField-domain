@@ -59,6 +59,9 @@ const AUDIT_LOG_FILE = path.join(DATA_DIR, 'auditLog.json');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
+// Shift Storage Data Structure
+let shiftData = {}; // { userId: { tag, onDuty: boolean, shiftStarted: ISO, totalHours: float } }
+
 // Audit Logging System
 let auditLogs = [];
 try {
@@ -312,7 +315,7 @@ function defaultConfig() {
         logChannelId: null,
         tags: [],
         staffPermissions: {
-            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'settings'],
+            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'settings'],
             canModerate: true
         }
     };
@@ -323,7 +326,7 @@ function getGuildConfig(guildId) {
     const def = defaultConfig();
     const merged = { ...def, ...saved };
 
-    const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'settings'];
+    const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'settings'];
 
     merged.panels = {};
     for (const key of Object.keys(def.panels)) {
@@ -474,7 +477,7 @@ async function sendModerationDM(member, subject, message) {
 // PERMISSION CHECK MIDDLEWARE
 // ---------------------------------------------------------------------------
 function getViewerContext(req, guild, guildConfig) {
-    const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'settings'];
+    const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'settings'];
     const authUser = req.authUser;
     
     // Master access code or no auth user
@@ -490,7 +493,7 @@ function getViewerContext(req, guild, guildConfig) {
 
     // Staff Role: strictly use the allowedTabs configured by Administrators
     if (isStaff(member, guildConfig)) {
-        const allowed = guildConfig.staffPermissions?.allowedTabs || ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'lookup', 'blacklist'];
+        const allowed = guildConfig.staffPermissions?.allowedTabs || ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster'];
         return { 
             tier: 'staff', 
             allowedTabs: allowed, 
@@ -913,6 +916,7 @@ app.get('/moderation', maintenanceGate, requireAuth, requireTabPermission('moder
 app.get('/moderation/:userId', maintenanceGate, requireAuth, requireTabPermission('moderation'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'member-detail.html')));
 app.get('/blacklist', maintenanceGate, requireAuth, requireTabPermission('blacklist'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'blacklist.html')));
 app.get('/lookup', maintenanceGate, requireAuth, requireTabPermission('lookup'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'lookup.html')));
+app.get('/shift-roster', maintenanceGate, requireAuth, requireTabPermission('shiftroster'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'shift-roster.html')));
 
 // Admin Only Pages
 app.get('/audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'audit-log.html')));
@@ -923,6 +927,47 @@ app.get('/api/tickets/:id', maintenanceGate, requireDiscordOrTicketToken, (req, 
     const ticket = archivedTickets.get(req.params.id);
     if (!ticket) return res.status(404).json({ error: 'Transcript not found.' });
     res.json(ticket);
+});
+
+// ---------------------------------------------------------------------------
+// SHIFT & DUTY API
+// ---------------------------------------------------------------------------
+app.get('/api/shifts', maintenanceGate, requireAuth, (req, res) => {
+    const userId = req.authUser?.id;
+    const roster = Object.entries(shiftData).map(([id, info]) => ({
+        userId: id,
+        ...info
+    }));
+    res.json({
+        myStatus: userId ? shiftData[userId] || { onDuty: false } : { onDuty: false },
+        roster
+    });
+});
+
+app.post('/api/shifts/toggle', maintenanceGate, requireAuth, (req, res) => {
+    const userId = req.authUser?.id || 'master';
+    const tag = req.authUser?.name || 'Staff User';
+    
+    if (!shiftData[userId]) {
+        shiftData[userId] = { tag, onDuty: false, shiftStarted: null, totalHours: 0 };
+    }
+
+    const current = shiftData[userId];
+    current.onDuty = !current.onDuty;
+    
+    if (current.onDuty) {
+        current.shiftStarted = new Date().toISOString();
+        logAudit('DUTY_ON', tag, 'Clocked on duty');
+    } else {
+        if (current.shiftStarted) {
+            const durationHrs = (Date.now() - new Date(current.shiftStarted).getTime()) / 3600000;
+            current.totalHours = parseFloat(((current.totalHours || 0) + durationHrs).toFixed(1));
+        }
+        current.shiftStarted = null;
+        logAudit('DUTY_OFF', tag, 'Clocked off duty');
+    }
+
+    res.json({ success: true, status: current });
 });
 
 // ---------------------------------------------------------------------------
@@ -1100,7 +1145,7 @@ app.post('/api/guild/permissions', maintenanceGate, requireAuth, (req, res) => {
     }
 
     const { allowedTabs, canModerate } = req.body || {};
-    const validTabs = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'lookup', 'blacklist'];
+    const validTabs = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster'];
 
     guildConfig.staffPermissions = {
         allowedTabs: Array.isArray(allowedTabs) ? allowedTabs.filter(t => validTabs.includes(t)) : guildConfig.staffPermissions.allowedTabs,
@@ -1942,7 +1987,7 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Internal Server Error' });
 });
 
-/// Public Terms of Service Route
+// Public Terms of Service Route
 app.get('/terms', (req, res) => {
     res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -1982,59 +2027,6 @@ app.get('/terms', (req, res) => {
 
       <h2>3. Limitations & Disclaimers</h2>
       <p>This service is provided "as-is" without explicit warranties. Administrators reserve the right to revoke user access or suspend system features if abuse or unauthorized behavior is detected.</p>
-    </div>
-  </div>
-</body>
-</html>`);
-});
-
-// Public Privacy Policy Route
-app.get('/privacy', (req, res) => {
-    res.send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${escapeHtml(siteConfig.siteTitle)} — Privacy Policy</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-  :root { --accent: ${siteConfig.accentColor || '#d69a4e'}; --bg: #0a0c11; --panel: #141722; --border: #262b3a; --ink: #e7e9ee; --muted: #9199a8; }
-  * { box-sizing: border-box; }
-  body { margin: 0; padding: 40px 20px; background: var(--bg); color: var(--ink); font-family: 'Inter', sans-serif; display: flex; justify-content: center; min-height: 100vh; }
-  .container { max-width: 680px; width: 100%; }
-  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; }
-  .title { font-size: 24px; font-weight: 800; margin: 0; }
-  .btn-home { background: var(--panel); border: 1px solid var(--border); color: var(--ink); text-decoration: none; padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; transition: border-color .15s; }
-  .btn-home:hover { border-color: var(--accent); color: var(--accent); }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 28px; line-height: 1.65; font-size: 14px; }
-  h2 { font-size: 16px; font-weight: 700; color: var(--accent); margin: 20px 0 8px; }
-  h2:first-of-type { margin-top: 0; }
-  p { color: var(--muted); margin: 0 0 12px; }
-  ul { color: var(--muted); margin: 0 0 12px; padding-left: 20px; }
-  li { margin-bottom: 6px; }
-</style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1 class="title">Privacy Policy</h1>
-      <a href="/login" class="btn-home">← Return Home</a>
-    </div>
-    <div class="card">
-      <h2>1. Data We Collect</h2>
-      <p>We store basic data required to archive tickets and maintain operational logs, including:</p>
-      <ul>
-        <li>Discord User IDs & User Tags</li>
-        <li>Channel IDs and ticket transcript message history</li>
-        <li>Moderation action records and staff audit logs</li>
-      </ul>
-
-      <h2>2. How We Use Data</h2>
-      <p>Data is processed strictly to generate web-based support transcripts and enable staff dashboard management features.</p>
-
-      <h2>3. Retention & Deletion</h2>
-      <p>Data is stored securely. Server administrators may request transcript or log purges at any time.</p>
     </div>
   </div>
 </body>
@@ -2474,7 +2466,8 @@ client.once('ready', async () => {
         { name: 'closerequest', description: 'Request close', options: [{ name: 'reason', description: 'Why', type: 3, required: true }, { name: 'close_delay', description: 'Hours', type: 4, required: false }] },
         { name: 'transfer', description: 'Transfer ticket', options: [{ name: 'user', description: 'Staff member', type: 6, required: true }] },
         { name: 'blacklist', description: 'Blacklist user', options: [{ name: 'user', description: 'User', type: 6, required: true }, { name: 'reason', description: 'Reason', type: 3, required: false }] },
-        { name: 'unblacklist', description: 'Remove user from blacklist', options: [{ name: 'user', description: 'User', type: 6, required: true }] }
+        { name: 'unblacklist', description: 'Remove user from blacklist', options: [{ name: 'user', description: 'User', type: 6, required: true }] },
+        { name: 'duty', description: 'Toggle your staff duty status on or off' }
     ];
 
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -2492,6 +2485,26 @@ client.on('interactionCreate', async (interaction) => {
 
         if (interaction.isChatInputCommand()) {
             const { commandName, channel, guild, user, member } = interaction;
+
+            if (commandName === 'duty') {
+                const userId = user.id;
+                if (!shiftData[userId]) {
+                    shiftData[userId] = { tag: user.tag, onDuty: false, shiftStarted: null, totalHours: 0 };
+                }
+                const current = shiftData[userId];
+                current.onDuty = !current.onDuty;
+                if (current.onDuty) {
+                    current.shiftStarted = new Date().toISOString();
+                    return interaction.reply({ content: `🟢 **${user.tag}** is now **On Duty**!`, ephemeral: false });
+                } else {
+                    if (current.shiftStarted) {
+                        const durationHrs = (Date.now() - new Date(current.shiftStarted).getTime()) / 3600000;
+                        current.totalHours = parseFloat(((current.totalHours || 0) + durationHrs).toFixed(1));
+                    }
+                    current.shiftStarted = null;
+                    return interaction.reply({ content: `🔴 **${user.tag}** is now **Off Duty**.`, ephemeral: false });
+                }
+            }
 
             if (commandName === 'sendpanels') {
                 await sendTicketPanels(channel, guildConfig);

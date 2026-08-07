@@ -14,6 +14,7 @@
 
     // Sidebar Icons
     RF.ICONS = {
+       shiftroster: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
         archive: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8M1 3h20v5H1zM10 12h4"/></svg>`,
         tickets: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5v2m0 4v2m0 4v2M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V7a2 2 0 0 1 2-2z"/></svg>`,
         panels: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>`,
@@ -30,6 +31,7 @@
 
     // Nav Item List
     const ALL_NAV_ITEMS = [
+        { path: '/shift-roster', label: 'Shift Roster', key: 'shiftroster' },
         { path: '/', label: 'Archive', key: 'archive' },
         { path: '/tickets', label: 'Open Tickets', key: 'tickets' },
         { path: '/panels', label: 'Panels', key: 'panels' },
