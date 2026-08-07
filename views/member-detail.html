@@ -519,27 +519,28 @@ function wireActions() {
   const toggleBtn = document.getElementById('toggleAccessBtn');
   if (toggleBtn) {
     toggleBtn.addEventListener('click', async (e) => {
-    const hasAccess = Boolean(lastMember.isStaff);
-    try {
-      if (hasAccess) {
-        const rolesToStrip = lastMember.roles.filter(r => lastMember.staffRoleIds.includes(r.id) || lastMember.adminRoleIds.includes(r.id));
-        await RF.withLoading(e.currentTarget, async () => {
-          for (const r of rolesToStrip) {
-            await RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/roles`, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remove: r.id, byName: currentSenderName() })
-            });
-          }
-        }, { okMessage: 'Dashboard access revoked', failMessage: "Couldn't revoke access" });
-      } else {
-        const grantRoleId = lastMember.staffRoleIds[0] || lastMember.adminRoleIds[0];
-        if (!grantRoleId) { RF.toast('No Staff or Admin role is configured yet — set one up in Settings first', false); return; }
-        await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/roles`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ add: grantRoleId, byName: currentSenderName() })
-        }), { okMessage: 'Dashboard access granted', failMessage: "Couldn't grant access" });
-      }
-      load();
-    } catch { /* toast already shown */ }
-  });
+      const hasAccess = Boolean(lastMember.isStaff);
+      try {
+        if (hasAccess) {
+          const rolesToStrip = lastMember.roles.filter(r => lastMember.staffRoleIds.includes(r.id) || lastMember.adminRoleIds.includes(r.id));
+          await RF.withLoading(e.currentTarget, async () => {
+            for (const r of rolesToStrip) {
+              await RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/roles`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remove: r.id, byName: currentSenderName() })
+              });
+            }
+          }, { okMessage: 'Dashboard access revoked', failMessage: "Couldn't revoke access" });
+        } else {
+          const grantRoleId = lastMember.staffRoleIds[0] || lastMember.adminRoleIds[0];
+          if (!grantRoleId) { RF.toast('No Staff or Admin role is configured yet — set one up in Settings first', false); return; }
+          await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/roles`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ add: grantRoleId, byName: currentSenderName() })
+          }), { okMessage: 'Dashboard access granted', failMessage: "Couldn't grant access" });
+        }
+        load();
+      } catch { /* toast already shown */ }
+    });
+  }
 
   document.getElementById('setNicknameBtn').addEventListener('click', async (e) => {
     const nickname = document.getElementById('nicknameInput').value.trim();
