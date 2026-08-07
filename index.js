@@ -1417,6 +1417,11 @@ app.get('/api/moderation/members/:userId', maintenanceGate, requireAuth, require
 app.post('/api/moderation/members/:userId/notes', maintenanceGate, requireAuth, requireTabPermission('moderation'), requireModerationCapability, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const actorIsAdmin = isCurrentActorAdmin(req, guild, getGuildConfig(guild.id));
+    const targetMember = await guild.members.fetch(req.params.userId).catch(() => null);
+    if (isModerationTargetRestricted(actorIsAdmin, targetMember, getGuildConfig(guild.id))) {
+        return res.status(403).json({ error: 'Only Administrators can moderate Staff or Admin members.' });
+    }
     const type = req.body?.type === 'warning' ? 'warning' : 'note';
     const content = String(req.body?.content || '').trim();
     const byName = resolveActorName(req);
@@ -1428,11 +1433,10 @@ app.post('/api/moderation/members/:userId/notes', maintenanceGate, requireAuth, 
     saveModerationNotes();
     logAudit('ADD_NOTE', byName, `Added ${type} to user ID ${req.params.userId}`);
 
-    const member = await guild.members.fetch(req.params.userId).catch(() => null);
-    if (member) {
+    if (targetMember) {
         const subject = type === 'warning' ? 'You received a warning' : 'You received a note';
         const body = `A staff member (${byName}) added a ${type} to your record on **${guild.name}**.\n\n${content}`;
-        sendModerationDM(member, subject, body);
+        sendModerationDM(targetMember, subject, body);
     }
 
     res.json({ success: true, note });
@@ -1454,11 +1458,16 @@ app.post('/api/moderation/members/:userId/nickname', maintenanceGate, requireAut
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const nickname = String(req.body?.nickname || '').trim().slice(0, 32);
     const byName = resolveActorName(req);
+    const guildConfig = getGuildConfig(guild.id);
+    const actorIsAdmin = isCurrentActorAdmin(req, guild, guildConfig);
+    const member = await guild.members.fetch(req.params.userId).catch(() => null);
+    if (!member) return res.status(404).json({ error: 'That member is no longer in the server.' });
+    if (isModerationTargetRestricted(actorIsAdmin, member, guildConfig)) {
+        return res.status(403).json({ error: 'Only Administrators can moderate Staff or Admin members.' });
+    }
+    if (member.id === guild.ownerId) return res.status(400).json({ error: "Can't change the server owner's nickname." });
 
     try {
-        const member = await guild.members.fetch(req.params.userId).catch(() => null);
-        if (!member) return res.status(404).json({ error: 'That member is no longer in the server.' });
-        if (member.id === guild.ownerId) return res.status(400).json({ error: "Can't change the server owner's nickname." });
         await member.setNickname(nickname || null, `Changed from website by ${byName}`);
         res.json({ success: true, nickname: nickname || null });
     } catch (err) {
@@ -1529,6 +1538,8 @@ app.post('/api/moderation/members/:userId/roles', maintenanceGate, requireAuth, 
 app.post('/api/moderation/members/:userId/timeout', maintenanceGate, requireAuth, requireTabPermission('moderation'), requireModerationCapability, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const guildConfig = getGuildConfig(guild.id);
+    const actorIsAdmin = isCurrentActorAdmin(req, guild, guildConfig);
     const minutes = Number.isFinite(req.body?.minutes) ? req.body.minutes : null;
     const reason = String(req.body?.reason || '').trim().slice(0, 400);
     const byName = resolveActorName(req);
@@ -1536,6 +1547,9 @@ app.post('/api/moderation/members/:userId/timeout', maintenanceGate, requireAuth
     try {
         const member = await guild.members.fetch(req.params.userId).catch(() => null);
         if (!member) return res.status(404).json({ error: 'That member is no longer in the server.' });
+        if (isModerationTargetRestricted(actorIsAdmin, member, guildConfig)) {
+            return res.status(403).json({ error: 'Only Administrators can moderate Staff or Admin members.' });
+        }
         if (member.id === guild.ownerId) return res.status(400).json({ error: "Can't timeout the server owner." });
 
         const ms = minutes ? Math.min(Math.max(minutes, 1), 40320) * 60 * 1000 : null;
@@ -1553,6 +1567,8 @@ app.post('/api/moderation/members/:userId/timeout', maintenanceGate, requireAuth
 app.post('/api/moderation/members/:userId/kick', maintenanceGate, requireAuth, requireTabPermission('moderation'), requireModerationCapability, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const guildConfig = getGuildConfig(guild.id);
+    const actorIsAdmin = isCurrentActorAdmin(req, guild, guildConfig);
     const reason = String(req.body?.reason || '').trim();
     const byName = resolveActorName(req);
     if (!reason) return res.status(400).json({ error: 'A reason is required.' });
@@ -1560,6 +1576,9 @@ app.post('/api/moderation/members/:userId/kick', maintenanceGate, requireAuth, r
     try {
         const member = await guild.members.fetch(req.params.userId).catch(() => null);
         if (!member) return res.status(404).json({ error: 'That member is no longer in the server.' });
+        if (isModerationTargetRestricted(actorIsAdmin, member, guildConfig)) {
+            return res.status(403).json({ error: 'Only Administrators can moderate Staff or Admin members.' });
+        }
         if (member.id === guild.ownerId) return res.status(400).json({ error: "Can't kick the server owner." });
         const tag = member.user.tag;
         await member.kick(reason);
@@ -1576,6 +1595,8 @@ app.post('/api/moderation/members/:userId/kick', maintenanceGate, requireAuth, r
 app.post('/api/moderation/members/:userId/ban', maintenanceGate, requireAuth, requireTabPermission('moderation'), requireModerationCapability, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const guildConfig = getGuildConfig(guild.id);
+    const actorIsAdmin = isCurrentActorAdmin(req, guild, guildConfig);
     const reason = String(req.body?.reason || '').trim();
     const byName = resolveActorName(req);
     const deleteMessageDays = Math.min(Math.max(parseInt(req.body?.deleteMessageDays, 10) || 0, 0), 7);
@@ -1585,7 +1606,12 @@ app.post('/api/moderation/members/:userId/ban', maintenanceGate, requireAuth, re
     try {
         let tag = req.params.userId;
         const member = await guild.members.fetch(req.params.userId).catch(() => null);
-        if (member) tag = member.user.tag;
+        if (member) {
+            if (isModerationTargetRestricted(actorIsAdmin, member, guildConfig)) {
+                return res.status(403).json({ error: 'Only Administrators can moderate Staff or Admin members.' });
+            }
+            tag = member.user.tag;
+        }
         await guild.members.ban(req.params.userId, { reason, deleteMessageSeconds: deleteMessageDays * 86400 });
         logModerationAction('ban', req.params.userId, tag, reason, byName);
         logAudit('BAN', byName, `Banned ${tag} (Reason: ${reason})`);
@@ -1719,6 +1745,19 @@ function isStaff(member, guildConfig) {
     if (!member) return false;
     if (isAdmin(member, guildConfig)) return true;
     return guildConfig.staffRoleIds.some(roleId => member.roles.cache.has(roleId));
+}
+
+function isCurrentActorAdmin(req, guild, guildConfig) {
+    if (!req.authUser) return false;
+    if (!req.authUser.id) return true;
+    const member = guild.members.cache.get(req.authUser.id);
+    return member && isAdmin(member, guildConfig);
+}
+
+function isModerationTargetRestricted(actorIsAdmin, targetMember, guildConfig) {
+    if (actorIsAdmin) return false;
+    if (!targetMember) return false;
+    return isAdmin(targetMember, guildConfig) || (isStaff(targetMember, guildConfig) && !isAdmin(targetMember, guildConfig));
 }
 
 function isValidEmoji(emoji) {
@@ -2174,10 +2213,11 @@ client.on('interactionCreate', async (interaction) => {
                     return interaction.reply({ content: '⚠️ This ticket type is no longer available.', ephemeral: true });
                 }
                 try {
-                    return await interaction.showModal(ticketModal(typeKey, panel));
+                    const modal = ticketModal(typeKey, panel);
+                    return await interaction.showModal(modal);
                 } catch (err) {
-                    console.error('[showModal failed] type=%s:', typeKey, err);
-                    return interaction.reply({ content: '⚠️ Could not open the ticket form. Please contact staff.', ephemeral: true });
+                    console.error('[showModal failed] type=%s error=%s stack=%s', typeKey, err.message, err.stack);
+                    return interaction.reply({ content: `⚠️ Could not open the ticket form: ${err.message}`, ephemeral: true });
                 }
             }
         }
