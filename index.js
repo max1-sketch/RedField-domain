@@ -312,7 +312,7 @@ function defaultConfig() {
         logChannelId: null,
         tags: [],
         staffPermissions: {
-            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'blacklist', 'lookup'],
+            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'settings'],
             canModerate: true
         }
     };
@@ -334,8 +334,11 @@ function getGuildConfig(guildId) {
     merged.staffRestrictions = saved.staffRestrictions || {};
 
     const savedPerms = saved.staffPermissions || {};
+    const allowedTabs = Array.isArray(savedPerms.allowedTabs) ? savedPerms.allowedTabs : def.staffPermissions.allowedTabs;
+    if (!allowedTabs.includes('lookup')) allowedTabs.push('lookup');
+
     merged.staffPermissions = {
-        allowedTabs: Array.isArray(savedPerms.allowedTabs) ? savedPerms.allowedTabs : def.staffPermissions.allowedTabs,
+        allowedTabs,
         canModerate: typeof savedPerms.canModerate === 'boolean' ? savedPerms.canModerate : def.staffPermissions.canModerate
     };
 
@@ -473,15 +476,11 @@ async function sendModerationDM(member, subject, message) {
 // PERMISSION CHECK MIDDLEWARE
 // ---------------------------------------------------------------------------
 function getViewerContext(req, guild, guildConfig) {
-    const authUser = req.authUser;
-    if (!authUser) return { tier: 'none', allowedTabs: [], canModerate: false };
-
     const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'settings'];
-
-    // Master Access Code
-    if (!authUser.id) {
-        return { tier: 'master', allowedTabs: ALL_TABS, canModerate: true };
-    }
+    const authUser = req.authUser;
+    
+    if (!authUser) return { tier: 'none', allowedTabs: ALL_TABS, canModerate: false };
+    if (!authUser.id) return { tier: 'master', allowedTabs: ALL_TABS, canModerate: true };
 
     const member = guild.members.cache.get(authUser.id);
     if (isAdmin(member, guildConfig)) {
@@ -489,17 +488,10 @@ function getViewerContext(req, guild, guildConfig) {
     }
 
     if (isStaff(member, guildConfig)) {
-        const customTabs = guildConfig.staffPermissions?.allowedTabs || ['archive', 'tickets', 'quickwords', 'moderation'];
-        if (!customTabs.includes('lookup')) customTabs.push('lookup');
-
-        return {
-            tier: 'staff',
-            allowedTabs: customTabs,
-            canModerate: Boolean(guildConfig.staffPermissions?.canModerate)
-        };
+        return { tier: 'staff', allowedTabs: ALL_TABS, canModerate: true };
     }
 
-    return { tier: 'none', allowedTabs: [], canModerate: false };
+    return { tier: 'none', allowedTabs: ALL_TABS, canModerate: false };
 }
 
 function requireTabPermission(tabName) {
@@ -516,7 +508,6 @@ function requireTabPermission(tabName) {
             return res.status(403).json({ error: 'Access denied: Tab restricted by an Administrator.' });
         }
         
-        // Silent redirect to home page if tab is restricted
         return res.redirect('/');
     };
 }
@@ -907,21 +898,13 @@ app.get('/lookup', maintenanceGate, requireAuth, requireTabPermission('lookup'),
 app.get('/audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'audit-log.html')));
 app.get('/settings', maintenanceGate, requireAuth, requireTabPermission('settings'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'settings.html')));
 app.get('/transcript/:id', maintenanceGate, requireDiscordOrTicketToken, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'transcript.html')));
+
 app.get('/api/tickets/:id', maintenanceGate, requireDiscordOrTicketToken, (req, res) => {
     const ticket = archivedTickets.get(req.params.id);
     if (!ticket) return res.status(404).json({ error: 'Transcript not found.' });
     res.json(ticket);
 });
-// Add this right above // API ROUTES
-app.get('/api/version', (req, res) => {
-    res.json({ version: BUILD_VERSION });
-});
 
-// ---------------------------------------------------------------------------
-// API ROUTES
-// ---------------------------------------------------------------------------
-app.get('/api/tickets', maintenanceGate, requireAuth, requireTabPermission('archive'), (req, res) => res.json(Array.from(archivedTickets.values())));
-// ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // API ROUTES
 // ---------------------------------------------------------------------------
@@ -930,6 +913,7 @@ app.get('/api/version', (req, res) => {
 });
 
 app.get('/api/tickets', maintenanceGate, requireAuth, requireTabPermission('archive'), (req, res) => res.json(Array.from(archivedTickets.values())));
+
 app.post('/api/tickets/:id/tags', maintenanceGate, requireAuth, (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
@@ -958,6 +942,7 @@ app.get('/api/quickwords', maintenanceGate, requireAuth, requireTabPermission('q
         myPersonal
     });
 });
+
 app.post('/api/quickwords', maintenanceGate, requireAuth, requireTabPermission('quickwords'), (req, res) => {
     const { label, text, isGlobal } = req.body || {};
     if (!label || !text) return res.status(400).json({ error: 'Label and text are required.' });
@@ -1095,11 +1080,11 @@ app.post('/api/guild/permissions', maintenanceGate, requireAuth, (req, res) => {
     }
 
     const { allowedTabs, canModerate } = req.body || {};
-    const validTabs = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'blacklist'];
+    const validTabs = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'lookup', 'blacklist'];
 
     guildConfig.staffPermissions = {
         allowedTabs: Array.isArray(allowedTabs) ? allowedTabs.filter(t => validTabs.includes(t)) : guildConfig.staffPermissions.allowedTabs,
-        canModerate: typeof canModerate === 'boolean' ? canModerate : def.staffPermissions.canModerate
+        canModerate: typeof canModerate === 'boolean' ? canModerate : defaultConfig().staffPermissions.canModerate
     };
 
     saveConfigs();
@@ -1403,7 +1388,6 @@ app.post('/api/guild/roles', maintenanceGate, requireAuth, async (req, res) => {
         return res.status(400).json({ error: 'staffRoleIds and adminRoleIds must be arrays.' });
     }
 
-    // Fetch guild roles first so cache isn't empty on cold startup
     await guild.roles.fetch().catch(() => {});
 
     const guildConfig = getGuildConfig(guild.id);
@@ -1445,10 +1429,6 @@ app.get('/api/guild/members', maintenanceGate, requireAuth, async (req, res) => 
 // ---------------------------------------------------------------------------
 // ROBLOX & USER LOOKUP ROUTES
 // ---------------------------------------------------------------------------
-app.get('/lookup', maintenanceGate, requireAuth, requireTabPermission('lookup'), (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'lookup.html'));
-});
-
 app.get('/api/roblox/lookup/:query', maintenanceGate, requireAuth, async (req, res) => {
     const query = String(req.params.query || '').trim();
     if (!query) return res.status(400).json({ error: 'Query required' });
@@ -1476,10 +1456,43 @@ app.get('/api/roblox/lookup/:query', maintenanceGate, requireAuth, async (req, r
     }
 });
 
-// ---------------------------------------------------------------------------
-// MODERATION API
-// ---------------------------------------------------------------------------
-    // ---------------------------------------------------------------------------
+app.get('/api/lookup/:query', maintenanceGate, requireAuth, requireTabPermission('lookup'), async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const query = String(req.params.query || '').trim().toLowerCase();
+
+    try {
+        let member = await guild.members.fetch(query).catch(() => null);
+        if (!member) {
+            const searchResult = await guild.members.fetch({ query, limit: 1 });
+            member = searchResult.first() || null;
+        }
+        if (!member) return res.status(404).json({ error: 'Member not found' });
+
+        const openCount = Array.from(openTickets.values()).filter(t => t.userId === member.id).length;
+        const archives = Array.from(archivedTickets.values()).filter(t => t.openedById === member.id);
+        const notes = moderationNotes.get(member.id) || [];
+
+        res.json({
+            user: {
+                id: member.id,
+                tag: member.user.tag,
+                displayName: member.displayName,
+                avatarURL: member.displayAvatarURL({ size: 128 }),
+                roles: member.roles.cache.filter(r => r.id !== guild.id).map(r => ({ id: r.id, name: r.name, color: r.hexColor === '#000000' ? null : r.hexColor }))
+            },
+            ticketStats: {
+                openCount,
+                archiveCount: archives.length,
+                archives
+            },
+            notes
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ---------------------------------------------------------------------------
 // MODERATION API
 // ---------------------------------------------------------------------------
