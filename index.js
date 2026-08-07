@@ -2310,7 +2310,28 @@ client.on('interactionCreate', async (interaction) => {
                 return channel.send(`↩️ **${user.tag}** unclaimed this ticket.`);
             }
 
-            if (customId === 'ticket_close') {
+            if (customId === 'ticket_close_with_reason' || customId === 'ticket_close') {
+                const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
+                const canClose = isStaff(member, guildConfig) || (guildConfig.allowOpenerClose && ticket && ticket.userId === user.id);
+                if (!canClose) {
+                    return interaction.reply({ content: '❌ You are not allowed to close this ticket.', ephemeral: true });
+                }
+
+                if (customId === 'ticket_close_with_reason') {
+                    const modal = new ModalBuilder().setCustomId('ticket_close_with_reason_modal').setTitle('Close Ticket with Reason');
+                    modal.addComponents(
+                        new ActionRowBuilder().addComponents(
+                            new TextInputBuilder()
+                                .setCustomId('reason')
+                                .setLabel('Reason for closing')
+                                .setStyle(TextInputStyle.Paragraph)
+                                .setMaxLength(400)
+                                .setRequired(true)
+                        )
+                    );
+                    return interaction.showModal(modal);
+                }
+
                 const confirmRow = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId('confirm_close').setLabel('Confirm Close').setStyle(ButtonStyle.Danger),
                     new ButtonBuilder().setCustomId('cancel_close').setLabel('Cancel').setStyle(ButtonStyle.Secondary)
@@ -2319,12 +2340,48 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             if (customId === 'confirm_close') {
+                const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
+                const canClose = isStaff(member, guildConfig) || (guildConfig.allowOpenerClose && ticket && ticket.userId === user.id);
+                if (!canClose) {
+                    return interaction.reply({ content: '❌ You are not allowed to close this ticket.', ephemeral: true });
+                }
+                if (ticket && ticket.closing) {
+                    return interaction.reply({ content: '⏳ Already closing.', ephemeral: true });
+                }
+
+                if (ticket) {
+                    ticket.closing = true;
+                    openTickets.set(channel.id, ticket);
+                    saveOpenTickets();
+                }
+
                 await interaction.update({ content: '🔒 Closing ticket...', components: [] });
                 await finalizeTicketClose(channel, interaction.guild, guildConfig, user.tag);
             }
 
             if (customId === 'cancel_close') {
                 return interaction.update({ content: '✅ Close cancelled — this ticket stays open.', components: [] });
+            }
+
+            if (customId === 'closerequest_accept' || customId === 'closerequest_deny') {
+                const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
+                if (!ticket || ticket.userId !== user.id) {
+                    return interaction.reply({ content: '❌ Only the ticket opener can respond to this request.', ephemeral: true });
+                }
+                clearCloseRequestTimer(channel.id);
+
+                if (customId === 'closerequest_accept') {
+                    if (ticket.closing) {
+                        return interaction.reply({ content: '⏳ Already closing.', ephemeral: true });
+                    }
+                    ticket.closing = true;
+                    openTickets.set(channel.id, ticket);
+                    saveOpenTickets();
+                    await interaction.update({ content: '✅ Close request accepted — closing now.', components: [] });
+                    return await finalizeTicketClose(channel, interaction.guild, guildConfig, `Close request accepted by ${user.tag}`);
+                }
+
+                return interaction.update({ content: '❌ Close request denied — ticket remains open.', components: [] });
             }
 
             if (customId.startsWith('open_ticket_')) {
@@ -2375,6 +2432,31 @@ client.on('interactionCreate', async (interaction) => {
                     console.error('[ticket modal submit] failed:', err);
                     return await interaction.editReply({ content: `⚠️ Could not create ticket: ${err.message}` });
                 }
+            }
+
+            if (interaction.customId === 'ticket_close_with_reason_modal') {
+                const reason = interaction.fields.getTextInputValue('reason');
+                const ticket = openTickets.get(interaction.channel.id) || recoverTicketFromTopic(interaction.channel);
+                const canClose = isStaff(interaction.member, guildConfig) || (guildConfig.allowOpenerClose && ticket && ticket.userId === interaction.user.id);
+
+                if (!canClose) {
+                    return interaction.reply({ content: '❌ You are not allowed to close this ticket.', ephemeral: true });
+                }
+                if (!ticket) {
+                    return interaction.reply({ content: '⚠️ This ticket is no longer open.', ephemeral: true });
+                }
+                if (ticket.closing) {
+                    return interaction.reply({ content: '⏳ Already closing.', ephemeral: true });
+                }
+
+                ticket.closing = true;
+                openTickets.set(interaction.channel.id, ticket);
+                saveOpenTickets();
+
+                await interaction.deferReply({ ephemeral: true });
+                await interaction.editReply({ content: '🔒 Closing ticket with reason...', ephemeral: true });
+                await finalizeTicketClose(interaction.channel, interaction.guild, guildConfig, `${interaction.user.tag} — ${reason}`);
+                return;
             }
         }
     } catch (error) {
