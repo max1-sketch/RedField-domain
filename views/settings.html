@@ -87,13 +87,14 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 .cat-row .cat-label { width: 150px; flex-shrink: 0; font-size: 13px; font-weight: 600; color: var(--ink); }
 .cat-row select, .cat-row input[type=text] { flex: 1; min-width: 180px; }
 
+.perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: 10px; }
+.checkbox-card { display: flex; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid var(--border); padding: 10px 12px; border-radius: 7px; cursor: pointer; font-size: 13px; }
+.checkbox-card input { cursor: pointer; }
 
 .empty-note { font-size: 12.5px; color: var(--faint); padding: 12px 2px; }
-
 .panel-actions { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
 .save-status { font-size: 11.5px; color: var(--green); opacity: 0; transition: opacity .2s; font-weight: 600; }
 .save-status.show { opacity: 1; }
-
 .loading-line { font-size: 13px; color: var(--faint); padding: 24px 0; text-align: center; }
 
 @media (max-width: 860px) {
@@ -194,6 +195,8 @@ async function load() {
 
 function renderPage() {
   const g = guildData;
+  const perms = g.staffPermissions || { allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'moderation', 'blacklist'], canModerate: true };
+
   document.getElementById('main').innerHTML = `
     <h1 class="page-title">Settings</h1>
     <p class="page-sub">Managing <b>${RF.esc(g.guildName)}</b></p>
@@ -224,6 +227,32 @@ function renderPage() {
     </div>
 
     <div class="card">
+      <div class="card-header"><h2>Staff Dashboard Permissions (Admin Only)</h2></div>
+      <p class="card-sub">Choose which dashboard tabs Staff members can see, and whether they are allowed to perform moderation actions (timeout, kick, ban, warn).</p>
+
+      <div style="font-weight: 600; font-size: 12px; color: var(--ink); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em;">Visible Tabs for Staff</div>
+      <div class="perm-grid">
+        <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="archive" ${perms.allowedTabs.includes('archive') ? 'checked' : ''}> Archive</label>
+        <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="tickets" ${perms.allowedTabs.includes('tickets') ? 'checked' : ''}> Open Tickets</label>
+        <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="panels" ${perms.allowedTabs.includes('panels') ? 'checked' : ''}> Panels</label>
+        <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="tags" ${perms.allowedTabs.includes('tags') ? 'checked' : ''}> Tags</label>
+        <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="moderation" ${perms.allowedTabs.includes('moderation') ? 'checked' : ''}> Moderation</label>
+        <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="blacklist" ${perms.allowedTabs.includes('blacklist') ? 'checked' : ''}> Blacklist</label>
+      </div>
+
+      <div style="font-weight: 600; font-size: 12px; color: var(--ink); margin-top: 18px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em;">Moderation Capabilities</div>
+      <label class="checkbox-card" style="display: flex;">
+        <input type="checkbox" id="canModerateCheck" ${perms.canModerate ? 'checked' : ''}>
+        <span>Allow Staff members to moderate members (timeout, kick, ban, warn, add notes)</span>
+      </label>
+
+      <div class="panel-actions">
+        <button class="btn btn-accent" id="savePermsBtn">Save permissions</button>
+        <span class="save-status" id="permsStatus">Saved ✓</span>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="card-header"><h2>Ticket Categories</h2></div>
       <p class="card-sub">Which Discord category each ticket type gets created under. Pick an existing one or type a new name — it's created automatically the next time that ticket type is opened.</p>
       <div id="catGrid"></div>
@@ -237,6 +266,7 @@ function renderPage() {
   renderRoles();
   renderCategories();
   wireRoleSave();
+  wirePermsSave();
   wireCategorySave();
 }
 
@@ -281,6 +311,26 @@ function wireRoleSave() {
       const res = await fetch('/api/guild/roles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ staffRoleIds, adminRoleIds }) });
       if (res.ok) { guildData.staffRoleIds = staffRoleIds; guildData.adminRoleIds = adminRoleIds; flashStatus('rolesStatus'); }
       else alert('Could not save — try again.');
+    } catch { alert('Could not save — check your connection.'); }
+    btn.disabled = false;
+  });
+}
+
+function wirePermsSave() {
+  document.getElementById('savePermsBtn').addEventListener('click', async () => {
+    const allowedTabs = Array.from(document.querySelectorAll('.tab-perm:checked')).map(cb => cb.value);
+    const canModerate = document.getElementById('canModerateCheck').checked;
+    const btn = document.getElementById('savePermsBtn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/guild/permissions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ allowedTabs, canModerate }) });
+      if (res.ok) {
+        guildData.staffPermissions = { allowedTabs, canModerate };
+        flashStatus('permsStatus');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Could not save permissions.');
+      }
     } catch { alert('Could not save — check your connection.'); }
     btn.disabled = false;
   });
