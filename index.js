@@ -1159,13 +1159,17 @@ app.get('/api/moderation/members/:userId', maintenanceGate, requireAuth, async (
     try {
         const member = await guild.members.fetch(req.params.userId).catch(() => null);
         if (!member) return res.status(404).json({ error: 'That member is no longer in the server (they may have left, been kicked, or been banned).' });
+        const guildConfig = getGuildConfig(guild.id);
         res.json({
             ...serializeMember(guild, member),
             avatarURL: member.displayAvatarURL({ size: 64 }),
             createdAt: member.user.createdAt.toISOString(),
             timeoutUntil: member.communicationDisabledUntil ? member.communicationDisabledUntil.toISOString() : null,
             notes: moderationNotes.get(req.params.userId) || [],
-            allGuildRoles: guild.roles.cache.filter(r => r.id !== guild.id).sort((a, b) => b.position - a.position).map(r => ({ id: r.id, name: r.name, color: r.hexColor === '#000000' ? null : r.hexColor, isAdmin: r.permissions.has(PermissionFlagsBits.Administrator) }))
+            allGuildRoles: guild.roles.cache.filter(r => r.id !== guild.id).sort((a, b) => b.position - a.position).map(r => ({ id: r.id, name: r.name, color: r.hexColor === '#000000' ? null : r.hexColor, isAdmin: r.permissions.has(PermissionFlagsBits.Administrator) })),
+            isStaff: isStaff(member, guildConfig),
+            staffRoleIds: guildConfig.staffRoleIds || [],
+            adminRoleIds: guildConfig.adminRoleIds || []
         });
     } catch (err) {
         console.error('[moderation member detail] failed:', err);
