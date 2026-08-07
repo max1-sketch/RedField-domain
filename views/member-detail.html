@@ -58,6 +58,7 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px; margin-left: 6px; vertical-align: middle; }
 .badge.timeout { background: var(--red)22; color: var(--red); }
 .badge.owner { background: #fbbf2422; color: #fbbf24; }
+.badge.staff { background: rgba(34,197,94,0.18); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
 
 .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px 16px; font-size: 12px; color: var(--faint); margin-top: 16px; }
 .meta-grid span b { display: block; color: var(--muted); font-weight: 600; margin-bottom: 2px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; }
@@ -121,9 +122,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .modal-actions { display: flex; gap: 10px; margin-top: 4px; }
 .modal-actions .btn { flex: 1; }
 
-/* toasts — deliberately a bit stamped/case-file feeling rather than a generic
-   library toast: solid left bar, monospace timestamp-style meta, no rounded
-   pill shape */
 #toastStack { position: fixed; top: 18px; right: 18px; z-index: 200; display: flex; flex-direction: column; gap: 10px; max-width: 320px; }
 .toast {
   background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--green);
@@ -286,7 +284,6 @@ window.RF = (function () {
     return tabs.map(t => `<a class="nav-item${t.href === activePath ? ' active' : ''}" href="${t.href}"><span class="ic">${t.ic}</span> ${t.label}</a>`).join('');
   }
 
-  // Toasts — small, blunt, no exclamation-point-everything. Auto-dismiss.
   function toast(title, ok) {
     const stack = document.getElementById('toastStack');
     if (!stack) return;
@@ -300,9 +297,6 @@ window.RF = (function () {
     }, 3400);
   }
 
-  // Wraps a button action: shows a dot-loader in place of the label for at
-  // least ~900ms (so fast responses don't just flicker), disables the button,
-  // then restores it and fires a toast based on outcome.
   async function withLoading(btn, fn, { okMessage, failMessage } = {}) {
     const original = btn.innerHTML;
     btn.disabled = true;
@@ -367,7 +361,7 @@ function render() {
       <div class="profile-top">
         <img class="avatar-big" src="${RF.esc(m.avatarURL)}" alt="">
         <div>
-          <h2 class="profile-name">${RF.esc(m.displayName)}${m.isOwner ? '<span class="badge owner">Owner</span>' : ''}${m.isTimedOut ? '<span class="badge timeout">Timed out</span>' : ''}</h2>
+          <h2 class="profile-name">${RF.esc(m.displayName)}${m.isOwner ? '<span class="badge owner">Owner</span>' : ''}${m.isStaff ? '<span class="badge staff">Dashboard Access</span>' : ''}${m.isTimedOut ? '<span class="badge timeout">Timed out</span>' : ''}</h2>
           <div class="profile-tag">${RF.esc(m.tag)} · ${RF.esc(m.id)}</div>
         </div>
       </div>
@@ -380,7 +374,19 @@ function render() {
     </div>
 
     <div class="card">
-      <div class="card-header"><h2>Nickname &amp; roles</h2></div>
+      <div class="card-header"><h2>Dashboard Access &amp; Roles</h2></div>
+      
+      <div style="margin-bottom: 16px; padding: 12px 14px; background: var(--panel-2); border-radius: 8px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <div>
+          <div style="font-weight: 700; color: var(--ink); font-size: 13px;">Dashboard Permission</div>
+          <div style="font-size: 11.5px; color: var(--muted);">${m.isStaff ? 'This member can log into the website using Discord.' : 'This member cannot log into the website using Discord.'}</div>
+        </div>
+        ${m.isStaff 
+          ? `<button class="btn btn-danger" id="toggleAccessBtn" ${m.isOwner ? 'disabled' : ''}>Revoke Access</button>`
+          : `<button class="btn btn-accent" id="toggleAccessBtn">Grant Access to Dashboard</button>`
+        }
+      </div>
+
       <div class="inline-row" style="margin-bottom:14px;">
         <div class="field">
           <label>Nickname ${m.isOwner ? '(unavailable for the owner)' : ''}</label>
@@ -488,6 +494,41 @@ async function removeRole(roleId) {
 
 function wireActions() {
   document.getElementById('senderName').addEventListener('change', (e) => RF.setCookie('websiteSenderName', e.target.value.trim(), 90));
+
+  document.getElementById('toggleAccessBtn').addEventListener('click', async (e) => {
+    const m = lastMember;
+    if (m.isStaff) {
+      // Revoke access: remove staff and admin roles
+      const staffRolesToRemove = m.roles.filter(r => m.staffRoleIds.includes(r.id) || m.adminRoleIds.includes(r.id));
+      if (!staffRolesToRemove.length) {
+        RF.toast('Cannot revoke access: User is owner or Administrator on Discord.', false);
+        return;
+      }
+      try {
+        await RF.withLoading(e.currentTarget, async () => {
+          for (const r of staffRolesToRemove) {
+            await RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/roles`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remove: r.id, byName: currentSenderName() })
+            });
+          }
+        }, { okMessage: 'Dashboard access revoked', failMessage: 'Failed to revoke access' });
+        load();
+      } catch { /* toast already shown */ }
+    } else {
+      // Grant access: add the first configured staff role
+      const staffRoleId = (m.staffRoleIds && m.staffRoleIds[0]) || (m.adminRoleIds && m.adminRoleIds[0]);
+      if (!staffRoleId) {
+        RF.toast('No Staff Role configured yet! Set staff roles in Settings tab first.', false);
+        return;
+      }
+      try {
+        await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/roles`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ add: staffRoleId, byName: currentSenderName() })
+        }), { okMessage: 'Dashboard access granted!', failMessage: 'Failed to grant access' });
+        load();
+      } catch { /* toast already shown */ }
+    }
+  });
 
   document.getElementById('setNicknameBtn').addEventListener('click', async (e) => {
     const nickname = document.getElementById('nicknameInput').value.trim();
