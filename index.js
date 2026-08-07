@@ -2094,7 +2094,9 @@ client.on('interactionCreate', async (interaction) => {
             if (customId.startsWith('open_ticket_')) {
                 const typeKey = customId.replace('open_ticket_', '');
                 const panel = guildConfig.panels[typeKey];
-                if (!panel) return;
+                if (!panel) {
+                    return interaction.reply({ content: '⚠️ This ticket type is no longer available.', ephemeral: true });
+                }
                 return await interaction.showModal(ticketModal(typeKey, panel));
             }
         }
