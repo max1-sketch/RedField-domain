@@ -1943,6 +1943,29 @@ async function createTicketChannel(guild, user, typeKey, reason, robloxUsername,
     return ticketChannel;
 }
 
+function ticketModal(typeKey, panel) {
+    const modal = new ModalBuilder().setCustomId(`ticket_modal_${typeKey}`).setTitle(clamp(panel.buttonLabel || 'Open Ticket', 45));
+    modal.addComponents(
+        new ActionRowBuilder().addComponents(
+            new TextInputBuilder()
+                .setCustomId('reason')
+                .setLabel(clamp(panel.promptLabel || 'Reason', 45))
+                .setStyle(TextInputStyle.Paragraph)
+                .setMaxLength(1000)
+                .setRequired(true)
+        ),
+        new ActionRowBuilder().addComponents(
+            new TextInputBuilder()
+                .setCustomId('robloxUsername')
+                .setLabel('Roblox username (optional)')
+                .setStyle(TextInputStyle.Short)
+                .setMaxLength(50)
+                .setRequired(false)
+        )
+    );
+    return modal;
+}
+
 async function sendTicketPanels(channel, guildConfig) {
     for (const [typeKey, panel] of Object.entries(guildConfig.panels)) {
         const embed = new EmbedBuilder().setTitle(clamp(panel.title, 256)).setDescription(clamp(panel.description, 4096)).setColor(panel.color);
