@@ -883,16 +883,29 @@ app.get('/api/audit-log', maintenanceGate, requireAuth, requireTabPermission('au
 
 app.get('/api/quickwords', maintenanceGate, requireAuth, requireTabPermission('quickwords'), (req, res) => res.json(quickWordsData));
 app.post('/api/quickwords', maintenanceGate, requireAuth, requireTabPermission('quickwords'), (req, res) => {
-    const { label, text, isGlobal, userId } = req.body || {};
+    const { label, text, isGlobal } = req.body || {};
     if (!label || !text) return res.status(400).json({ error: 'Label and text are required.' });
-    
+
+    const guild = getTargetGuild();
+    const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
+    const ctx = getViewerContext(req, guild, guildConfig);
+
+    if (isGlobal && ctx.tier === 'staff') {
+        return res.status(403).json({ error: 'Only Administrators can create Global Quick Words.' });
+    }
+
+    const userId = req.authUser?.id;
+    if (!isGlobal && !userId) {
+        return res.status(400).json({ error: 'You must log in using "Sign in with Discord" to save Personal Quick Words.' });
+    }
+
     const entry = { id: crypto.randomBytes(4).toString('hex'), label: label.trim(), text: text.trim() };
     const actor = resolveActorName(req);
 
     if (isGlobal) {
         quickWordsData.global.push(entry);
         logAudit('CREATE_QUICKWORD_GLOBAL', actor, `Created Global Quick Word: "${label}"`);
-    } else if (userId) {
+    } else {
         if (!quickWordsData.personal[userId]) quickWordsData.personal[userId] = [];
         quickWordsData.personal[userId].push(entry);
         logAudit('CREATE_QUICKWORD_PERSONAL', actor, `Created Personal Quick Word: "${label}"`);
@@ -903,20 +916,28 @@ app.post('/api/quickwords', maintenanceGate, requireAuth, requireTabPermission('
 
 app.delete('/api/quickwords/:id', maintenanceGate, requireAuth, requireTabPermission('quickwords'), (req, res) => {
     const { id } = req.params;
-    const { userId } = req.body || {};
+    const guild = getTargetGuild();
+    const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
+    const ctx = getViewerContext(req, guild, guildConfig);
     const actor = resolveActorName(req);
 
-    let removed = false;
-    const origGlobalCount = quickWordsData.global.length;
-    quickWordsData.global = quickWordsData.global.filter(q => q.id !== id);
-    if (quickWordsData.global.length < origGlobalCount) {
-        removed = true;
-        logAudit('DELETE_QUICKWORD_GLOBAL', actor, `Deleted Global Quick Word ID ${id}`);
+    const isGlobalWord = quickWordsData.global.some(q => q.id === id);
+    if (isGlobalWord && ctx.tier === 'staff') {
+        return res.status(403).json({ error: 'Only Administrators can delete Global Quick Words.' });
     }
 
-    if (userId && quickWordsData.personal[userId]) {
-        quickWordsData.personal[userId] = quickWordsData.personal[userId].filter(q => q.id !== id);
+    let removed = false;
+    if (isGlobalWord) {
+        quickWordsData.global = quickWordsData.global.filter(q => q.id !== id);
         removed = true;
+        logAudit('DELETE_QUICKWORD_GLOBAL', actor, `Deleted Global Quick Word ID ${id}`);
+    } else {
+        const userId = req.authUser?.id;
+        if (userId && quickWordsData.personal[userId]) {
+            quickWordsData.personal[userId] = quickWordsData.personal[userId].filter(q => q.id !== id);
+            removed = true;
+            logAudit('DELETE_QUICKWORD_PERSONAL', actor, `Deleted Personal Quick Word ID ${id}`);
+        }
     }
 
     saveQuickWords();
@@ -2055,8 +2076,12 @@ client.on('interactionCreate', async (interaction) => {
 
         if (interaction.isStringSelectMenu() && interaction.customId === 'quickword_select') {
             const selectedText = interaction.values[0];
-            await interaction.channel.send(`**${interaction.user.username}:** ${selectedText}`);
-            return interaction.update({ content: '✅ Quick Word sent!', components: [] });
+
+            await interaction.channel.send({
+                content: `${selectedText}\n\n*— ${interaction.user}*`
+            });
+
+            return interaction.update({ content: '✅ Quick Word sent to channel.', components: [] });
         }
 
         if (interaction.isModalSubmit()) {
