@@ -1,6 +1,6 @@
-/* Shared base for index.html / transcript.html / settings.html.
-   Page-specific layout lives inline in each file; this file only holds
-   things that must look identical everywhere: colors, type, nav, buttons. */
+/* Shared base for index.html / transcript.html / settings.html / lookup.html.
+   Page-specific layout lives inline in each file; this file holds
+   shared design tokens: colors, type, nav, buttons, and sidebar layout. */
 
 @import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -28,16 +28,15 @@ body {
   color: var(--ink);
   position: relative;
 }
-/* Faint grain so large dark panels don't read as flat vector fills — a cheap
-   trick that makes the whole thing feel closer to physical paper/film than
-   a generic SaaS dashboard. Fixed + behind everything, never intercepts clicks. */
+
+/* Faint background noise texture */
 body::before {
   content: "";
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
   opacity: 0.035; mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
-header.site, main, .modal-overlay { position: relative; z-index: 1; }
+header.site, main, .modal-overlay, .app-shell { position: relative; z-index: 1; }
 a { color: var(--amber); text-decoration: none; }
 ::selection { background: var(--amber); color: #14171a; }
 
@@ -50,7 +49,97 @@ a { color: var(--amber); text-decoration: none; }
   text-align: center; padding: 9px 16px;
 }
 
-/* ---------- top nav ---------- */
+/* ---------- SIDEBAR & NAVIGATION ---------- */
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 250px;
+  background: var(--bg-1);
+  border-right: 1px solid var(--border);
+  padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--amber);
+  color: #14171a;
+  padding: 13px 15px;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 14.5px;
+  margin-bottom: 18px;
+  font-family: 'Special Elite', monospace;
+}
+nav.sidebar-nav { display: flex; flex-direction: column; gap: 3px; flex: 1; overflow-y: auto; }
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 13px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: none;
+  font-weight: 500;
+  font-family: 'IBM Plex Mono', monospace;
+  transition: background .12s ease, color .12s ease;
+}
+.nav-item:hover { background: var(--panel-2); color: var(--paper); }
+.nav-item.active { background: var(--amber); color: #14171a; font-weight: 700; }
+.nav-item .ic { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; }
+.nav-item .ic svg { width: 100%; height: 100%; }
+
+.badge-beta {
+  background: #f59e0b22;
+  color: #f59e0b;
+  border: 1px solid #f59e0b44;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: auto;
+  text-transform: uppercase;
+}
+
+/* ---------- SIDEBAR FOOTER ---------- */
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sidebar-footer .session-clock, #sessionClock {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  display: block;
+}
+#sessionClock.warn { color: var(--red); }
+.sidebar-footer .user-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--paper);
+  font-weight: 600;
+  word-break: break-all;
+}
+.sidebar-footer a[href="/logout"] {
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  display: block;
+  margin-top: 2px;
+}
+.sidebar-footer a[href="/logout"]:hover { text-decoration: underline; }
+
+/* ---------- TOPBAR NAVIGATION ---------- */
 header.site {
   position: sticky; top: 0; z-index: 30;
   background: rgba(20,23,26,0.94);
@@ -78,8 +167,6 @@ nav.rf-tabs { display: flex; gap: 4px; }
 .rf-tab.active { color: var(--amber); border-color: rgba(214,154,78,.35); background: rgba(214,154,78,.08); }
 
 .topbar-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-#sessionClock { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
-#sessionClock.warn { color: var(--red); }
 .btn {
   font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: .05em; text-transform: uppercase;
   padding: 8px 13px; border-radius: 4px; cursor: pointer;
@@ -93,7 +180,7 @@ nav.rf-tabs { display: flex; gap: 4px; }
 .btn.danger:hover { background: rgba(224,90,58,.1); border-color: var(--red); color: var(--red); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 
-/* ---------- "stamp" — the one signature touch, used sparingly ---------- */
+/* ---------- STAMP & UTILITIES ---------- */
 .stamp {
   font-family: 'Special Elite', monospace;
   letter-spacing: .12em; text-transform: uppercase;

@@ -476,30 +476,26 @@ function getViewerContext(req, guild, guildConfig) {
     const authUser = req.authUser;
     if (!authUser) return { tier: 'none', allowedTabs: [], canModerate: false };
 
-    // Master Access Code gets unrestricted access
+    const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'settings'];
+
+    // Master Access Code
     if (!authUser.id) {
-        return {
-            tier: 'master',
-            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'blacklist', 'settings', 'lookup'],
-            canModerate: true
-        };
+        return { tier: 'master', allowedTabs: ALL_TABS, canModerate: true };
     }
 
     const member = guild.members.cache.get(authUser.id);
     if (isAdmin(member, guildConfig)) {
-        return {
-            tier: 'admin',
-            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'blacklist', 'settings', 'lookup'],
-            canModerate: true
-        };
+        return { tier: 'admin', allowedTabs: ALL_TABS, canModerate: true };
     }
 
     if (isStaff(member, guildConfig)) {
-        const perms = guildConfig.staffPermissions || { allowedTabs: ['archive', 'tickets'], canModerate: true };
+        const customTabs = guildConfig.staffPermissions?.allowedTabs || ['archive', 'tickets', 'quickwords', 'moderation'];
+        if (!customTabs.includes('lookup')) customTabs.push('lookup');
+
         return {
             tier: 'staff',
-            allowedTabs: perms.allowedTabs || [],
-            canModerate: Boolean(perms.canModerate)
+            allowedTabs: customTabs,
+            canModerate: Boolean(guildConfig.staffPermissions?.canModerate)
         };
     }
 
