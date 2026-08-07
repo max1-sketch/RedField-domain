@@ -1480,16 +1480,37 @@ app.post('/api/moderation/members/:userId/roles', maintenanceGate, requireAuth, 
     const actorIsAdmin = actorMember && isAdmin(actorMember, guildConfig);
     const protectedRoleIds = new Set([...(guildConfig.staffRoleIds || []), ...(guildConfig.adminRoleIds || [])]);
 
-    if (addRoleId && protectedRoleIds.has(addRoleId) && !actorIsAdmin) {
-        return res.status(403).json({ error: 'Only Administrators can assign Staff or Admin roles.' });
-    }
-    if (removeRoleId && protectedRoleIds.has(removeRoleId) && !actorIsAdmin) {
-        return res.status(403).json({ error: 'Only Administrators can remove Staff or Admin roles.' });
-    }
-
     try {
         const member = await guild.members.fetch(req.params.userId).catch(() => null);
         if (!member) return res.status(404).json({ error: 'That member is no longer in the server.' });
+
+        const targetIsAdmin = isAdmin(member, guildConfig);
+        const targetIsStaff = isStaff(member, guildConfig) && !targetIsAdmin;
+
+        if (!actorIsAdmin && (targetIsAdmin || targetIsStaff)) {
+            return res.status(403).json({ error: 'Only Administrators can change roles for Staff or Admin members.' });
+        }
+
+        if (!actorIsAdmin) {
+            if (addRoleId && protectedRoleIds.has(addRoleId)) {
+                return res.status(403).json({ error: 'Only Administrators can assign Staff or Admin roles.' });
+            }
+            if (removeRoleId && protectedRoleIds.has(removeRoleId)) {
+                return res.status(403).json({ error: 'Only Administrators can remove Staff or Admin roles.' });
+            }
+            if (removeRoleId) {
+                const role = guild.roles.cache.get(removeRoleId);
+                if (role && role.permissions.has(PermissionFlagsBits.Administrator)) {
+                    return res.status(403).json({ error: 'Only Administrators can remove roles with Administrator permissions.' });
+                }
+            }
+            if (addRoleId) {
+                const role = guild.roles.cache.get(addRoleId);
+                if (role && role.permissions.has(PermissionFlagsBits.Administrator)) {
+                    return res.status(403).json({ error: 'Only Administrators can assign roles with Administrator permissions.' });
+                }
+            }
+        }
 
         if (addRoleId) {
             if (!guild.roles.cache.has(addRoleId)) return res.status(400).json({ error: 'That role no longer exists.' });
