@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{SITE_TITLE}} — Portal</title>
+<title>{{SITE_TITLE}} — Operations Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
@@ -15,12 +15,14 @@
     --border: #262b3a;
     --ink: #e7e9ee;
     --muted: #9199a8;
+    --faint: #5b6272;
+    --green: #22c55e;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     min-height: 100vh;
-    background: radial-gradient(circle at 85% 15%, rgba(214, 154, 78, 0.08), transparent 45%),
+    background: radial-gradient(circle at 85% 15%, rgba(214, 154, 78, 0.12), transparent 45%),
                 radial-gradient(circle at 10% 85%, rgba(20, 23, 34, 0.8), transparent 50%),
                 var(--bg-0);
     color: var(--ink);
@@ -30,7 +32,7 @@
     overflow-x: hidden;
   }
 
-  /* Header Navbar */
+  /* Navigation Bar */
   header {
     display: flex;
     align-items: center;
@@ -77,17 +79,17 @@
     font-weight: 600;
     text-decoration: none;
     font-size: 13.5px;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, background 0.15s;
   }
-  .btn-nav-login:hover { border-color: var(--accent); }
+  .btn-nav-login:hover { border-color: var(--accent); background: rgba(255,255,255,0.08); }
 
-  /* Hero Section */
+  /* Hero Section Container */
   .hero-container {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 40px;
+    gap: 50px;
     max-width: 1300px;
     width: 100%;
     margin: 0 auto;
@@ -104,6 +106,16 @@
     font-size: 12px;
     letter-spacing: 0.12em;
     margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tagline-pill {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 10px;
   }
   h1 {
     font-size: 52px;
@@ -123,6 +135,37 @@
     line-height: 1.65;
     margin: 0 0 32px;
   }
+
+  /* Feature Badges Grid */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+  .feature-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .feature-card .ic {
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+  .feature-card h3 {
+    font-size: 13px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    color: var(--ink);
+  }
+  .feature-card p {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.4;
+  }
+
   .action-group {
     display: flex;
     align-items: center;
@@ -143,23 +186,8 @@
     transition: transform 0.15s, opacity 0.15s;
   }
   .btn-primary:hover { opacity: 0.92; transform: translateY(-2px); }
-  
-  .btn-code {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    color: var(--ink);
-    font-weight: 600;
-    padding: 14px 22px;
-    border-radius: 10px;
-    font-size: 14px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .btn-code:hover { border-color: var(--accent); }
 
-  /* Hero Right Login Card */
+  /* Hero Right Card */
   .hero-right {
     flex: 0.9;
     display: flex;
@@ -172,13 +200,13 @@
     padding: 36px 32px;
     width: 100%;
     max-width: 400px;
-    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
     position: relative;
   }
   .login-card::before {
     content: '';
     position: absolute;
-    top: -1px; left: 20px; right: 20px; height: 2px;
+    top: -1px; left: 30px; right: 30px; height: 2px;
     background: linear-gradient(90deg, transparent, var(--accent), transparent);
   }
   .login-card h2 {
@@ -191,7 +219,7 @@
     color: var(--muted);
     margin: 0 0 24px;
   }
-  
+
   .discord-login-btn {
     width: 100%;
     background: #5865f2;
@@ -217,7 +245,7 @@
     font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
-    margin: 20px 0;
+    margin: 22px 0;
   }
   .divider::before, .divider::after {
     content: '';
@@ -251,9 +279,16 @@
     border-radius: 9px;
     cursor: pointer;
     font-size: 13px;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, color 0.15s;
   }
   button[type=submit]:hover { border-color: var(--accent); color: var(--accent); }
+
+  .footer-sub {
+    font-size: 11px;
+    color: var(--faint);
+    text-align: center;
+    margin-top: 16px;
+  }
 
   @media (max-width: 900px) {
     .hero-container { flex-direction: column; text-align: center; }
@@ -272,21 +307,42 @@
     </div>
     <nav>
       <a href="/terms">Terms</a>
-      <a href="/privacy">Privacy</a>
+      <a href="/privacy">Privacy Policy</a>
       <a href="/auth/discord" class="btn-nav-login">Sign In</a>
     </nav>
   </header>
 
   <div class="hero-container">
     <div class="hero-left">
-      <div class="tagline">Support &amp; Operations Portal</div>
-      <h1>Manage tickets, moderation, and <span>server archives</span></h1>
-      <p class="sub">Access live support panels, audit logs, staff tools, and customer transcripts all in one unified, real-time control room.</p>
-      
+      <div class="tagline">
+        Support &amp; Operations Portal
+        <span class="tagline-pill">v2.0 Active</span>
+      </div>
+      <h1>Manage tickets, moderation &amp; <span>server archives</span></h1>
+      <p class="sub">Access live support panels, moderation logs, staff tools, and customer transcripts all in one unified real-time control room.</p>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="ic">📁</div>
+          <h3>Live Transcripts</h3>
+          <p>Full chat history &amp; media attachments saved instantly.</p>
+        </div>
+        <div class="feature-card">
+          <div class="ic">🛡️</div>
+          <h3>Moderation Suite</h3>
+          <p>Execute timeouts, warnings, kicks, bans &amp; notes.</p>
+        </div>
+        <div class="feature-card">
+          <div class="ic">⚡</div>
+          <h3>Quick Words</h3>
+          <p>Instant Canned responses for rapid staff replies.</p>
+        </div>
+      </div>
+
       <div class="action-group">
         <a href="/auth/discord" class="btn-primary">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M20.3 4.4A19.7 19.7 0 0 0 15.6 3l-.3.6a14 14 0 0 1 4 1.6c-2.9-1.4-6.7-1.4-9.6 0a10 10 0 0 1 4-1.6L13.4 3a19.7 19.7 0 0 0-4.7 1.4C5.6 8.6 4.8 12.7 5.2 16.7a19.9 19.9 0 0 0 5.1 2.5l.7-1.1a13 13 0 0 1-2-1c.2-.1.3-.2.5-.3a14 14 0 0 0 11 0l.5.3c-.6.4-1.3.7-2 1l.7 1.1a19.8 19.8 0 0 0 5.1-2.5c.5-4.6-.7-8.7-2.9-12.3ZM9.7 14.3c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.5.8 1.5 1.7c0 1-.7 1.7-1.5 1.7Zm5.6 0c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.5.8 1.5 1.7c0 1-.7 1.7-1.5 1.7Z"/></svg>
-          Staff Discord Login
+          Staff Discord OAuth2
         </a>
       </div>
     </div>
@@ -301,12 +357,14 @@
           Continue with Discord
         </a>
 
-        <div class="divider">or use master code</div>
+        <div class="divider">or use access code</div>
 
         <form id="accessCodeForm">
           <input type="password" id="pw" placeholder="ACCESS CODE" autocomplete="off" required>
           <button type="submit">Unlock Portal</button>
         </form>
+
+        <div class="footer-sub">Sessions automatically expire after 10 minutes.</div>
       </div>
     </div>
   </div>
@@ -320,11 +378,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password })
       });
-      if (res.ok) {
-        window.location.href = '/';
-      } else {
-        alert('Incorrect access code.');
-      }
+      if (res.ok) { window.location.href = '/'; } else { alert('Incorrect access code.'); }
     });
   </script>
 </body>

@@ -1942,29 +1942,156 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Internal Server Error' });
 });
 
-// Public Terms of Service
+/// Public Terms of Service Route
 app.get('/terms', (req, res) => {
-    res.send(`
-        <html><head><title>Terms of Service</title><style>body{font-family:sans-serif;padding:40px;background:#0a0c11;color:#e7e9ee;line-height:1.6;}</style></head>
-        <body>
-            <h1>Terms of Service</h1>
-            <p>By using this bot, you agree not to abuse its features, attempt unauthorized access, or spam ticket commands.</p>
-            <p>This service is provided "as-is" without warranties. The owners reserve the right to restrict service access at any time.</p>
-        </body></html>
-    `);
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(siteConfig.siteTitle)} — Terms of Service</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --accent: ${siteConfig.accentColor || '#d69a4e'}; --bg: #0a0c11; --panel: #141722; --border: #262b3a; --ink: #e7e9ee; --muted: #9199a8; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 40px 20px; background: var(--bg); color: var(--ink); font-family: 'Inter', sans-serif; display: flex; justify-content: center; min-height: 100vh; }
+  .container { max-width: 680px; width: 100%; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; }
+  .title { font-size: 24px; font-weight: 800; margin: 0; }
+  .btn-home { background: var(--panel); border: 1px solid var(--border); color: var(--ink); text-decoration: none; padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; transition: border-color .15s; }
+  .btn-home:hover { border-color: var(--accent); color: var(--accent); }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 28px; line-height: 1.65; font-size: 14px; }
+  h2 { font-size: 16px; font-weight: 700; color: var(--accent); margin: 20px 0 8px; }
+  h2:first-of-type { margin-top: 0; }
+  p { color: var(--muted); margin: 0 0 12px; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 class="title">Terms of Service</h1>
+      <a href="/login" class="btn-home">← Return Home</a>
+    </div>
+    <div class="card">
+      <h2>1. Service Acceptance</h2>
+      <p>By accessing or using ${escapeHtml(siteConfig.siteTitle)}, you agree to comply with these terms. You agree not to abuse support ticket features, attempt unauthorized administrative access, or spam ticket commands.</p>
+
+      <h2>2. Contractor Bug-Fixing & Maintenance Policy</h2>
+      <p>If the bot or system experiences technical issues, bugs, or outages, maintenance and repairs will be performed by the developer under the condition that they are granted the designated <strong>Contractor</strong> role within the Discord server.</p>
+
+      <h2>3. Limitations & Disclaimers</h2>
+      <p>This service is provided "as-is" without explicit warranties. Administrators reserve the right to revoke user access or suspend system features if abuse or unauthorized behavior is detected.</p>
+    </div>
+  </div>
+</body>
+</html>`);
 });
 
-// Public Privacy Policy
+// Public Privacy Policy Route
 app.get('/privacy', (req, res) => {
-    res.send(`
-        <html><head><title>Privacy Policy</title><style>body{font-family:sans-serif;padding:40px;background:#0a0c11;color:#e7e9ee;line-height:1.6;}</style></head>
-        <body>
-            <h1>Privacy Policy</h1>
-            <p><strong>Data Collected:</strong> User IDs, channel IDs, ticket message contents, and moderation action logs required for support ticket archiving.</p>
-            <p><strong>Data Usage:</strong> Stored securely to provide web-based ticket transcripts and dashboard moderation functionality.</p>
-            <p><strong>Data Retention:</strong> Data is kept as long as necessary to maintain support records and can be deleted upon server admin request.</p>
-        </body></html>
-    `);
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(siteConfig.siteTitle)} — Privacy Policy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --accent: ${siteConfig.accentColor || '#d69a4e'}; --bg: #0a0c11; --panel: #141722; --border: #262b3a; --ink: #e7e9ee; --muted: #9199a8; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 40px 20px; background: var(--bg); color: var(--ink); font-family: 'Inter', sans-serif; display: flex; justify-content: center; min-height: 100vh; }
+  .container { max-width: 680px; width: 100%; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; }
+  .title { font-size: 24px; font-weight: 800; margin: 0; }
+  .btn-home { background: var(--panel); border: 1px solid var(--border); color: var(--ink); text-decoration: none; padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; transition: border-color .15s; }
+  .btn-home:hover { border-color: var(--accent); color: var(--accent); }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 28px; line-height: 1.65; font-size: 14px; }
+  h2 { font-size: 16px; font-weight: 700; color: var(--accent); margin: 20px 0 8px; }
+  h2:first-of-type { margin-top: 0; }
+  p { color: var(--muted); margin: 0 0 12px; }
+  ul { color: var(--muted); margin: 0 0 12px; padding-left: 20px; }
+  li { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 class="title">Privacy Policy</h1>
+      <a href="/login" class="btn-home">← Return Home</a>
+    </div>
+    <div class="card">
+      <h2>1. Data We Collect</h2>
+      <p>We store basic data required to archive tickets and maintain operational logs, including:</p>
+      <ul>
+        <li>Discord User IDs & User Tags</li>
+        <li>Channel IDs and ticket transcript message history</li>
+        <li>Moderation action records and staff audit logs</li>
+      </ul>
+
+      <h2>2. How We Use Data</h2>
+      <p>Data is processed strictly to generate web-based support transcripts and enable staff dashboard management features.</p>
+
+      <h2>3. Retention & Deletion</h2>
+      <p>Data is stored securely. Server administrators may request transcript or log purges at any time.</p>
+    </div>
+  </div>
+</body>
+</html>`);
+});
+
+// Public Privacy Policy Route
+app.get('/privacy', (req, res) => {
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(siteConfig.siteTitle)} — Privacy Policy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --accent: ${siteConfig.accentColor || '#d69a4e'}; --bg: #0a0c11; --panel: #141722; --border: #262b3a; --ink: #e7e9ee; --muted: #9199a8; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 40px 20px; background: var(--bg); color: var(--ink); font-family: 'Inter', sans-serif; display: flex; justify-content: center; min-height: 100vh; }
+  .container { max-width: 680px; width: 100%; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; }
+  .title { font-size: 24px; font-weight: 800; margin: 0; }
+  .btn-home { background: var(--panel); border: 1px solid var(--border); color: var(--ink); text-decoration: none; padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; transition: border-color .15s; }
+  .btn-home:hover { border-color: var(--accent); color: var(--accent); }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 28px; line-height: 1.65; font-size: 14px; }
+  h2 { font-size: 16px; font-weight: 700; color: var(--accent); margin: 20px 0 8px; }
+  h2:first-of-type { margin-top: 0; }
+  p { color: var(--muted); margin: 0 0 12px; }
+  ul { color: var(--muted); margin: 0 0 12px; padding-left: 20px; }
+  li { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 class="title">Privacy Policy</h1>
+      <a href="/login" class="btn-home">← Return Home</a>
+    </div>
+    <div class="card">
+      <h2>1. Data We Collect</h2>
+      <p>We store basic data required to archive tickets and maintain operational logs, including:</p>
+      <ul>
+        <li>Discord User IDs &amp; User Tags</li>
+        <li>Channel IDs and ticket transcript message history</li>
+        <li>Moderation action records and staff audit logs</li>
+      </ul>
+
+      <h2>2. How We Use Data</h2>
+      <p>Data is processed strictly to generate web-based support transcripts and enable staff dashboard management features.</p>
+
+      <h2>3. Retention &amp; Deletion</h2>
+      <p>Data is stored securely. Server administrators may request transcript or log purges at any time.</p>
+    </div>
+  </div>
+</body>
+</html>`);
 });
 
 // ---------------------------------------------------------------------------
