@@ -168,11 +168,17 @@ async function initNav() {
     const res = await fetch('/api/guild');
     if (res.ok) {
       const g = await res.json();
+      // If user is non-admin staff, pass allowedTabs. If Master/Admin, pass null (shows all tabs).
       const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions.allowedTabs : null;
-      document.getElementById('navTabs').innerHTML = RF.renderNav('/blacklist', allowedTabs);
+      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, allowedTabs);
+    } else {
+      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
     }
-  } catch { document.getElementById('navTabs').innerHTML = RF.renderNav('/blacklist', null); }
-  const _logoutIconEl = document.getElementById('logoutIcon'); if (_logoutIconEl) _logoutIconEl.innerHTML = RF.ICONS.logout;
+  } catch {
+    document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
+  }
+  const logoutIconEl = document.getElementById('logoutIcon');
+  if (logoutIconEl) logoutIconEl.innerHTML = RF.ICONS.logout;
 }
 
 async function load() {

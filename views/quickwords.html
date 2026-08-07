@@ -259,11 +259,17 @@ async function initNav() {
     if (res.ok) {
       const g = await res.json();
       isDiscordSession = Boolean(g.isDiscordSession);
+      // If user is non-admin staff, pass allowedTabs. If Master/Admin, pass null (shows all tabs).
       const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions.allowedTabs : null;
-      document.getElementById('navTabs').innerHTML = RF.renderNav('/quickwords', allowedTabs);
+      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, allowedTabs);
+    } else {
+      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
     }
-  } catch { document.getElementById('navTabs').innerHTML = RF.renderNav('/quickwords', null); }
-  const _logoutIconEl = document.getElementById('logoutIcon'); if (_logoutIconEl) _logoutIconEl.innerHTML = RF.ICONS.logout;
+  } catch {
+      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
+  }
+  const logoutIconEl = document.getElementById('logoutIcon');
+  if (logoutIconEl) logoutIconEl.innerHTML = RF.ICONS.logout;
 
   // Personal Quick Words are keyed by your real Discord ID (that's how the
   // bot looks them up in the ticket button), which only exists if you're
