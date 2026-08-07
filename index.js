@@ -1,4 +1,5 @@
 require('dotenv').config();
+const BUILD_VERSION = String(Date.now());
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -191,6 +192,15 @@ function renderTemplate(filePath) {
     const validAccent = /^#[0-9A-Fa-f]{6}$/.test(siteConfig.accentColor) ? siteConfig.accentColor : '#d69a4e';
     const bannerHtml = siteConfig.bannerText ? `<div class="site-banner">📢 ${escapeHtml(siteConfig.bannerText)}</div>` : '';
     const footerHtml = siteConfig.footerNote ? `<div class="footer-note">${escapeHtml(siteConfig.footerNote)}</div>` : '';
+    
+    // Inject version tracking scripts
+    const versionScript = `<script>window.APP_BUILD_VERSION = "${BUILD_VERSION}";</script><script src="/version-check.js"></script>`;
+    if (html.includes('</body>')) {
+        html = html.replace('</body>', `${versionScript}\n</body>`);
+    } else {
+        html += versionScript;
+    }
+
     return html
         .replace(/{{SITE_TITLE}}/g, escapeHtml(siteConfig.siteTitle))
         .replace(/{{ACCENT_COLOR}}/g, validAccent)
@@ -905,7 +915,15 @@ app.get('/api/tickets/:id', maintenanceGate, requireDiscordOrTicketToken, (req, 
     if (!ticket) return res.status(404).json({ error: 'Transcript not found.' });
     res.json(ticket);
 });
+// Add this right above // API ROUTES
+app.get('/api/version', (req, res) => {
+    res.json({ version: BUILD_VERSION });
+});
 
+// ---------------------------------------------------------------------------
+// API ROUTES
+// ---------------------------------------------------------------------------
+app.get('/api/tickets', maintenanceGate, requireAuth, requireTabPermission('archive'), (req, res) => res.json(Array.from(archivedTickets.values())));
 // ---------------------------------------------------------------------------
 // API ROUTES
 // ---------------------------------------------------------------------------
