@@ -1467,24 +1467,49 @@ app.get('/api/guild/members', maintenanceGate, requireAuth, async (req, res) => 
 app.get('/api/roblox/lookup/:query', maintenanceGate, requireAuth, async (req, res) => {
     const query = String(req.params.query || '').trim();
     if (!query) return res.status(400).json({ error: 'Query required' });
+
     try {
         let userId = query;
         let username = query;
+
+        const headers = { 
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+            'Content-Type': 'application/json'
+        };
+
         if (isNaN(query)) {
-            const searchRes = await fetch(`https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(query)}&limit=1`);
-            const searchData = await searchRes.json();
-            if (!searchData.data || !searchData.data.length) return res.status(404).json({ error: 'Roblox user not found' });
-            userId = searchData.data[0].id;
-            username = searchData.data[0].name;
+            // 1. Try Exact Username Lookup
+            const exactRes = await fetch('https://users.roblox.com/v1/usernames/users', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ usernames: [query], excludeBannedUsers: false })
+            });
+            const exactData = await exactRes.json();
+
+            if (exactData.data && exactData.data.length > 0) {
+                userId = exactData.data[0].id;
+                username = exactData.data[0].name;
+            } else {
+                // 2. Search Fallback
+                const searchRes = await fetch(`https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(query)}&limit=1`, { headers });
+                const searchData = await searchRes.json();
+                if (!searchData.data || !searchData.data.length) return res.status(404).json({ error: 'Roblox user not found' });
+                userId = searchData.data[0].id;
+                username = searchData.data[0].name;
+            }
         } else {
-            const userRes = await fetch(`https://users.roblox.com/v1/users/${userId}`);
+            // Numeric User ID Lookup
+            const userRes = await fetch(`https://users.roblox.com/v1/users/${userId}`, { headers });
             if (!userRes.ok) return res.status(404).json({ error: 'Roblox user not found' });
             const userData = await userRes.json();
             username = userData.name;
         }
-        const thumbRes = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png&isCircular=false`);
+
+        // Fetch Avatar Thumbnail
+        const thumbRes = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png&isCircular=false`, { headers });
         const thumbData = await thumbRes.json();
         const avatarUrl = thumbData.data?.[0]?.imageUrl || '';
+
         res.json({ id: userId, username, avatarUrl });
     } catch (err) {
         res.status(500).json({ error: err.message });
