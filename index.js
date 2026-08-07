@@ -1605,6 +1605,31 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Internal Server Error' });
 });
 
+// Public Terms of Service
+app.get('/terms', (req, res) => {
+    res.send(`
+        <html><head><title>Terms of Service</title><style>body{font-family:sans-serif;padding:40px;background:#0a0c11;color:#e7e9ee;line-height:1.6;}</style></head>
+        <body>
+            <h1>Terms of Service</h1>
+            <p>By using this bot, you agree not to abuse its features, attempt unauthorized access, or spam ticket commands.</p>
+            <p>This service is provided "as-is" without warranties. The owners reserve the right to restrict service access at any time.</p>
+        </body></html>
+    `);
+});
+
+// Public Privacy Policy
+app.get('/privacy', (req, res) => {
+    res.send(`
+        <html><head><title>Privacy Policy</title><style>body{font-family:sans-serif;padding:40px;background:#0a0c11;color:#e7e9ee;line-height:1.6;}</style></head>
+        <body>
+            <h1>Privacy Policy</h1>
+            <p><strong>Data Collected:</strong> User IDs, channel IDs, ticket message contents, and moderation action logs required for support ticket archiving.</p>
+            <p><strong>Data Usage:</strong> Stored securely to provide web-based ticket transcripts and dashboard moderation functionality.</p>
+            <p><strong>Data Retention:</strong> Data is kept as long as necessary to maintain support records and can be deleted upon server admin request.</p>
+        </body></html>
+    `);
+});
+
 app.listen(process.env.PORT || 3002, () => {
     console.log(`🌐 Web Dashboard running at ${getWebsiteUrl()} (locked with access code)`);
 });
