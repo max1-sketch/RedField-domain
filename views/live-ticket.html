@@ -100,6 +100,17 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .compose-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
 .name-input { background: transparent; border: none; color: var(--faint); font-size: 11px; font-family: inherit; width: 160px; }
 .name-input:focus { outline: none; color: var(--ink); }
+.quickword-picker {
+  width: 220px;
+  min-width: 180px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 13px;
+}
 .send-note { font-size: 10.5px; color: var(--faint); }
 
 .empty-state, .error-state { text-align: center; padding: 40px 20px; color: var(--faint); }
@@ -212,6 +223,7 @@ RF.startSessionClock(document.getElementById('sessionClock'));
 
 const channelId = window.location.pathname.split('/').pop();
 let allTags = [];
+let quickWords = [];
 let lastTicket = {};
 let pollTimer = null;
 
@@ -243,6 +255,57 @@ async function loadTagDefs() {
     const res = await fetch('/api/guild');
     if (res.ok) { const data = await res.json(); allTags = data.tags || []; }
   } catch { /* ignore tag load failures */ }
+}
+
+async function loadQuickWords() {
+  try {
+    const res = await fetch(`/api/open-tickets/${encodeURIComponent(channelId)}/quickwords`);
+    if (!res.ok) { quickWords = []; return; }
+    const data = await res.json();
+    quickWords = [
+      ...(Array.isArray(data.global) ? data.global.map(w => ({ ...w, type: 'Global' })) : []),
+      ...(Array.isArray(data.personal) ? data.personal.map(w => ({ ...w, type: 'Personal' })) : [])
+    ];
+  } catch {
+    quickWords = [];
+  }
+}
+
+function renderQuickwordPicker() {
+  const select = document.getElementById('quickwordPicker');
+  if (!select) return;
+  if (!quickWords.length) {
+    select.style.display = 'none';
+    return;
+  }
+  select.style.display = 'block';
+  select.innerHTML = `<option value="">Quick Words…</option>` + quickWords.map((q, idx) => `<option value="${idx}">${RF.esc(q.label)} (${RF.esc(q.type)})</option>`).join('');
+}
+
+async function doQuickwordSend() {
+  const select = document.getElementById('quickwordPicker');
+  if (!select || !select.value) return;
+  const selected = quickWords[Number(select.value)];
+  if (!selected) return;
+  const asName = document.getElementById('composeName').value.trim();
+  const content = selected.text || '';
+  select.disabled = true;
+  try {
+    const res = await fetch(`/api/open-tickets/${encodeURIComponent(channelId)}/messages`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, asName })
+    });
+    if (res.ok) {
+      select.value = '';
+      await load();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || 'Could not send Quick Word.');
+      select.disabled = false;
+    }
+  } catch {
+    alert('Could not send Quick Word.');
+    select.disabled = false;
+  }
 }
 
 async function load(isPoll) {
@@ -354,6 +417,7 @@ function render(t, messages, isPoll) {
       <div class="compose">
         <div class="compose-row">
           <textarea id="composeText" placeholder="Message this ticket…" rows="1"></textarea>
+          <select id="quickwordPicker" class="quickword-picker" style="display:none;"></select>
           <button class="btn btn-accent" id="sendBtn">Send</button>
         </div>
         <div class="compose-meta">
@@ -366,9 +430,14 @@ function render(t, messages, isPoll) {
 
   document.getElementById('composeName').value = RF.getCookie('websiteSenderName') || '';
   document.getElementById('composeName').addEventListener('change', (e) => RF.setCookie('websiteSenderName', e.target.value.trim(), 90));
-
   document.getElementById('closeBtn').addEventListener('click', doClose);
   document.getElementById('sendBtn').addEventListener('click', doSend);
+  const quickwordSelect = document.getElementById('quickwordPicker');
+  if (quickwordSelect) {
+    quickwordSelect.addEventListener('change', doQuickwordSend);
+  }
+  renderQuickwordPicker();
+
   document.getElementById('composeText').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
   });
@@ -427,6 +496,7 @@ async function doClose() {
 (async function init() {
   initNav();
   await loadTagDefs();
+  await loadQuickWords();
   await load(false);
   pollTimer = setInterval(() => load(true), 6000);
 })();

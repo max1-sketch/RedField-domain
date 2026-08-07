@@ -575,59 +575,63 @@ function verifyDiscordSession(token) {
 }
 const DISCORD_LOGIN_CONFIGURED = Boolean(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET);
 
-function lockPageHtml(error, returnTo) {
+function lockPageHtml(error, returnTo, allowCode = true) {
     const accent = /^#[0-9A-Fa-f]{6}$/.test(siteConfig.accentColor) ? siteConfig.accentColor : '#d69a4e';
     const safeReturn = JSON.stringify((returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/');
     const errorMessages = {
         1: 'Incorrect code — try again.',
         discord_denied: 'Discord login was cancelled.',
         discord_notstaff: "That Discord account isn't staff on this server.",
-        discord_failed: 'Discord login failed — try again or use the access code.'
+        discord_failed: 'Discord login failed — try again or use the access code.',
+        discord_required: 'Please sign in with Discord to continue.'
     };
     const errorText = errorMessages[error] || (error ? errorMessages['1'] : null);
     const discordSection = DISCORD_LOGIN_CONFIGURED ? `
     <a class="discord-btn" href="/auth/discord?returnTo=${encodeURIComponent((returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/')}">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20.3 4.4A19.7 19.7 0 0 0 15.6 3l-.3.6a14 14 0 0 1 4 1.6c-2.9-1.4-6.7-1.4-9.6 0a10 10 0 0 1 4-1.6L13.4 3a19.7 19.7 0 0 0-4.7 1.4C5.6 8.6 4.8 12.7 5.2 16.7a19.9 19.9 0 0 0 5.1 2.5l.7-1.1a13 13 0 0 1-2-1c.2-.1.3-.2.5-.3a14 14 0 0 0 11 0l.5.3c-.6.4-1.3.7-2 1l.7 1.1a19.8 19.8 0 0 0 5.1-2.5c.5-4.6-.7-8.7-2.9-12.3ZM9.7 14.3c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.5.8 1.5 1.7c0 1-.7 1.7-1.5 1.7Zm5.6 0c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.5.8 1.5 1.7c0 1-.7 1.7-1.5 1.7Z"/></svg>
       Sign in with Discord
-    </a>
-    <button type="button" class="alt-toggle" id="altToggle">Use access code instead</button>` : '';
-    const codeFormOpenStyle = DISCORD_LOGIN_CONFIGURED ? 'display:none;' : '';
+    </a>` : '';
+    const codeFormOpenStyle = allowCode && DISCORD_LOGIN_CONFIGURED ? 'display:none;' : (allowCode ? '' : 'display:none;');
+    const codeForm = allowCode ? `
+    <form id="f" style="${codeFormOpenStyle}">
+      <input id="pw" type="password" placeholder="ACCESS CODE" autocomplete="off" />
+      <button type="submit">Unlock Archive</button>
+    </form>
+    ${DISCORD_LOGIN_CONFIGURED ? '<button type="button" class="alt-toggle" id="altToggle">Use access code instead</button>' : ''}` : '';
+    const promptText = allowCode ? 'Use Discord or the archive access code to sign in.' : 'Use Discord to sign in and view your transcript.';
     return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(siteConfig.siteTitle)} — Locked</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root { --amber: ${accent}; }
+  :root { --amber: ${accent}; --surface: #1c2023; --surface-2: #23292f; --text: #e6e2d3; --muted: #8d96a2; }
   * { box-sizing: border-box; }
-  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at top, #1a1e22, #14171a);font-family:'IBM Plex Mono',monospace;color:#d9d5c9;padding:20px;}
-  .box{background:#1c2023;border:1px solid #2a2f33;border-left:4px solid var(--amber);border-radius:6px;padding:36px 32px;width:300px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.4);}
-  .lock-icon{font-size:28px;margin-bottom:10px;}
-  h1{font-family:'Special Elite',monospace;font-size:19px;color:#e8e2d0;margin:0 0 6px;letter-spacing:.5px;}
-  p{font-size:12px;color:#7d8489;margin:0 0 20px;line-height:1.5;}
-  input{width:100%;box-sizing:border-box;background:#14171a;border:1px solid #2a2f33;color:#e8e2d0;padding:12px;border-radius:4px;font-family:inherit;font-size:15px;margin-bottom:12px;letter-spacing:0.3em;text-align:center;transition:border-color .15s;}
-  input:focus{outline:none;border-color:var(--amber);}
-  button[type=submit]{width:100%;background:var(--amber);border:none;color:#14171a;font-weight:600;padding:11px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:13px;letter-spacing:.05em;text-transform:uppercase;transition:opacity .15s;}
-  button[type=submit]:hover{opacity:.9;}
-  .err{color:#e05a3a;font-size:11.5px;margin-top:12px;font-weight:600;}
-  .hint{font-size:10.5px;color:#4d5257;margin-top:18px;}
-  .discord-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;background:#5865F2;color:#fff;font-weight:600;padding:12px;border-radius:4px;text-decoration:none;font-size:13.5px;margin-bottom:12px;transition:opacity .15s;}
-  .discord-btn:hover{opacity:.9;}
-  .alt-toggle{display:block;width:100%;background:none;border:none;color:#5b6272;font-family:inherit;font-size:11px;text-decoration:underline;cursor:pointer;padding:4px;margin-bottom:4px;}
-  .alt-toggle:hover{color:#9199a8;}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at top, #16191d, #0c0f14);font-family:'IBM Plex Mono',monospace;color:var(--text);padding:20px;}
+  .box{background:var(--surface);border:1px solid #2d343b;border-left:4px solid var(--amber);border-radius:16px;padding:36px 32px;width:340px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.5);}
+  .lock-icon{font-size:38px;margin-bottom:14px;}
+  h1{font-family:'Special Elite',monospace;font-size:22px;color:#faf5e4;margin:0 0 10px;letter-spacing:.7px;}
+  p{font-size:13px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  input{width:100%;box-sizing:border-box;background:#14171d;border:1px solid #2b3138;color:var(--text);padding:14px 12px;border-radius:10px;font-family:inherit;font-size:14px;margin-bottom:12px;letter-spacing:0.08em;text-align:center;transition:border-color .15s, background .15s;}
+  input:focus{outline:none;border-color:var(--amber);background:#171c24;}
+  button[type=submit]{width:100%;background:var(--amber);border:none;color:#121212;font-weight:700;padding:13px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:13px;letter-spacing:.08em;text-transform:uppercase;transition:opacity .15s;}
+  button[type=submit]:hover{opacity:.95;}
+  .err{color:#ff8a80;font-size:12px;margin-top:12px;font-weight:600;}
+  .hint{font-size:11px;color:#6f7a88;margin-top:18px;}
+  .discord-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;box-sizing:border-box;background:#5865f2;color:#fff;font-weight:700;padding:13px;border-radius:10px;text-decoration:none;font-size:14px;margin-bottom:12px;transition:transform .15s,opacity .15s;}
+  .discord-btn:hover{opacity:.95;transform:translateY(-1px);}
+  .alt-toggle{display:block;width:100%;background:none;border:none;color:#7d8ca5;font-family:inherit;font-size:12px;text-decoration:underline;cursor:pointer;padding:6px 0;margin-bottom:4px;}
+  .alt-toggle:hover{color:#a3b1c3;}
 </style></head>
 <body>
   <div class="box">
-    <div class="lock-icon">🔒</div>
+    <div class="lock-icon">🔐</div>
     <h1>${escapeHtml(siteConfig.siteTitle)}</h1>
-    <p>This archive is restricted.</p>
+    <p>${escapeHtml(promptText)}</p>
     ${discordSection}
-    <form id="f" style="${codeFormOpenStyle}">
-      <input id="pw" type="password" placeholder="ACCESS CODE" autocomplete="off" />
-      <button type="submit">Unlock Archive</button>
-    </form>
+    ${codeForm}
     ${errorText ? `<div class="err">⚠ ${escapeHtml(errorText)}</div>` : ''}
-    <div class="hint">Sessions auto-expire after 10 minutes for security.</div>
+    <div class="hint">Staff sessions expire after 10 minutes for security.</div>
   </div>
   <script>
     const toggle = document.getElementById('altToggle');
@@ -641,12 +645,15 @@ function lockPageHtml(error, returnTo) {
       });
     }
     const returnTo = ${safeReturn};
-    document.getElementById('f').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const password = document.getElementById('pw').value;
-      const res = await fetch('/api/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password }) });
-      if (res.ok) { window.location.href = returnTo; } else { window.location.href = returnTo + (returnTo.includes('?') ? '&' : '?') + 'err=1'; }
-    });
+    const form = document.getElementById('f');
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const password = document.getElementById('pw').value;
+        const res = await fetch('/api/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password }) });
+        if (res.ok) { window.location.href = returnTo; } else { window.location.href = returnTo + (returnTo.includes('?') ? '&' : '?') + 'err=1'; }
+      });
+    }
   </script>
 </body></html>`;
 }
@@ -836,6 +843,23 @@ function requireAuthOrTicketToken(req, res, next) {
     return res.send(lockPageHtml(req.query.err, req.path));
 }
 
+function requireDiscordOrTicketToken(req, res, next) {
+    const cookies = parseCookies(req);
+    const session = verifyDiscordSession(cookies.discordAuth);
+    const ticket = archivedTickets.get(req.params.id);
+    if (session && ticket && ticket.openedById === session.id) {
+        req.authUser = session;
+        return next();
+    }
+
+    if (ticket && ticket.accessToken && req.query.token && req.query.token === ticket.accessToken) {
+        return next();
+    }
+
+    if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
+    return res.send(lockPageHtml('discord_required', req.path, false));
+}
+
 // ---------------------------------------------------------------------------
 // VIEW ROUTES WITH TAB PERMISSION ENFORCEMENT
 // ---------------------------------------------------------------------------
@@ -853,7 +877,12 @@ app.get('/blacklist', maintenanceGate, requireAuth, requireTabPermission('blackl
 // Admin Only Pages
 app.get('/audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'audit-log.html')));
 app.get('/settings', maintenanceGate, requireAuth, requireTabPermission('settings'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'settings.html')));
-app.get('/transcript/:id', maintenanceGate, requireAuthOrTicketToken, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'transcript.html')));
+app.get('/transcript/:id', maintenanceGate, requireDiscordOrTicketToken, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'transcript.html')));
+app.get('/api/tickets/:id', maintenanceGate, requireDiscordOrTicketToken, (req, res) => {
+    const ticket = archivedTickets.get(req.params.id);
+    if (!ticket) return res.status(404).json({ error: 'Transcript not found.' });
+    res.json(ticket);
+});
 
 // ---------------------------------------------------------------------------
 // API ROUTES
@@ -891,7 +920,15 @@ app.post('/api/tickets/:id/tags', maintenanceGate, requireAuth, (req, res) => {
 app.get('/api/feedback', maintenanceGate, requireAuth, requireTabPermission('feedback'), (req, res) => res.json(feedbackData));
 app.get('/api/audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), (req, res) => res.json(auditLogs));
 
-app.get('/api/quickwords', maintenanceGate, requireAuth, requireTabPermission('quickwords'), (req, res) => res.json(quickWordsData));
+app.get('/api/quickwords', maintenanceGate, requireAuth, requireTabPermission('quickwords'), (req, res) => {
+    const userId = req.authUser?.id;
+    const myPersonal = (userId && quickWordsData.personal[userId]) ? quickWordsData.personal[userId] : [];
+    return res.json({
+        global: quickWordsData.global || [],
+        personal: myPersonal,
+        myPersonal
+    });
+});
 app.post('/api/quickwords', maintenanceGate, requireAuth, requireTabPermission('quickwords'), (req, res) => {
     const { label, text, isGlobal } = req.body || {};
     if (!label || !text) return res.status(400).json({ error: 'Label and text are required.' });
@@ -1205,6 +1242,14 @@ app.get('/api/open-tickets/:channelId/messages', maintenanceGate, requireAuth, r
     }
 });
 
+app.get('/api/open-tickets/:channelId/quickwords', maintenanceGate, requireAuth, requireTabPermission('tickets'), (req, res) => {
+    const userId = req.authUser?.id;
+    return res.json({
+        global: quickWordsData.global || [],
+        personal: userId ? (quickWordsData.personal[userId] || []) : []
+    });
+});
+
 app.post('/api/open-tickets/:channelId/messages', maintenanceGate, requireAuth, requireTabPermission('tickets'), async (req, res) => {
     const ticket = openTickets.get(req.params.channelId);
     if (!ticket) return res.status(404).json({ error: 'This ticket is no longer open.' });
@@ -1218,8 +1263,8 @@ app.post('/api/open-tickets/:channelId/messages', maintenanceGate, requireAuth, 
         const channel = await client.channels.fetch(req.params.channelId).catch(() => null);
         if (!channel) return res.status(404).json({ error: "Could not find channel in Discord." });
 
-        const label = asName ? `**${asName} (via Website):**` : `**Staff (via Website):**`;
-        await channel.send(`${label} ${content}`);
+        const senderName = asName || ticket.claimedBy?.tag || 'Staff (via Website)';
+        await sendTicketMessage(channel, content, senderName);
         res.json({ success: true });
     } catch (err) {
         console.error('[open-ticket send] failed:', err);
@@ -1774,6 +1819,31 @@ function findExistingTicket(guildId, userId, typeKey) {
     return null;
 }
 
+async function getTicketWebhook(channel) {
+    try {
+        const hooks = await channel.fetchWebhooks();
+        let webhook = hooks.find(h => h.name === 'RedField Ticket Webhook');
+        if (!webhook) {
+            webhook = await channel.createWebhook({ name: 'RedField Ticket Webhook', avatar: client.user.displayAvatarURL({ format: 'png' }) });
+        }
+        return webhook;
+    } catch (err) {
+        return null;
+    }
+}
+
+async function sendTicketMessage(channel, content, username, avatarURL) {
+    if (!username) return channel.send(content);
+    const webhook = await getTicketWebhook(channel);
+    if (!webhook) return channel.send(`${username}: ${content}`);
+    return webhook.send({
+        content,
+        username: username.slice(0, 80),
+        avatarURL: avatarURL || client.user.displayAvatarURL({ format: 'png' }),
+        allowedMentions: { parse: ['users', 'roles'] }
+    });
+}
+
 function countUserTickets(guildId, userId) {
     let count = 0;
     for (const data of openTickets.values()) { if (data.guildId === guildId && data.userId === userId) count++; }
@@ -2184,9 +2254,55 @@ client.on('interactionCreate', async (interaction) => {
                 const select = new StringSelectMenuBuilder()
                     .setCustomId('quickword_select')
                     .setPlaceholder('Choose a Quick Word response...')
-                    .addOptions(combined.slice(0, 25).map(q => ({ label: `${q.label} (${q.type})`, value: q.text, description: q.text.slice(0, 50) })));
+                    .addOptions(combined.slice(0, 25).map((q, idx) => ({ label: `${q.label} (${q.type})`, value: String(idx), description: q.text.slice(0, 50) })));
 
                 return interaction.reply({ content: '⚡ Select a pre-set response to post instantly:', components: [new ActionRowBuilder().addComponents(select)], ephemeral: true });
+            }
+
+            if (customId === 'claim_ticket') {
+                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can claim tickets.', ephemeral: true });
+
+                const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
+                if (!ticket) return interaction.reply({ content: "⚠️ Could not find this ticket's data.", ephemeral: true });
+                openTickets.set(channel.id, ticket);
+
+                if (ticket.claimedBy) {
+                    return interaction.reply({ content: `❌ Already claimed by **${ticket.claimedBy.tag}**. They need to Unclaim first.`, ephemeral: true });
+                }
+
+                ticket.claimedBy = { id: user.id, tag: user.tag };
+                openTickets.set(channel.id, ticket);
+                saveOpenTickets();
+
+                const oldEmbed = interaction.message.embeds[0];
+                const updatedEmbed = EmbedBuilder.from(oldEmbed).setFields(
+                    oldEmbed.fields.map(f => f.name === 'Status' ? { name: 'Status', value: `🟡 Claimed by ${user.tag}`, inline: true } : f)
+                );
+                await interaction.update({ embeds: [updatedEmbed], components: buildTicketButtons(true) });
+                return channel.send(`🙋 **${user.tag}** is handling this ticket now.`);
+            }
+
+            if (customId === 'unclaim_ticket') {
+                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can unclaim tickets.', ephemeral: true });
+
+                const ticket = openTickets.get(channel.id);
+                if (!ticket || !ticket.claimedBy) {
+                    return interaction.reply({ content: '⚠️ This ticket is not currently claimed.', ephemeral: true });
+                }
+                if (ticket.claimedBy.id !== user.id && !member.permissions.has(PermissionFlagsBits.Administrator)) {
+                    return interaction.reply({ content: `❌ Only **${ticket.claimedBy.tag}** (or an Administrator) can unclaim this.`, ephemeral: true });
+                }
+
+                ticket.claimedBy = null;
+                openTickets.set(channel.id, ticket);
+                saveOpenTickets();
+
+                const oldEmbed = interaction.message.embeds[0];
+                const updatedEmbed = EmbedBuilder.from(oldEmbed).setFields(
+                    oldEmbed.fields.map(f => f.name === 'Status' ? { name: 'Status', value: '🟢 Open', inline: true } : f)
+                );
+                await interaction.update({ embeds: [updatedEmbed], components: buildTicketButtons(false) });
+                return channel.send(`↩️ **${user.tag}** unclaimed this ticket.`);
             }
 
             if (customId === 'ticket_close') {
@@ -2223,11 +2339,18 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isStringSelectMenu() && interaction.customId === 'quickword_select') {
-            const selectedText = interaction.values[0];
+            const idx = Number(interaction.values[0]);
+            const globalWords = quickWordsData.global || [];
+            const personalWords = quickWordsData.personal[interaction.user.id] || [];
+            const combined = [...globalWords.map(w => ({ ...w, type: 'Global' })), ...personalWords.map(w => ({ ...w, type: 'Personal' }))];
+            const selected = combined[idx];
+            if (!selected) {
+                return interaction.update({ content: '❌ That Quick Word is no longer available.', components: [] });
+            }
 
-            await interaction.channel.send({
-                content: `${selectedText}\n\n*— ${interaction.user}*`
-            });
+            const ticket = openTickets.get(interaction.channel.id) || recoverTicketFromTopic(interaction.channel);
+            const senderName = ticket?.claimedBy?.tag || interaction.user.tag;
+            await sendTicketMessage(interaction.channel, selected.text, senderName);
 
             return interaction.update({ content: '✅ Quick Word sent to channel.', components: [] });
         }
