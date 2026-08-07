@@ -38,9 +38,9 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
 .nav-item .ic svg { width: 100%; height: 100%; }
 .nav-item.active .ic { opacity: 1; }
+
 .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
 .session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
-.session-line.warn { color: var(--red); }
 
 .content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 900px; }
 .page-title { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
@@ -49,10 +49,10 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 18px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
 .card-header h2 { font-size: 15.5px; font-weight: 700; color: var(--ink); margin: 0; }
-.card-sub { font-size: 12.5px; color: var(--muted); margin: -8px 0 16px; line-height: 1.6; }
 
-.btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 9px 15px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 8px; padding: 9px 15px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .btn-accent { background: var(--accent); color: #0a0c11; }
+.btn-ghost { background: var(--panel-2); color: var(--ink); border: 1px solid var(--border); }
 .btn-danger { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
 .btn-danger:hover { background: rgba(239,68,68,0.2); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -73,6 +73,15 @@ tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: rgba(255,255,255,0.02); }
 .empty-note { font-size: 12.5px; color: var(--faint); padding: 12px 2px; text-align: center; }
 .loading-line { font-size: 13px; color: var(--faint); padding: 24px 0; text-align: center; }
+
+/* Custom Modal Styles */
+.modal-overlay { position: fixed; inset: 0; background: rgba(5,6,9,.75); display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
+.modal-overlay.show { display: flex; }
+.modal { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 24px; width: 380px; max-width: 100%; }
+.modal h3 { font-size: 15.5px; font-weight: 700; color: var(--ink); margin: 0 0 8px; }
+.modal p { font-size: 12.5px; color: var(--muted); margin: 0 0 16px; line-height: 1.5; }
+.modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+.modal-actions .btn { flex: 1; }
 
 @media (max-width: 860px) {
   .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
@@ -98,12 +107,29 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
   <main class="content-area" id="main">
     <h1 class="page-title">Blacklist</h1>
     <div class="loading-line">Loading…</div>
+    {{FOOTER_NOTE_HTML}}
   </main>
+</div>
+
+<!-- Custom Blacklist Confirmation Modal -->
+<div class="modal-overlay" id="blOverlay">
+  <div class="modal">
+    <h3>Blacklist Member</h3>
+    <p>Reason for blacklisting <b id="blTargetTag" style="color:var(--ink);"></b>? (optional)</p>
+    <input type="text" id="blReasonInput" placeholder="Enter reason..." maxlength="200" autocomplete="off">
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="confirmBlBtn">Blacklist</button>
+      <button class="btn btn-ghost" id="cancelBlBtn">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <script src="/theme.js"></script>
 <script>
 RF.startSessionClock(document.getElementById('sessionClock'));
+
+let blacklistedUsers = {};
+let pendingUser = null;
 
 async function initNav() {
   try {
@@ -111,41 +137,16 @@ async function initNav() {
     if (res.ok) {
       const g = await res.json();
       const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions?.allowedTabs : null;
-      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, allowedTabs);
+      document.getElementById('navTabs').innerHTML = RF.renderNav('/blacklist', allowedTabs);
     } else {
-      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
+      document.getElementById('navTabs').innerHTML = RF.renderNav('/blacklist', null);
     }
   } catch {
-    document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
+    document.getElementById('navTabs').innerHTML = RF.renderNav('/blacklist', null);
   }
 
   const logoutIconEl = document.getElementById('logoutIcon');
   if (logoutIconEl && RF.ICONS?.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
-}
-
-initNav();
-</script>
-
-RF.startSessionClock(document.getElementById('sessionClock'));
-
-let blacklistedUsers = {};
-
-async function initNav() {
-  try {
-    const res = await fetch('/api/guild');
-    if (res.ok) {
-      const g = await res.json();
-      // If user is non-admin staff, pass allowedTabs. If Master/Admin, pass null (shows all tabs).
-      const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions.allowedTabs : null;
-      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, allowedTabs);
-    } else {
-      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
-    }
-  } catch {
-    document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
-  }
-  const logoutIconEl = document.getElementById('logoutIcon');
-  if (logoutIconEl) logoutIconEl.innerHTML = RF.ICONS.logout;
 }
 
 async function load() {
@@ -235,22 +236,53 @@ function wireBlacklistSearch() {
     }, 300);
   });
 
-  results.addEventListener('click', async (e) => {
+  results.addEventListener('click', (e) => {
     const row = e.target.closest('.bl-result');
     if (!row || !row.getAttribute('data-user-id')) return;
-    const userId = row.getAttribute('data-user-id');
-    const tag = row.getAttribute('data-tag');
-    const reason = prompt(`Reason for blacklisting ${tag}? (optional)`) || '';
-    try {
-      const res = await fetch('/api/guild/blacklist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, tag, reason }) });
-      if (res.ok) {
-        blacklistedUsers[userId] = { tag, reason: reason || 'No reason given' };
-        renderBlacklist();
-        input.value = ''; results.classList.remove('show');
-      } else alert('Could not blacklist — try again.');
-    } catch { alert('Could not blacklist — check your connection.'); }
+    pendingUser = {
+      id: row.getAttribute('data-user-id'),
+      tag: row.getAttribute('data-tag')
+    };
+    document.getElementById('blTargetTag').textContent = pendingUser.tag;
+    document.getElementById('blReasonInput').value = '';
+    document.getElementById('blOverlay').classList.add('show');
+    document.getElementById('blReasonInput').focus();
+    results.classList.remove('show');
   });
 }
+
+document.getElementById('cancelBlBtn').addEventListener('click', () => {
+  pendingUser = null;
+  document.getElementById('blOverlay').classList.remove('show');
+});
+
+document.getElementById('confirmBlBtn').addEventListener('click', async () => {
+  if (!pendingUser) return;
+  const btn = document.getElementById('confirmBlBtn');
+  btn.disabled = true;
+  const reason = document.getElementById('blReasonInput').value.trim() || 'No reason given';
+
+  try {
+    const res = await fetch('/api/guild/blacklist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: pendingUser.id, tag: pendingUser.tag, reason })
+    });
+    if (res.ok) {
+      blacklistedUsers[pendingUser.id] = { tag: pendingUser.tag, reason };
+      renderBlacklist();
+      document.getElementById('blSearch').value = '';
+      document.getElementById('blOverlay').classList.remove('show');
+    } else {
+      alert('Could not blacklist — try again.');
+    }
+  } catch {
+    alert('Could not blacklist — check your connection.');
+  } finally {
+    btn.disabled = false;
+    pendingUser = null;
+  }
+});
 
 document.addEventListener('click', (e) => {
   if (e.target.closest('.bl-search')) return;

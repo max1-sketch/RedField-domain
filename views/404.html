@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Page Not Found</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --accent: {{ACCENT_COLOR}};
+  --bg-0: #0a0c11;
+  --panel: #141722;
+  --panel-2: #1a1e2b;
+  --border: #262b3a;
+  --ink: #e7e9ee;
+  --muted: #9199a8;
+  --faint: #5b6272;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  min-height: 100vh;
+  background: radial-gradient(ellipse at top, #141722, #0a0c11);
+  color: var(--ink);
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.error-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--accent);
+  border-radius: 14px;
+  padding: 40px 32px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+}
+
+.error-code {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 64px;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.error-title {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0 0 8px;
+  color: var(--ink);
+}
+
+.error-desc {
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0 0 24px;
+}
+
+.btn-home {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--accent);
+  color: #0a0c11;
+  font-weight: 700;
+  font-size: 13.5px;
+  padding: 12px 24px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.btn-home:hover {
+  opacity: 0.9;
+}
+</style>
+</head>
+<body>
+
+<div class="error-card">
+  <div class="error-code">404</div>
+  <h1 class="error-title">Page Not Found</h1>
+  <p class="error-desc">The page or resource you were looking for doesn't exist or has been moved.</p>
+  <a href="/" class="btn-home">Return to Dashboard</a>
+</div>
+
+</body>
+</html>
