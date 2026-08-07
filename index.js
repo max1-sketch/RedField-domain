@@ -296,6 +296,7 @@ function defaultConfig() {
         ticketsPaused: false,
         pausedMessage: 'Ticket creation is temporarily paused. Please try again later.',
         blacklistedUsers: {},
+        staffRestrictions: {},
         staffRoleIds: [],
         adminRoleIds: [],
         logChannelId: null,
@@ -320,6 +321,7 @@ function getGuildConfig(guildId) {
     merged.staffRoleIds = Array.isArray(saved.staffRoleIds) ? saved.staffRoleIds : def.staffRoleIds;
     merged.adminRoleIds = Array.isArray(saved.adminRoleIds) ? saved.adminRoleIds : def.adminRoleIds;
     merged.tags = Array.isArray(saved.tags) ? saved.tags : def.tags;
+    merged.staffRestrictions = saved.staffRestrictions || {};
 
     const savedPerms = saved.staffPermissions || {};
     merged.staffPermissions = {
@@ -1085,7 +1087,7 @@ app.post('/api/guild/permissions', maintenanceGate, requireAuth, (req, res) => {
 
     guildConfig.staffPermissions = {
         allowedTabs: Array.isArray(allowedTabs) ? allowedTabs.filter(t => validTabs.includes(t)) : guildConfig.staffPermissions.allowedTabs,
-        canModerate: Boolean(canModerate)
+        canModerate: typeof canModerate === 'boolean' ? canModerate : def.staffPermissions.canModerate
     };
 
     saveConfigs();
@@ -1734,77 +1736,73 @@ app.get('/api/moderation/log', maintenanceGate, requireAuth, requireTabPermissio
 });
 
 // ---------------------------------------------------------------------------
-// STAFF ACCESS RESTRICTIONS (NEW)
+// STAFF ACCESS RESTRICTIONS
 // ---------------------------------------------------------------------------
-// Per-user restrictions layered on top of role-based access. These let an
-// Administrator lock down one specific staff member without touching their
-// Discord roles: block their sign-in, ban them from the website outright
-// (which also instantly kills any session they already have open), ban them
-// from performing moderation actions, suspend them from working tickets, or
-// apply all of the above temporarily with an auto-expiring ban.
-//
-// NOTE: this only affects Discord-login sessions, since the shared access
-// code has no per-user identity to restrict by.
 app.post('/api/moderation/members/:userId/restrictions', maintenanceGate, requireAuth, requireTabPermission('moderation'), async (req, res) => {
-    const guild = getTargetGuild();
-    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
-    const guildConfig = getGuildConfig(guild.id);
-    const actorIsAdmin = isCurrentActorAdmin(req, guild, guildConfig);
-    if (!actorIsAdmin) return res.status(403).json({ error: 'Only Administrators can manage staff access restrictions.' });
+    try {
+        const guild = getTargetGuild();
+        if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+        const guildConfig = getGuildConfig(guild.id);
+        if (!guildConfig.staffRestrictions) guildConfig.staffRestrictions = {};
 
-    const targetId = req.params.userId;
-    if (targetId === guild.ownerId) return res.status(400).json({ error: "Can't restrict the server owner." });
-    if (req.authUser && req.authUser.id === targetId) return res.status(400).json({ error: "Can't restrict your own account." });
+        const actorIsAdmin = isCurrentActorAdmin(req, guild, guildConfig);
+        if (!actorIsAdmin) return res.status(403).json({ error: 'Only Administrators can manage staff access restrictions.' });
 
-    const targetMember = await guild.members.fetch(targetId).catch(() => null);
-    // A password-login ("master") admin has no req.authUser.id and may act as a
-    // safety valve; a Discord-logged-in admin cannot restrict another Admin.
-    if (targetMember && isAdmin(targetMember, guildConfig) && req.authUser && req.authUser.id) {
-        return res.status(403).json({ error: "Can't restrict another Administrator." });
+        const targetId = req.params.userId;
+        if (targetId === guild.ownerId) return res.status(400).json({ error: "Can't restrict the server owner." });
+        if (req.authUser && req.authUser.id === targetId) return res.status(400).json({ error: "Can't restrict your own account." });
+
+        const targetMember = await guild.members.fetch(targetId).catch(() => null);
+        if (targetMember && isAdmin(targetMember, guildConfig) && req.authUser && req.authUser.id) {
+            return res.status(403).json({ error: "Can't restrict another Administrator." });
+        }
+
+        const byName = resolveActorName(req);
+        const body = req.body || {};
+        const reason = String(body.reason || '').trim().slice(0, 300);
+        const existing = guildConfig.staffRestrictions[targetId] || {};
+
+        const next = {
+            loginBlocked: typeof body.loginBlocked === 'boolean' ? body.loginBlocked : Boolean(existing.loginBlocked),
+            siteBanned: typeof body.siteBanned === 'boolean' ? body.siteBanned : Boolean(existing.siteBanned),
+            moderationBanned: typeof body.moderationBanned === 'boolean' ? body.moderationBanned : Boolean(existing.moderationBanned),
+            ticketsSuspended: typeof body.ticketsSuspended === 'boolean' ? body.ticketsSuspended : Boolean(existing.ticketsSuspended),
+            bannedUntil: existing.bannedUntil || null,
+            reason: reason || existing.reason || '',
+            byName,
+            at: new Date().toISOString()
+        };
+
+        if (body.clearTempBan) next.bannedUntil = null;
+        if (Number.isFinite(body.tempBanMinutes) && body.tempBanMinutes > 0) {
+            const cappedMinutes = Math.min(body.tempBanMinutes, 129600); // cap at 90 days
+            next.bannedUntil = new Date(Date.now() + cappedMinutes * 60000).toISOString();
+        }
+
+        const isNoop = !next.loginBlocked && !next.siteBanned && !next.moderationBanned && !next.ticketsSuspended && !next.bannedUntil;
+        if (isNoop) {
+            delete guildConfig.staffRestrictions[targetId];
+        } else {
+            guildConfig.staffRestrictions[targetId] = next;
+        }
+        saveConfigs();
+
+        const targetTag = targetMember ? targetMember.user.tag : targetId;
+        const summary = isNoop
+            ? `Cleared all access restrictions for ${targetTag}`
+            : `Updated access restrictions for ${targetTag} (login:${next.loginBlocked ? 'blocked' : 'ok'}, site:${next.siteBanned ? 'banned' : 'ok'}, mod:${next.moderationBanned ? 'banned' : 'ok'}, tickets:${next.ticketsSuspended ? 'suspended' : 'ok'}${next.bannedUntil ? `, tempBanUntil:${next.bannedUntil}` : ''})`;
+        logAudit('UPDATE_STAFF_RESTRICTIONS', byName, summary);
+        logModerationAction('restrict', targetId, targetTag, reason || (isNoop ? 'Cleared restrictions' : null), byName);
+
+        if (targetMember && !isNoop) {
+            sendModerationDM(targetMember, 'Your dashboard access has changed', `An Administrator (${byName}) updated your staff access restrictions on **${guild.name}**.${reason ? `\nReason: ${reason}` : ''}`);
+        }
+
+        res.json({ success: true, restriction: guildConfig.staffRestrictions[targetId] || null });
+    } catch (err) {
+        console.error('[staff restrictions save error]:', err);
+        res.status(500).json({ error: err.message || 'Error saving staff restrictions.' });
     }
-
-    const byName = resolveActorName(req);
-    const body = req.body || {};
-    const reason = String(body.reason || '').trim().slice(0, 300);
-    const existing = guildConfig.staffRestrictions[targetId] || {};
-
-    const next = {
-        loginBlocked: typeof body.loginBlocked === 'boolean' ? body.loginBlocked : Boolean(existing.loginBlocked),
-        siteBanned: typeof body.siteBanned === 'boolean' ? body.siteBanned : Boolean(existing.siteBanned),
-        moderationBanned: typeof body.moderationBanned === 'boolean' ? body.moderationBanned : Boolean(existing.moderationBanned),
-        ticketsSuspended: typeof body.ticketsSuspended === 'boolean' ? body.ticketsSuspended : Boolean(existing.ticketsSuspended),
-        bannedUntil: existing.bannedUntil || null,
-        reason: reason || existing.reason || '',
-        byName,
-        at: new Date().toISOString()
-    };
-
-    if (body.clearTempBan) next.bannedUntil = null;
-    if (Number.isFinite(body.tempBanMinutes) && body.tempBanMinutes > 0) {
-        const cappedMinutes = Math.min(body.tempBanMinutes, 129600); // cap at 90 days
-        next.bannedUntil = new Date(Date.now() + cappedMinutes * 60000).toISOString();
-    }
-
-    const isNoop = !next.loginBlocked && !next.siteBanned && !next.moderationBanned && !next.ticketsSuspended && !next.bannedUntil;
-    if (isNoop) {
-        delete guildConfig.staffRestrictions[targetId];
-    } else {
-        guildConfig.staffRestrictions[targetId] = next;
-    }
-    saveConfigs();
-
-    const targetTag = targetMember ? targetMember.user.tag : targetId;
-    const summary = isNoop
-        ? `Cleared all access restrictions for ${targetTag}`
-        : `Updated access restrictions for ${targetTag} (login:${next.loginBlocked ? 'blocked' : 'ok'}, site:${next.siteBanned ? 'banned' : 'ok'}, mod:${next.moderationBanned ? 'banned' : 'ok'}, tickets:${next.ticketsSuspended ? 'suspended' : 'ok'}${next.bannedUntil ? `, tempBanUntil:${next.bannedUntil}` : ''})`;
-    logAudit('UPDATE_STAFF_RESTRICTIONS', byName, summary);
-    logModerationAction('restrict', targetId, targetTag, reason || (isNoop ? 'Cleared restrictions' : null), byName);
-
-    if (targetMember && !isNoop) {
-        sendModerationDM(targetMember, 'Your dashboard access has changed', `An Administrator (${byName}) updated your staff access restrictions on **${guild.name}**.${reason ? `\nReason: ${reason}` : ''}`);
-    }
-
-    res.json({ success: true, restriction: guildConfig.staffRestrictions[targetId] || null });
 });
 
 app.post('/api/guild/blacklist', maintenanceGate, requireAuth, requireTabPermission('blacklist'), (req, res) => {
@@ -1913,7 +1911,7 @@ function isModerationTargetRestricted(actorIsAdmin, targetMember, guildConfig) {
 }
 
 // ---------------------------------------------------------------------------
-// STAFF ACCESS RESTRICTIONS — helpers (NEW)
+// STAFF ACCESS RESTRICTIONS — helpers
 // ---------------------------------------------------------------------------
 function getStaffRestriction(guildConfig, userId) {
     return (guildConfig.staffRestrictions && guildConfig.staffRestrictions[userId]) || null;
