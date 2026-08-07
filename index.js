@@ -312,7 +312,7 @@ function defaultConfig() {
         logChannelId: null,
         tags: [],
         staffPermissions: {
-            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'blacklist'],
+            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'blacklist', 'lookup'],
             canModerate: true
         }
     };
@@ -905,6 +905,7 @@ app.get('/feedback', maintenanceGate, requireAuth, requireTabPermission('feedbac
 app.get('/moderation', maintenanceGate, requireAuth, requireTabPermission('moderation'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'moderation.html')));
 app.get('/moderation/:userId', maintenanceGate, requireAuth, requireTabPermission('moderation'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'member-detail.html')));
 app.get('/blacklist', maintenanceGate, requireAuth, requireTabPermission('blacklist'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'blacklist.html')));
+app.get('/lookup', maintenanceGate, requireAuth, requireTabPermission('lookup'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'lookup.html')));
 
 // Admin Only Pages
 app.get('/audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'audit-log.html')));
@@ -925,17 +926,14 @@ app.get('/api/version', (req, res) => {
 // ---------------------------------------------------------------------------
 app.get('/api/tickets', maintenanceGate, requireAuth, requireTabPermission('archive'), (req, res) => res.json(Array.from(archivedTickets.values())));
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // API ROUTES
 // ---------------------------------------------------------------------------
-app.get('/api/tickets', maintenanceGate, requireAuth, requireTabPermission('archive'), (req, res) => res.json(Array.from(archivedTickets.values())));
-app.delete('/api/tickets/:id', requireAuth, requireTabPermission('archive'), (req, res) => {
-    if (!archivedTickets.has(req.params.id)) return res.status(404).json({ error: 'Not found' });
-    archivedTickets.delete(req.params.id);
-    saveArchive();
-    logAudit('DELETE_ARCHIVE', resolveActorName(req), `Deleted archive transcript ${req.params.id}`);
-    res.json({ success: true });
+app.get('/api/version', (req, res) => {
+    res.json({ version: BUILD_VERSION });
 });
 
+app.get('/api/tickets', maintenanceGate, requireAuth, requireTabPermission('archive'), (req, res) => res.json(Array.from(archivedTickets.values())));
 app.post('/api/tickets/:id/tags', maintenanceGate, requireAuth, (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
@@ -1448,6 +1446,52 @@ app.get('/api/guild/members', maintenanceGate, requireAuth, async (req, res) => 
     }
 });
 
+app.get('/api/lookup/:query', maintenanceGate, requireAuth, requireTabPermission('lookup'), async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not in server' });
+    
+    const query = String(req.params.query || '').trim();
+    if (!query) return res.status(400).json({ error: 'Query required' });
+
+    try {
+        let member = await guild.members.fetch(query).catch(() => null);
+        if (!member) {
+            const found = await guild.members.fetch({ query, limit: 1 });
+            member = found.first() || null;
+        }
+
+        if (!member) return res.status(404).json({ error: 'User not found in this Discord server' });
+
+        const userArchives = Array.from(archivedTickets.values()).filter(t => t.openedById === member.id);
+        const userOpen = Array.from(openTickets.values()).filter(t => t.userId === member.id);
+        const notes = moderationNotes.get(member.id) || [];
+
+        res.json({
+            user: {
+                id: member.id,
+                tag: member.user.tag,
+                displayName: member.displayName,
+                avatarURL: member.displayAvatarURL({ size: 128 }),
+                joinedAt: member.joinedAt ? member.joinedAt.toISOString() : null,
+                createdAt: member.user.createdAt.toISOString(),
+                roles: member.roles.cache.filter(r => r.id !== guild.id).map(r => ({ id: r.id, name: r.name, color: r.hexColor === '#000000' ? null : r.hexColor }))
+            },
+            ticketStats: {
+                openCount: userOpen.length,
+                archiveCount: userArchives.length,
+                archives: userArchives.map(a => ({ id: a.id, type: a.type, closedAt: a.closedAt, reason: a.reason, accessToken: a.accessToken }))
+            },
+            notes
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ---------------------------------------------------------------------------
+// MODERATION API
+// ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // MODERATION API
 // ---------------------------------------------------------------------------
