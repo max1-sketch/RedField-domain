@@ -682,7 +682,9 @@ function requireAuth(req, res, next) {
     const authUser = isRequestAuthed(req);
     if (authUser) { req.authUser = authUser; return next(); }
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
-    return res.send(lockPageHtml(req.query.err, req.path));
+    
+    // Redirect unauthenticated users straight to the new landing page
+    return res.redirect('/login');
 }
 
 function maintenancePageHtml() {
