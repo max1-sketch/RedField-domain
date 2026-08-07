@@ -838,7 +838,7 @@ function clearAuthCookies(res) {
 
 app.get('/logout', (req, res) => {
     clearAuthCookies(res);
-    res.redirect('/');
+    res.redirect('/login');
 });
 
 app.post('/api/logout', (req, res) => {
@@ -899,6 +899,7 @@ function requireDiscordOrTicketToken(req, res, next) {
 // ---------------------------------------------------------------------------
 // VIEW ROUTES WITH TAB PERMISSION ENFORCEMENT
 // ---------------------------------------------------------------------------
+app.get('/login', (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'login.html')));
 app.get('/', maintenanceGate, requireAuth, requireTabPermission('archive'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'index.html')));
 app.get('/tickets', maintenanceGate, requireAuth, requireTabPermission('tickets'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'tickets.html')));
 app.get('/tickets/:channelId', maintenanceGate, requireAuth, requireTabPermission('tickets'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'live-ticket.html')));
@@ -1965,7 +1966,7 @@ app.get('/privacy', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// 404 CATCH-ALL HANDLER (SITS RIGHT BEFORE app.listen)
+// 404 HANDLER (DIRECTLY BEFORE app.listen)
 // ---------------------------------------------------------------------------
 app.use((req, res) => {
     res.status(404);
