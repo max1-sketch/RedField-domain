@@ -38,6 +38,8 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
 .nav-item .ic svg { width: 100%; height: 100%; }
 .nav-item.active .ic { opacity: 1; }
+.badge-beta { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b44; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: auto; text-transform: uppercase; }
+
 .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
 .session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
 .session-line.warn { color: var(--red); }
@@ -136,108 +138,32 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
   <main class="content-area" id="main">
     <h1 class="page-title">Server Configs</h1>
     <div class="loading-line">Reading server roles and channels…</div>
+    {{FOOTER_NOTE_HTML}}
   </main>
 </div>
 
+<script src="/theme.js"></script>
 <script>
-window.RF = (function () {
-  function esc(str) {
-    return (str === undefined || str === null ? '' : String(str))
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
-  function getCookie(name) {
-    const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
-    return match ? decodeURIComponent(match[1]) : null;
-  }
-  function startSessionClock(el) {
-    function tick() {
-      const expiresAt = parseInt(getCookie('sessionExpires') || '0', 10);
-      if (!expiresAt) { el.textContent = 'session --:--'; return; }
-      const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
-      const m = Math.floor(remaining / 60), s = remaining % 60;
-      el.textContent = `session ${m}:${s.toString().padStart(2, '0')}`;
-      el.classList.toggle('warn', remaining <= 60);
-      if (remaining <= 0) window.location.reload();
-    }
-    tick(); setInterval(tick, 1000);
-  }
-  const ICONS = {
-    quickwords: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
-    feedback: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 8.5 22 9.5 17 14.5 18.5 21.5 12 18 5.5 21.5 7 14.5 2 9.5 9 8.5 12 2"></polygon></svg>',
-    auditlog: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a1 1 0 0 1 1 1v1H8V3a1 1 0 0 1 1-1Z"></path><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"></path><line x1="8" y1="11" x2="16" y2="11"></line><line x1="8" y1="15" x2="16" y2="15"></line></svg>',
-    shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5Z"></path></svg>',
-    archive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"></rect><path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"></path><path d="M10 12h4"></path></svg>',
-    tickets: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12h-5l-2 3h-4l-2-3H2"></path><path d="M5.4 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.4-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.8 1.1Z"></path></svg>',
-    panels: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>',
-    tags: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H3v9l10.3 10.3a1 1 0 0 0 1.4 0l7.6-7.6a1 1 0 0 0 0-1.4L12 2Z"></path><circle cx="7.5" cy="7.5" r="1.4"></circle></svg>',
-    blacklist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m4.93 4.93 14.14 14.14"></path></svg>', lookup: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m4.93 4.93 14.14 14.14"></path></svg>', lookup: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m5.5 5.5 13 13"></path></svg>',
-    settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.9-2.9l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"></path></svg>',
-    logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>'
-  };
-  function renderNav(activePath, allowedTabs) {
-    const tabs = [
-      { key: 'archive', href: '/', label: 'Home', ic: ICONS.archive },
-      { key: 'tickets', href: '/tickets', label: 'Open Tickets', ic: ICONS.tickets },
-      { key: 'panels', href: '/panels', label: 'Panel Configs', ic: ICONS.panels },
-      { key: 'tags', href: '/tags', label: 'Tags', ic: ICONS.tags },
-      { key: 'quickwords', href: '/quickwords', label: 'Quick Words', ic: ICONS.quickwords },
-      { key: 'feedback', href: '/feedback', label: 'Feedback', ic: ICONS.feedback },
-      { key: 'auditlog', href: '/audit-log', label: 'Logging', ic: ICONS.auditlog, adminOnly: true },
-      { key: 'moderation', href: '/moderation', label: 'Moderation', ic: ICONS.shield },
-       { key: 'lookup', href: '/lookup', label: 'User Lookup <span class="badge-beta">BETA</span>', ic: ICONS.lookup }, { key: 'blacklist', href: '/blacklist', label: 'Blacklist', ic: ICONS.blacklist },
-      { key: 'settings', href: '/settings', label: 'Server Configs', ic: ICONS.settings, adminOnly: true }
-    ];
-    // allowedTabs === null means "don't filter" — either an admin viewer, or
-    // a password-login session with no per-user identity to filter by.
-    // Settings itself is never hidden — a non-admin staff member simply
-    // can't save anything on it, since the backend re-checks isAdmin
-    // independently of whatever the sidebar happens to show.
-    const visible = allowedTabs
-      ? tabs.filter(t => !t.adminOnly && allowedTabs.includes(t.key))
-      : tabs;
-    return visible.map(t => `<a class="nav-item${t.href === activePath ? ' active' : ''}" href="${t.href}"><span class="ic">${t.ic}</span> ${t.label}</a>`).join('');
-  }
-
-  function toast(title, ok) {
-    const stack = document.getElementById('toastStack');
-    if (!stack) return;
-    const el = document.createElement('div');
-    el.className = 'toast' + (ok ? '' : ' error');
-    el.innerHTML = `<div class="toast-title">${ok ? '✓' : '✕'} ${esc(title)}</div>`;
-    stack.appendChild(el);
-    setTimeout(() => { el.classList.add('fading'); setTimeout(() => el.remove(), 260); }, 3400);
-  }
-
-  async function withLoading(btn, fn, { okMessage, failMessage } = {}) {
-    const original = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="dot-loader"><span></span><span></span><span></span></span>';
-    const start = Date.now();
-    let result, error;
-    try { result = await fn(); } catch (e) { error = e; }
-    const elapsed = Date.now() - start;
-    const minDelay = 900;
-    if (elapsed < minDelay) await new Promise(r => setTimeout(r, minDelay - elapsed));
-    btn.disabled = false;
-    btn.innerHTML = original;
-    if (error) { toast(failMessage ? `${failMessage}: ${error.message}` : error.message, false); throw error; }
-    if (okMessage) toast(okMessage, true);
-    return result;
-  }
-
-  async function apiCall(url, options) {
-    const res = await fetch(url, options);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
-    return data;
-  }
-
-  return { esc, getCookie, startSessionClock, renderNav, ICONS, toast, withLoading, apiCall };
-})();
-
 RF.startSessionClock(document.getElementById('sessionClock'));
 
 let guildData = null;
+
+async function initNav() {
+  try {
+    const res = await fetch('/api/guild');
+    if (res.ok) {
+      const g = await res.json();
+      const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions?.allowedTabs : null;
+      document.getElementById('navTabs').innerHTML = RF.renderNav('/settings', allowedTabs);
+    } else {
+      document.getElementById('navTabs').innerHTML = RF.renderNav('/settings', null);
+    }
+  } catch {
+    document.getElementById('navTabs').innerHTML = RF.renderNav('/settings', null);
+  }
+  const logoutIconEl = document.getElementById('logoutIcon');
+  if (logoutIconEl && RF.ICONS?.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
+}
 
 async function load() {
   try {
@@ -249,9 +175,6 @@ async function load() {
       return;
     }
     guildData = await res.json();
-    const allowedTabs = guildData.viewerTier === 'staff' ? guildData.staffPermissions.allowedTabs : null;
-    document.getElementById('navTabs').innerHTML = RF.renderNav('/settings', allowedTabs);
-    const _logoutIconEl = document.getElementById('logoutIcon'); if (_logoutIconEl) _logoutIconEl.innerHTML = RF.ICONS.logout;
     renderPage();
   } catch (err) {
     document.getElementById('main').innerHTML = `<h1 class="page-title">Server Configs</h1><div class="card"><h2 style="margin:0 0 6px;font-size:15px;">Couldn't reach the server</h2><p class="card-sub" style="margin-top:0;">Refresh the page and try again.</p></div>`;
@@ -260,7 +183,7 @@ async function load() {
 
 function renderPage() {
   const g = guildData;
-  const perms = g.staffPermissions || { allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'moderation', 'blacklist'], canModerate: true };
+  const perms = g.staffPermissions || { allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'moderation', 'lookup', 'blacklist'], canModerate: true };
 
   document.getElementById('main').innerHTML = `
     <h1 class="page-title">Server Configs</h1>
@@ -302,6 +225,7 @@ function renderPage() {
         <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="panels" ${perms.allowedTabs.includes('panels') ? 'checked' : ''}> Panels</label>
         <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="tags" ${perms.allowedTabs.includes('tags') ? 'checked' : ''}> Tags</label>
         <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="moderation" ${perms.allowedTabs.includes('moderation') ? 'checked' : ''}> Moderation</label>
+        <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="lookup" ${perms.allowedTabs.includes('lookup') ? 'checked' : ''}> User Lookup</label>
         <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="blacklist" ${perms.allowedTabs.includes('blacklist') ? 'checked' : ''}> Blacklist</label>
         <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="quickwords" ${perms.allowedTabs.includes('quickwords') ? 'checked' : ''}> Quick Words</label>
         <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="feedback" ${perms.allowedTabs.includes('feedback') ? 'checked' : ''}> Feedback</label>
@@ -456,6 +380,7 @@ function flashStatus(id) {
   setTimeout(() => el.classList.remove('show'), 1800);
 }
 
+initNav();
 load();
 </script>
 </body>

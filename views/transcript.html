@@ -37,6 +37,8 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
 .nav-item .ic svg { width: 100%; height: 100%; }
 .nav-item.active .ic { opacity: 1; }
+.badge-beta { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b44; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: auto; text-transform: uppercase; }
+
 .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
 .session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
 .session-line.warn { color: var(--red); }
@@ -130,98 +132,46 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
     <div id="content">
       <div class="empty-state"><span class="icon">📄</span>Pulling the file…</div>
     </div>
+    {{FOOTER_NOTE_HTML}}
   </main>
 </div>
 
+<script src="/theme.js"></script>
 <script>
-window.RF = (function () {
-  const TYPE_COLORS = { REDFIELD: '#22c55e', MANAGEMENT: '#3b82f6', BUG: '#f59e0b' };
-  const FALLBACK_COLOR = '#a78bfa';
-  function typeColor(type) { return TYPE_COLORS[type] || FALLBACK_COLOR; }
-  function esc(str) {
-    return (str === undefined || str === null ? '' : String(str))
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
-  function initials(tag) { if (!tag) return '?'; return tag.split('#')[0].slice(0, 2).toUpperCase(); }
-  function fmtDateTime(iso) {
-    if (!iso) return 'Unknown';
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return 'Unknown';
-    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  }
-  function fmtDay(iso) {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return 'Unknown date';
-    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  }
-  function fmtTime(iso) {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  }
-  function getCookie(name) {
-    const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
-    return match ? decodeURIComponent(match[1]) : null;
-  }
-  function isStaffSession() { return Boolean(getCookie('ticketAuth')); }
-  function copyText(text) {
-    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
-    return new Promise((resolve, reject) => {
-      const ta = document.createElement('textarea');
-      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.select();
-      try { document.execCommand('copy') ? resolve() : reject(new Error('copy failed')); }
-      catch (err) { reject(err); } finally { document.body.removeChild(ta); }
-    });
-  }
-  function startSessionClock(el) {
-    function tick() {
-      const expiresAt = parseInt(getCookie('sessionExpires') || '0', 10);
-      if (!expiresAt) { el.textContent = 'session --:--'; return; }
-      const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
-      const m = Math.floor(remaining / 60), s = remaining % 60;
-      el.textContent = `session ${m}:${s.toString().padStart(2, '0')}`;
-      el.classList.toggle('warn', remaining <= 60);
-      if (remaining <= 0) window.location.reload();
-    }
-    tick(); setInterval(tick, 1000);
-  }
-  const ICONS = {
-    shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5Z"></path></svg>',
-    archive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"></rect><path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"></path><path d="M10 12h4"></path></svg>',
-    tickets: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12h-5l-2 3h-4l-2-3H2"></path><path d="M5.4 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.4-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.8 1.1Z"></path></svg>',
-    panels: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>',
-    tags: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H3v9l10.3 10.3a1 1 0 0 0 1.4 0l7.6-7.6a1 1 0 0 0 0-1.4L12 2Z"></path><circle cx="7.5" cy="7.5" r="1.4"></circle></svg>',
-    blacklist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m4.93 4.93 14.14 14.14"></path></svg>', lookup: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m4.93 4.93 14.14 14.14"></path></svg>', lookup: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m5.5 5.5 13 13"></path></svg>',
-    settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.9-2.9l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"></path></svg>',
-    logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>'
-  };
-  function renderNav(activePath) {
-    const tabs = [
-      { href: '/', label: 'Home', ic: ICONS.archive },
-      { href: '/tickets', label: 'Open Tickets', ic: ICONS.tickets },
-      { href: '/panels', label: 'Panel Configs', ic: ICONS.panels },
-      { href: '/tags', label: 'Tags', ic: ICONS.tags },
-      { href: '/moderation', label: 'Moderation', ic: ICONS.shield },
-      { href: '/blacklist', label: 'Blacklist', ic: ICONS.blacklist },
-      { href: '/settings', label: 'Server Configs', ic: ICONS.settings }
-    ];
-    return tabs.map(t => `<a class="nav-item${t.href === activePath ? ' active' : ''}" href="${t.href}"><span class="ic">${t.ic}</span> ${t.label}</a>`).join('');
-  }
-  return { typeColor, esc, initials, fmtDateTime, fmtDay, fmtTime, getCookie, isStaffSession, copyText, startSessionClock, renderNav, ICONS };
-})();
-
-document.getElementById('navTabs').innerHTML = RF.isStaffSession() ? RF.renderNav('/') : '';
 RF.startSessionClock(document.getElementById('sessionClock'));
-document.getElementById('backLink').style.display = RF.isStaffSession() ? 'inline-flex' : 'none';
-if (!RF.isStaffSession()) document.getElementById('sessionClock').style.display = 'none';
+
+async function initNav() {
+  if (!RF.getCookie('ticketAuth') && !RF.getCookie('discordAuth')) {
+    document.getElementById('navTabs').innerHTML = '';
+    return;
+  }
+  try {
+    const res = await fetch('/api/guild');
+    if (res.ok) {
+      const g = await res.json();
+      const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions?.allowedTabs : null;
+      document.getElementById('navTabs').innerHTML = RF.renderNav('/', allowedTabs);
+    } else {
+      document.getElementById('navTabs').innerHTML = RF.renderNav('/', null);
+    }
+  } catch {
+    document.getElementById('navTabs').innerHTML = RF.renderNav('/', null);
+  }
+}
+
+document.getElementById('backLink').style.display = RF.getCookie('ticketAuth') ? 'inline-flex' : 'none';
+if (!RF.getCookie('ticketAuth') && !RF.getCookie('discordAuth')) {
+  document.getElementById('sessionClock').style.display = 'none';
+}
 
 document.getElementById('copyLinkBtn').addEventListener('click', () => {
   const btn = document.getElementById('copyLinkBtn');
   const original = btn.textContent;
-  RF.copyText(window.location.href)
-    .then(() => { btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = original; }, 1500); })
-    .catch(() => { btn.textContent = 'Copy failed'; setTimeout(() => { btn.textContent = original; }, 1500); });
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(window.location.href)
+      .then(() => { btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = original; }, 1500); })
+      .catch(() => { btn.textContent = 'Copy failed'; setTimeout(() => { btn.textContent = original; }, 1500); });
+  }
 });
 
 function isImage(url, contentType) {
@@ -233,7 +183,7 @@ let allTags = [];
 let currentTicketId = null;
 
 async function loadTags() {
-  if (!RF.isStaffSession()) return; // /api/guild is staff-only; token viewers skip this
+  if (!RF.getCookie('ticketAuth')) return;
   try {
     const res = await fetch('/api/guild');
     if (res.ok) { const data = await res.json(); allTags = data.tags || []; }
@@ -270,11 +220,11 @@ function renderTagSection(currentTagIds) {
   const chips = current.map(tagId => {
     const tag = allTags.find(t => t.id === tagId);
     if (!tag) return '';
-    const removeBtn = RF.isStaffSession() ? `<button class="tag-x" onclick="removeTag('${tag.id}')">×</button>` : '';
+    const removeBtn = RF.getCookie('ticketAuth') ? `<button class="tag-x" onclick="removeTag('${tag.id}')">×</button>` : '';
     return `<span class="tag-chip" style="background:${tag.color}22; color:${tag.color};">${RF.esc(tag.name)}${removeBtn}</span>`;
   }).join('');
 
-  if (!RF.isStaffSession()) {
+  if (!RF.getCookie('ticketAuth')) {
     return chips ? `<div class="tag-row">${chips}</div>` : '';
   }
 
@@ -327,8 +277,8 @@ function render(t) {
         <span><b>Roblox user</b>${RF.esc(t.robloxUsername || '—')}</span>
         <span><b>Claimed by</b>${RF.esc(t.claimedBy || '—')}</span>
         <span><b>Closed by</b>${RF.esc(t.closedBy || 'Unknown')}</span>
-        <span><b>Opened</b>${RF.fmtDateTime(t.openedAt)}</span>
-        <span><b>Closed</b>${RF.fmtDateTime(t.closedAt)}</span>
+        <span><b>Opened</b>${RF.esc(t.openedAt || 'Recently')}</span>
+        <span><b>Closed</b>${RF.esc(t.closedAt || 'Recently')}</span>
       </div>
       <div id="tagSection">${renderTagSection(t.tags)}</div>
       <div class="reason">${RF.esc(t.reason || 'No reason provided')}</div>
@@ -342,11 +292,7 @@ function render(t) {
   }
 
   let log = '';
-  let lastDay = null;
   for (const m of messages) {
-    const day = m.timestamp ? new Date(m.timestamp).toDateString() : null;
-    if (day && day !== lastDay) { log += `<div class="day-divider">${RF.fmtDay(m.timestamp)}</div>`; lastDay = day; }
-
     const attachmentsHtml = (m.attachments || []).map(a =>
       isImage(a.url, a.contentType)
         ? `<a href="${RF.esc(a.url)}" target="_blank" rel="noopener"><img src="${RF.esc(a.url)}" loading="lazy" alt="attachment"></a>`
@@ -358,9 +304,9 @@ function render(t) {
 
     log += `
       <div class="msg">
-        <div class="avatar" style="background:${RF.typeColor(t.type)};">${RF.esc(RF.initials(m.author))}</div>
+        <div class="avatar" style="background:${RF.typeColor(t.type)};">${RF.esc(m.author ? m.author.slice(0,2).toUpperCase() : '?')}</div>
         <div class="body">
-          <div class="line1"><span class="author">${RF.esc(m.author || 'Unknown')}</span><span class="time">${RF.fmtTime(m.timestamp)}</span></div>
+          <div class="line1"><span class="author">${RF.esc(m.author || 'Unknown')}</span><span class="time">${RF.esc(m.timestamp)}</span></div>
           ${m.content ? `<div class="content">${RF.esc(m.content)}</div>` : ''}
           ${(attachmentsHtml || embedImagesHtml) ? `<div class="attachments">${attachmentsHtml}${embedImagesHtml}</div>` : ''}
         </div>
@@ -368,13 +314,14 @@ function render(t) {
     `;
   }
 
-  const openerNote = !RF.isStaffSession()
+  const openerNote = !RF.getCookie('ticketAuth')
     ? `<div class="opener-note">This link only shows your own ticket — it doesn't unlock the full staff archive.</div>`
     : '';
 
   document.getElementById('content').innerHTML = header + `<div class="card"><div class="log">${log}</div></div>` + openerNote;
 }
 
+initNav();
 load();
 </script>
 </body>
