@@ -1,115 +1,341 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{SITE_TITLE}} — Quick Words</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
-:root { --accent: {{ACCENT_COLOR}}; --bg-0: #0a0c11; --sidebar-bg: #0d0f16; --panel: #141722; --border: #262b3a; --ink: #e7e9ee; --muted: #9199a8; --red: #ef4444; }
-* { box-sizing: border-box; } body { margin:0; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+
+:root {
+  --accent: {{ACCENT_COLOR}};
+  --bg-0: #0a0c11;
+  --sidebar-bg: #0d0f16;
+  --panel: #141722;
+  --panel-2: #1a1e2b;
+  --border: #262b3a;
+  --ink: #e7e9ee;
+  --muted: #9199a8;
+  --faint: #5b6272;
+  --red: #ef4444;
+  --green: #22c55e;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { min-height: 100vh; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+a { color: inherit; text-decoration: none; }
+.mono { font-family: 'IBM Plex Mono', monospace; }
+.site-banner { background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; }
+
 .app-shell { display: flex; min-height: 100vh; }
-.sidebar { width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
-.sidebar-brand { background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; }
-.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); text-decoration: none; }
+.sidebar { width: 250px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.sidebar-brand { display: flex; align-items: center; gap: 10px; background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px; margin-bottom: 18px; line-height: 1.25; }
+.sidebar-brand .dot { width: 8px; height: 8px; border-radius: 50%; background: #0a0c11; flex-shrink: 0; opacity: .55; }
+nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); font-size: 13.5px; font-weight: 500; }
+.nav-item:hover { background: var(--panel-2); color: var(--ink); }
 .nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
-.content-area { flex: 1; padding: 26px 30px; max-width: 900px; }
-.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
-input, textarea, select { width: 100%; background: #1a1e2b; border: 1px solid var(--border); color: var(--ink); padding: 10px; border-radius: 6px; margin-bottom: 10px; }
-.btn { display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: #0a0c11; border: none; font-weight: 700; padding: 10px 16px; border-radius: 6px; cursor: pointer; }
-.dot-loader { display: inline-flex; gap: 4px; }
+.nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
+.nav-item .ic svg { width: 100%; height: 100%; }
+.nav-item.active .ic { opacity: 1; }
+.sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
+.session-line.warn { color: var(--red); }
+
+.content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 900px; }
+.page-title { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
+.page-sub { font-size: 13px; color: var(--muted); margin: 0 0 22px; }
+
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 18px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.card-header h2 { font-size: 15.5px; font-weight: 700; color: var(--ink); margin: 0; }
+.card-sub { font-size: 12.5px; color: var(--muted); margin: -8px 0 16px; line-height: 1.6; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 8px; padding: 9px 15px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; min-height: 36px; }
+.btn-accent { background: var(--accent); color: #0a0c11; }
+.btn-accent:hover { opacity: .9; }
+.btn-danger { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+.btn-danger:hover { background: rgba(239,68,68,0.2); }
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+
+input[type=text], select, textarea {
+  background: var(--panel-2); border: 1px solid var(--border); color: var(--ink);
+  padding: 9px 12px; border-radius: 7px; font-family: inherit; font-size: 13px; width: 100%;
+}
+textarea { resize: vertical; min-height: 70px; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+.field { margin-bottom: 14px; }
+.field label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); font-weight: 600; display: block; margin-bottom: 6px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-grid .full { grid-column: 1 / -1; }
+
+table { width: 100%; border-collapse: collapse; }
+thead th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); font-weight: 600; padding: 9px 8px; border-bottom: 1px solid var(--border); }
+tbody td { padding: 11px 8px; border-bottom: 1px solid var(--border); font-size: 13px; }
+tbody tr:last-child td { border-bottom: none; }
+.cell-main { color: var(--ink); font-weight: 600; }
+.cell-muted { color: var(--muted); }
+.type-badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 5px; text-transform: uppercase; letter-spacing: .03em; }
+.type-badge.global { background: rgba(139,92,246,0.15); color: #a78bfa; }
+.type-badge.personal { background: rgba(34,197,94,0.15); color: var(--green); }
+.empty-note { font-size: 12.5px; color: var(--faint); padding: 12px 2px; text-align: center; }
+
+.dot-loader { display: inline-flex; gap: 4px; align-items: center; }
 .dot-loader span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: dotbounce 1s infinite ease-in-out; }
-.dot-loader span:nth-child(2) { animation-delay: .15s; } .dot-loader span:nth-child(3) { animation-delay: .3s; }
+.dot-loader span:nth-child(2) { animation-delay: .15s; }
+.dot-loader span:nth-child(3) { animation-delay: .3s; }
 @keyframes dotbounce { 0%, 80%, 100% { transform: scale(.5); opacity: .35; } 40% { transform: scale(1); opacity: 1; } }
-table { width: 100%; border-collapse: collapse; } th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); }
+#toastStack { position: fixed; top: 18px; right: 18px; z-index: 200; display: flex; flex-direction: column; gap: 10px; max-width: 320px; }
+.toast { background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--green); border-radius: 6px; padding: 12px 14px; font-size: 12.5px; color: var(--ink); box-shadow: 0 12px 34px rgba(0,0,0,.45); animation: toastin .2s ease; }
+.toast.error { border-left-color: var(--red); }
+.toast .toast-title { font-weight: 700; }
+.toast.fading { animation: toastout .25s ease forwards; }
+@keyframes toastin { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes toastout { to { opacity: 0; transform: translateX(24px); } }
+
+@media (max-width: 700px) { .form-grid { grid-template-columns: 1fr; } }
+@media (max-width: 860px) {
+  .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
+  .sidebar.open { transform: translateX(0); }
+  .content-area { padding: 18px 16px 50px; }
+}
 </style>
 </head>
 <body>
+
+{{BANNER_HTML}}
+
+<div id="toastStack"></div>
+
 <div class="app-shell">
   <aside class="sidebar">
-    <div class="sidebar-brand">{{SITE_TITLE}}</div>
+    <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
     <nav class="sidebar-nav" id="navTabs"></nav>
+    <div class="sidebar-footer">
+      <span class="session-line mono" id="sessionClock">session --:--</span>
+      <a href="/logout" class="nav-item"><span class="ic" id="logoutIcon"></span> Log out</a>
+    </div>
   </aside>
+
   <main class="content-area">
-    <h1>Quick Words Config</h1>
+    <h1 class="page-title">Quick Words</h1>
+    <p class="page-sub">Pre-written responses staff can post into a ticket instantly with the ⚡ Quick Words button. Global words are shared by everyone; Personal ones only show up for whoever created them.</p>
+
     <div class="card">
-      <h2>Add New Quick Word Response</h2>
-      <input type="text" id="label" placeholder="Short Title / Label (e.g. Rules Reminder)">
-      <textarea id="text" placeholder="Full message text sent into Discord ticket..."></textarea>
-      <select id="isGlobal">
-        <option value="true">Admin: Global (Visible to All Staff)</option>
-        <option value="false">Personal (Only Visible to You)</option>
-      </select>
-      <button class="btn" id="saveBtn">Save Quick Word</button>
+      <div class="card-header"><h2>New Quick Word</h2></div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Label <span style="text-transform:none;font-weight:400;">(shown in the dropdown)</span></label>
+          <input type="text" id="newLabel" maxlength="60" placeholder="e.g. Waiting on logs">
+        </div>
+        <div class="field">
+          <label>Type</label>
+          <select id="newIsGlobal">
+            <option value="0">Personal (only you)</option>
+            <option value="1">Global (all staff)</option>
+          </select>
+        </div>
+        <div class="field full">
+          <label>Message text</label>
+          <textarea id="newText" maxlength="1800" placeholder="What gets posted into the ticket…"></textarea>
+        </div>
+      </div>
+      <button class="btn btn-accent" id="createBtn">Create</button>
     </div>
 
-    <div class="card" style="padding:0;">
+    <div class="card" style="padding:0; overflow-x:auto;">
       <table>
-        <thead><tr><th>Type</th><th>Label</th><th>Text</th><th>Action</th></tr></thead>
-        <tbody id="tbody"><tr><td colspan="4">Loading...</td></tr></tbody>
+        <thead><tr><th style="padding-left:22px;">Type</th><th>Label</th><th>Text</th><th style="width:90px;text-align:right;padding-right:22px;">Delete</th></tr></thead>
+        <tbody id="qwTbody">
+          <tr><td colspan="4" class="empty-note">Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </main>
 </div>
-<script>
-document.getElementById('navTabs').innerHTML = `
-  <a class="nav-item" href="/">Archive</a>
-  <a class="nav-item" href="/tickets">Tickets</a>
-  <a class="nav-item active" href="/quickwords">Quick Words</a>
-  <a class="nav-item" href="/feedback">Feedback</a>
-  <a class="nav-item" href="/audit-log">Audit Log</a>
-  <a class="nav-item" href="/settings">Settings</a>
-`;
 
-async function with2SecLoading(btn, action) {
-  const orig = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<span class="dot-loader"><span></span><span></span><span></span></span>';
-  const start = Date.now();
-  await action();
-  const elapsed = Date.now() - start;
-  if (elapsed < 2000) await new Promise(r => setTimeout(r, 2000 - elapsed));
-  btn.disabled = false;
-  btn.innerHTML = orig;
+<script>
+window.RF = (function () {
+  const ICONS = {
+    archive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"></rect><path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"></path><path d="M10 12h4"></path></svg>',
+    tickets: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12h-5l-2 3h-4l-2-3H2"></path><path d="M5.4 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.4-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.8 1.1Z"></path></svg>',
+    panels: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>',
+    tags: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H3v9l10.3 10.3a1 1 0 0 0 1.4 0l7.6-7.6a1 1 0 0 0 0-1.4L12 2Z"></path><circle cx="7.5" cy="7.5" r="1.4"></circle></svg>',
+    quickwords: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
+    feedback: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 8.5 22 9.5 17 14.5 18.5 21.5 12 18 5.5 21.5 7 14.5 2 9.5 9 8.5 12 2"></polygon></svg>',
+    auditlog: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a1 1 0 0 1 1 1v1H8V3a1 1 0 0 1 1-1Z"></path><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"></path><line x1="8" y1="11" x2="16" y2="11"></line><line x1="8" y1="15" x2="16" y2="15"></line></svg>',
+    shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5Z"></path></svg>',
+    blacklist: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m5.5 5.5 13 13"></path></svg>',
+    settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.9-2.9l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"></path></svg>',
+    logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>'
+  };
+  function esc(str) {
+    return (str === undefined || str === null ? '' : String(str))
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function getCookie(name) {
+    const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+  function setCookie(name, value, days) {
+    document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${days * 86400}`;
+  }
+  function startSessionClock(el) {
+    function tick() {
+      const expiresAt = parseInt(getCookie('sessionExpires') || '0', 10);
+      if (!expiresAt) { el.textContent = 'session --:--'; return; }
+      const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      const m = Math.floor(remaining / 60), s = remaining % 60;
+      el.textContent = `session ${m}:${s.toString().padStart(2, '0')}`;
+      el.classList.toggle('warn', remaining <= 60);
+      if (remaining <= 0) window.location.reload();
+    }
+    tick(); setInterval(tick, 1000);
+  }
+  function renderNav(activePath, allowedTabs) {
+    const tabs = [
+      { key: 'archive', href: '/', label: 'Archive', ic: ICONS.archive },
+      { key: 'tickets', href: '/tickets', label: 'Open Tickets', ic: ICONS.tickets },
+      { key: 'panels', href: '/panels', label: 'Panels', ic: ICONS.panels },
+      { key: 'tags', href: '/tags', label: 'Tags', ic: ICONS.tags },
+      { key: 'quickwords', href: '/quickwords', label: 'Quick Words', ic: ICONS.quickwords },
+      { key: 'feedback', href: '/feedback', label: 'Feedback', ic: ICONS.feedback },
+      { key: 'auditlog', href: '/audit-log', label: 'Audit Log', ic: ICONS.auditlog, alwaysAdmin: true },
+      { key: 'moderation', href: '/moderation', label: 'Moderation', ic: ICONS.shield },
+      { key: 'blacklist', href: '/blacklist', label: 'Blacklist', ic: ICONS.blacklist },
+      { key: 'settings', href: '/settings', label: 'Settings', ic: ICONS.settings, alwaysAdmin: true }
+    ];
+    const visible = allowedTabs ? tabs.filter(t => t.alwaysAdmin || allowedTabs.includes(t.key)) : tabs;
+    return visible.map(t => `<a class="nav-item${t.href === activePath ? ' active' : ''}" href="${t.href}"><span class="ic">${t.ic}</span> ${t.label}</a>`).join('');
+  }
+  function toast(title, ok) {
+    const stack = document.getElementById('toastStack');
+    if (!stack) return;
+    const el = document.createElement('div');
+    el.className = 'toast' + (ok ? '' : ' error');
+    el.innerHTML = `<div class="toast-title">${ok ? '✓' : '✕'} ${esc(title)}</div>`;
+    stack.appendChild(el);
+    setTimeout(() => { el.classList.add('fading'); setTimeout(() => el.remove(), 260); }, 3400);
+  }
+  // Deliberately at least ~2s here — creating/deleting a Quick Word is
+  // instant server-side, but the visible pause is intentional so it never
+  // feels like the click didn't register.
+  async function withLoading(btn, fn, { okMessage, failMessage } = {}) {
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="dot-loader"><span></span><span></span><span></span></span>';
+    const start = Date.now();
+    let result, error;
+    try { result = await fn(); } catch (e) { error = e; }
+    const elapsed = Date.now() - start;
+    const minDelay = 2000;
+    if (elapsed < minDelay) await new Promise(r => setTimeout(r, minDelay - elapsed));
+    btn.disabled = false;
+    btn.innerHTML = original;
+    if (error) { toast(failMessage ? `${failMessage}: ${error.message}` : error.message, false); throw error; }
+    if (okMessage) toast(okMessage, true);
+    return result;
+  }
+  async function apiCall(url, options) {
+    const res = await fetch(url, options);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    return data;
+  }
+  return { esc, getCookie, setCookie, startSessionClock, renderNav, ICONS, toast, withLoading, apiCall };
+})();
+
+RF.startSessionClock(document.getElementById('sessionClock'));
+
+let isDiscordSession = false;
+
+async function initNav() {
+  try {
+    const res = await fetch('/api/guild');
+    if (res.ok) {
+      const g = await res.json();
+      isDiscordSession = Boolean(g.isDiscordSession);
+      const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions.allowedTabs : null;
+      document.getElementById('navTabs').innerHTML = RF.renderNav('/quickwords', allowedTabs);
+    }
+  } catch { document.getElementById('navTabs').innerHTML = RF.renderNav('/quickwords', null); }
+  const _logoutIconEl = document.getElementById('logoutIcon'); if (_logoutIconEl) _logoutIconEl.innerHTML = RF.ICONS.logout;
+
+  // Personal Quick Words are keyed by your real Discord ID (that's how the
+  // bot looks them up in the ticket button), which only exists if you're
+  // signed in with Discord — the shared access code has no per-user
+  // identity to attach them to.
+  const personalOption = document.querySelector('#newIsGlobal option[value="0"]');
+  if (!isDiscordSession && personalOption) {
+    personalOption.disabled = true;
+    personalOption.textContent = 'Personal (sign in with Discord to use this)';
+    document.getElementById('newIsGlobal').value = '1';
+  }
 }
 
 async function load() {
-  const res = await fetch('/api/quickwords');
-  const data = await res.json();
-  const list = [...(data.global || []).map(g => ({ ...g, type: 'Global' }))];
-  
-  document.getElementById('tbody').innerHTML = list.map(q => `
-    <tr>
-      <td><b>${q.type}</b></td>
-      <td>${q.label}</td>
-      <td>${q.text}</td>
-      <td><button style="background:var(--red);color:#fff;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;" onclick="del('${q.id}')">Delete</button></td>
-    </tr>
-  `).join('') || '<tr><td colspan="4">No Quick Words created yet.</td></tr>';
+  try {
+    const res = await fetch('/api/quickwords');
+    if (res.status === 401) { window.location.reload(); return; }
+    if (!res.ok) {
+      document.getElementById('qwTbody').innerHTML = `<tr><td colspan="4" class="empty-note">Couldn't load Quick Words.</td></tr>`;
+      return;
+    }
+    const data = await res.json();
+    render(data);
+  } catch {
+    document.getElementById('qwTbody').innerHTML = `<tr><td colspan="4" class="empty-note">Couldn't reach the server.</td></tr>`;
+  }
 }
 
-document.getElementById('saveBtn').addEventListener('click', async (e) => {
-  const label = document.getElementById('label').value.trim();
-  const text = document.getElementById('text').value.trim();
-  const isGlobal = document.getElementById('isGlobal').value === 'true';
+function render(data) {
+  const global = (data.global || []).map(q => ({ ...q, kind: 'global' }));
+  const personal = (data.myPersonal || []).map(q => ({ ...q, kind: 'personal' }));
+  const all = [...global, ...personal];
 
-  if(!label || !text) return alert('Fill in all fields');
+  const tbody = document.getElementById('qwTbody');
+  if (!all.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="empty-note">No Quick Words yet — create one above.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = all.map(q => `
+    <tr>
+      <td style="padding-left:22px;"><span class="type-badge ${q.kind}">${q.kind}</span></td>
+      <td class="cell-main">${RF.esc(q.label)}</td>
+      <td class="cell-muted">${RF.esc(q.text.length > 80 ? q.text.slice(0, 80) + '…' : q.text)}</td>
+      <td style="text-align:right;padding-right:22px;"><button class="btn btn-danger" onclick="deleteWord('${q.id}')">Delete</button></td>
+    </tr>
+  `).join('');
+}
 
-  await with2SecLoading(e.currentTarget, async () => {
-    await fetch('/api/quickwords', {
+document.getElementById('createBtn').addEventListener('click', async (e) => {
+  const label = document.getElementById('newLabel').value.trim();
+  const text = document.getElementById('newText').value.trim();
+  const isGlobal = document.getElementById('newIsGlobal').value === '1';
+  if (!label || !text) { RF.toast('Label and message text are both required', false); return; }
+  if (!isGlobal && !isDiscordSession) { RF.toast('Sign in with Discord to create Personal Quick Words', false); return; }
+
+  try {
+    await RF.withLoading(e.currentTarget, () => RF.apiCall('/api/quickwords', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ label, text, isGlobal })
-    });
-    document.getElementById('label').value = '';
-    document.getElementById('text').value = '';
+    }), { okMessage: 'Quick Word created', failMessage: "Couldn't create it" });
+    document.getElementById('newLabel').value = '';
+    document.getElementById('newText').value = '';
     load();
-  });
+  } catch { /* toast already shown */ }
 });
 
-async function del(id) {
-  await fetch(`/api/quickwords/${id}`, { method: 'DELETE' });
-  load();
+async function deleteWord(id) {
+  try {
+    const res = await fetch(`/api/quickwords/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) { RF.toast('Deleted', true); load(); }
+    else { RF.toast("Couldn't delete", false); }
+  } catch { RF.toast('Could not reach the server', false); }
 }
 
+initNav();
 load();
 </script>
 </body>
