@@ -625,9 +625,13 @@ app.get('/auth/discord/callback', async (req, res) => {
 
         const guild = getTargetGuild();
         if (!guild) throw new Error('Bot is not currently in any server');
-        const member = await guild.members.fetch(discordUser.id).catch(() => null);
+        const member = await guild.members.fetch(discordUser.id).catch(err => {
+            console.error(`[discord oauth] Failed to fetch member ${discordUser.id}:`, err.message);
+            return null;
+        });
         const guildConfig = getGuildConfig(guild.id);
         if (!member || !isStaff(member, guildConfig)) {
+            console.warn(`[discord oauth] Login denied for ${discordUser.username || discordUser.tag} (${discordUser.id}) in guild ${guild.name}`);
             return res.send(lockPageHtml('discord_notstaff', returnTo));
         }
 
@@ -1111,13 +1115,6 @@ app.get('/api/guild/members', maintenanceGate, requireAuth, async (req, res) => 
 // ---------------------------------------------------------------------------
 // MODERATION — view members, notes/warnings, timeout, kick, ban
 // ---------------------------------------------------------------------------
-// IMPORTANT: same auth model as everything else on this site — one shared
-// password, no per-staff login. That was an acceptable tradeoff for ticket
-// management; it's a much bigger one here, since anyone who has that
-// password can now kick, ban, or timeout real members. If that password
-// leaks, this is the part that actually hurts. Rotate it periodically and
-// don't share it more widely than you'd share ban/kick access itself.
-
 function serializeMember(guild, m) {
     const notes = moderationNotes.get(m.id) || [];
     return {
@@ -1181,6 +1178,7 @@ app.post('/api/moderation/members/:userId/notes', maintenanceGate, requireAuth, 
     const content = String(req.body?.content || '').trim();
     const byName = resolveActorName(req);
     if (!content || content.length > 500) return res.status(400).json({ error: 'Note must be 1-500 characters.' });
+    const list = moderationNotes.get(req.params.userId) || [];
     const note = { id: crypto.randomBytes(5).toString('hex'), type, content, byName, at: new Date().toISOString() };
     list.push(note);
     moderationNotes.set(req.params.userId, list);
@@ -1410,6 +1408,7 @@ function slugifyTypeKey(name, existingKeys) {
 
 function isStaff(member, guildConfig) {
     if (!member) return false;
+    if (member.guild && member.id === member.guild.ownerId) return true;
     if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
     if (guildConfig.adminRoleIds.some(roleId => member.roles.cache.has(roleId))) return true;
     return guildConfig.staffRoleIds.some(roleId => member.roles.cache.has(roleId));
