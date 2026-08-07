@@ -138,32 +138,19 @@ async function performLookup() {
 
 async function performRobloxLookup(query) {
   try {
-    let userId = query;
-    let username = query;
+    const res = await fetch(`/api/roblox/lookup/${encodeURIComponent(query)}`);
+    if (!res.ok) { alert('Roblox user not found'); return; }
+    const data = await res.json();
 
-    // If query is not numeric ID, search Roblox API for user ID
-    if (isNaN(query)) {
-      const searchRes = await fetch(`https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(query)}&limit=1`);
-      const searchData = await searchRes.json();
-      if (!searchData.data || !searchData.data.length) { alert('Roblox user not found'); return; }
-      userId = searchData.data[0].id;
-      username = searchData.data[0].name;
-    }
-
-    // Get Avatar Thumbnail
-    const thumbRes = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png&isCircular=false`);
-    const thumbData = await thumbRes.json();
-    const avatarUrl = thumbData.data?.[0]?.imageUrl || 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-Placeholder';
-
-    document.getElementById('uAvatar').src = avatarUrl;
-    document.getElementById('uTag').textContent = username;
-    document.getElementById('uId').textContent = `Roblox User ID: ${userId}`;
-    document.getElementById('uRoles').innerHTML = `<a href="https://www.roblox.com/users/${userId}/profile" target="_blank" class="external-link">View Roblox Profile ↗</a>`;
+    document.getElementById('uAvatar').src = data.avatarUrl || 'https://tr.rbxcdn.com/30DAY-AvatarHeadshot-Placeholder';
+    document.getElementById('uTag').textContent = data.username;
+    document.getElementById('uId').textContent = `Roblox User ID: ${data.id}`;
+    document.getElementById('uRoles').innerHTML = `<a href="https://www.roblox.com/users/${data.id}/profile" target="_blank" class="external-link">View Roblox Profile ↗</a>`;
     
     document.getElementById('sOpen').textContent = '-';
     document.getElementById('sArch').textContent = '-';
     document.getElementById('sNotes').textContent = '-';
-    document.getElementById('hTickets').innerHTML = `Direct Roblox account lookup. <a href="https://www.roblox.com/users/${userId}/profile" target="_blank" class="external-link">Open profile on Roblox.com</a>`;
+    document.getElementById('hTickets').innerHTML = `Direct Roblox account lookup. <a href="https://www.roblox.com/users/${data.id}/profile" target="_blank" class="external-link">Open profile on Roblox.com</a>`;
     
     document.getElementById('resultGrid').style.display = 'grid';
   } catch (err) {
@@ -179,25 +166,6 @@ fetch('/api/guild').then(r => r.json()).then(g => {
   const allowed = g.viewerTier === 'staff' ? g.staffPermissions.allowedTabs : null;
   if (window.RF && typeof window.RF.renderNav === 'function') {
     document.getElementById('navTabs').innerHTML = window.RF.renderNav('/lookup', allowed);
-  } else {
-    // Direct Fallback Navigation
-    const navItems = [
-      { href: '/', label: 'Archives' },
-      { href: '/tickets', label: 'Open Tickets' },
-      { href: '/panels', label: 'Panels' },
-      { href: '/tags', label: 'Tags' },
-      { href: '/quickwords', label: 'Quick Words' },
-      { href: '/feedback', label: 'Feedback' },
-      { href: '/moderation', label: 'Moderation' },
-      { href: '/blacklist', label: 'Blacklist' },
-      { href: '/lookup', label: 'User Lookup', active: true, beta: true }
-    ];
-    document.getElementById('navTabs').innerHTML = navItems.map(item => `
-      <a href="${item.href}" class="nav-item ${item.active ? 'active' : ''}">
-        <span>${item.label}</span>
-        ${item.beta ? '<span class="badge-beta">BETA</span>' : ''}
-      </a>
-    `).join('');
   }
 }).catch(() => {});
 </script>

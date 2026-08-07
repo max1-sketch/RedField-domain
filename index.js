@@ -1446,43 +1446,35 @@ app.get('/api/guild/members', maintenanceGate, requireAuth, async (req, res) => 
     }
 });
 
-app.get('/api/lookup/:query', maintenanceGate, requireAuth, requireTabPermission('lookup'), async (req, res) => {
-    const guild = getTargetGuild();
-    if (!guild) return res.status(503).json({ error: 'Bot is not in server' });
-    
+// ---------------------------------------------------------------------------
+// ROBLOX & USER LOOKUP ROUTES
+// ---------------------------------------------------------------------------
+app.get('/lookup', maintenanceGate, requireAuth, requireTabPermission('lookup'), (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'lookup.html'));
+});
+
+app.get('/api/roblox/lookup/:query', maintenanceGate, requireAuth, async (req, res) => {
     const query = String(req.params.query || '').trim();
     if (!query) return res.status(400).json({ error: 'Query required' });
-
     try {
-        let member = await guild.members.fetch(query).catch(() => null);
-        if (!member) {
-            const found = await guild.members.fetch({ query, limit: 1 });
-            member = found.first() || null;
+        let userId = query;
+        let username = query;
+        if (isNaN(query)) {
+            const searchRes = await fetch(`https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(query)}&limit=1`);
+            const searchData = await searchRes.json();
+            if (!searchData.data || !searchData.data.length) return res.status(404).json({ error: 'Roblox user not found' });
+            userId = searchData.data[0].id;
+            username = searchData.data[0].name;
+        } else {
+            const userRes = await fetch(`https://users.roblox.com/v1/users/${userId}`);
+            if (!userRes.ok) return res.status(404).json({ error: 'Roblox user not found' });
+            const userData = await userRes.json();
+            username = userData.name;
         }
-
-        if (!member) return res.status(404).json({ error: 'User not found in this Discord server' });
-
-        const userArchives = Array.from(archivedTickets.values()).filter(t => t.openedById === member.id);
-        const userOpen = Array.from(openTickets.values()).filter(t => t.userId === member.id);
-        const notes = moderationNotes.get(member.id) || [];
-
-        res.json({
-            user: {
-                id: member.id,
-                tag: member.user.tag,
-                displayName: member.displayName,
-                avatarURL: member.displayAvatarURL({ size: 128 }),
-                joinedAt: member.joinedAt ? member.joinedAt.toISOString() : null,
-                createdAt: member.user.createdAt.toISOString(),
-                roles: member.roles.cache.filter(r => r.id !== guild.id).map(r => ({ id: r.id, name: r.name, color: r.hexColor === '#000000' ? null : r.hexColor }))
-            },
-            ticketStats: {
-                openCount: userOpen.length,
-                archiveCount: userArchives.length,
-                archives: userArchives.map(a => ({ id: a.id, type: a.type, closedAt: a.closedAt, reason: a.reason, accessToken: a.accessToken }))
-            },
-            notes
-        });
+        const thumbRes = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png&isCircular=false`);
+        const thumbData = await thumbRes.json();
+        const avatarUrl = thumbData.data?.[0]?.imageUrl || '';
+        res.json({ id: userId, username, avatarUrl });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
