@@ -46,6 +46,8 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 1300px; }
 .page-title { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
 .page-sub { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
+.badge-new { display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .05em; padding: 2px 7px; border-radius: 99px; background: var(--accent); color: #0a0c11; vertical-align: middle; margin-right: 6px; text-transform: uppercase; }
+.new-feature-note { font-size: 12.5px; color: var(--muted); margin: 0 0 20px; line-height: 1.6; }
 .warn-banner {
   background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5;
   border-radius: 8px; padding: 10px 14px; font-size: 12px; margin-bottom: 20px; line-height: 1.6;
@@ -83,6 +85,7 @@ tbody tr.clickable:hover { background: rgba(255,255,255,0.03); }
 .badge.warn { background: var(--amber)22; color: var(--amber); }
 .badge.timeout { background: var(--red)22; color: var(--red); }
 .badge.owner { background: #fbbf2422; color: #fbbf24; }
+.badge.restricted { background: #a78bfa22; color: #a78bfa; }
 
 .empty-row td { text-align: center; padding: 50px 20px; color: var(--faint); }
 .empty-row .icon { font-size: 22px; margin-bottom: 8px; display: block; }
@@ -139,6 +142,7 @@ tbody tr.clickable:hover { background: rgba(255,255,255,0.03); }
   <main class="content-area">
     <h1 class="page-title">Moderation</h1>
     <p class="page-sub">View members, leave notes/warnings, timeout, kick, or ban. Actions here are permanent — there's no per-staff login, only the shared site password, so treat access to this page like access to ban powers themselves.</p>
+    <p class="new-feature-note"><span class="badge-new">NEW</span>Click into a staff member for Staff Access Controls — block their sign-in, ban them from the website entirely (temporary or permanent), ban them from moderating, or suspend them from working tickets.</p>
 
     <div class="card">
       <div class="filters-row">
@@ -181,7 +185,7 @@ tbody tr.clickable:hover { background: rgba(255,255,255,0.03); }
 
     <div class="card">
       <div class="card-header"><h2>Recent moderation actions</h2></div>
-      <p style="padding:0 20px 14px;margin:0;font-size:12px;color:var(--faint);">Last 100 timeouts, kicks, bans, and unbans taken from this website. Discord's own audit log has the full history if you need more.</p>
+      <p style="padding:0 20px 14px;margin:0;font-size:12px;color:var(--faint);">Last 100 timeouts, kicks, bans, unbans, and access restriction changes taken from this website. Discord's own audit log has the full history if you need more.</p>
       <div style="overflow-x:auto;">
         <table>
           <thead><tr><th>Action</th><th>Target</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
@@ -382,6 +386,7 @@ function render() {
         <div class="cell-muted mono" style="font-size:11px;font-weight:400;">${RF.esc(m.tag)}</div>
         ${m.isOwner ? '<span class="badge owner">Owner</span>' : ''}
         ${m.isTimedOut ? '<span class="badge timeout">Timed out</span>' : ''}
+        ${m.restricted ? '<span class="badge restricted">Restricted</span>' : ''}
       </td>
       <td><div class="role-chip-row">${roleChips}${extra}</div></td>
       <td class="cell-muted">${RF.fmtDate(m.joinedAt)}</td>
@@ -447,10 +452,10 @@ document.getElementById('search').addEventListener('input', () => {
 document.getElementById('loadMoreBtn').addEventListener('click', () => loadMembers(false));
 
 function actionLabel(action) {
-  return { timeout: 'Timeout', timeout_clear: 'Timeout cleared', kick: 'Kick', ban: 'Ban', unban: 'Unban' }[action] || action;
+  return { timeout: 'Timeout', timeout_clear: 'Timeout cleared', kick: 'Kick', ban: 'Ban', unban: 'Unban', restrict: 'Access Restricted' }[action] || action;
 }
 function actionColor(action) {
-  return { timeout: 'var(--amber)', timeout_clear: 'var(--muted)', kick: 'var(--red)', ban: 'var(--red)', unban: 'var(--green)' }[action] || 'var(--muted)';
+  return { timeout: 'var(--amber)', timeout_clear: 'var(--muted)', kick: 'var(--red)', ban: 'var(--red)', unban: 'var(--green)', restrict: '#a78bfa' }[action] || 'var(--muted)';
 }
 
 async function loadLog() {

@@ -49,7 +49,7 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 
 .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 16px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
-.card-header h2 { font-size: 15.5px; font-weight: 700; color: var(--ink); margin: 0; }
+.card-header h2 { font-size: 15.5px; font-weight: 700; color: var(--ink); margin: 0; display: flex; align-items: center; }
 
 .profile-top { display: flex; align-items: center; gap: 14px; }
 .avatar-big { width: 52px; height: 52px; border-radius: 50%; }
@@ -59,6 +59,11 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .badge.timeout { background: var(--red)22; color: var(--red); }
 .badge.owner { background: #fbbf2422; color: #fbbf24; }
 .badge.access { background: var(--green)22; color: var(--green); }
+.badge.siteban { background: var(--red)22; color: var(--red); }
+.badge.loginblock { background: var(--amber)22; color: var(--amber); }
+.badge.modban { background: #a78bfa22; color: #a78bfa; }
+.badge.ticketban { background: #38bdf822; color: #38bdf8; }
+.badge-new { display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .05em; padding: 2px 7px; border-radius: 99px; background: var(--accent); color: #0a0c11; vertical-align: middle; margin-left: 8px; text-transform: uppercase; }
 
 .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px 16px; font-size: 12px; color: var(--faint); margin-top: 16px; }
 .meta-grid span b { display: block; color: var(--muted); font-weight: 600; margin-bottom: 2px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; }
@@ -109,11 +114,18 @@ textarea { resize: vertical; min-height: 60px; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
 .field { margin-bottom: 12px; }
 .field label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); font-weight: 600; display: block; margin-bottom: 6px; }
-.inline-row { display: flex; gap: 10px; align-items: flex-end; }
-.inline-row .field { flex: 1; margin-bottom: 0; }
+.inline-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.inline-row .field { flex: 1; margin-bottom: 0; min-width: 160px; }
 
 .loading-line, .error-state { font-size: 13px; color: var(--faint); padding: 30px 0; text-align: center; }
 .sender-name-note { font-size: 10.5px; color: var(--faint); margin-top: 6px; }
+
+.restrict-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.checkbox-card { display: flex; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid var(--border); padding: 10px 12px; border-radius: 7px; cursor: pointer; font-size: 13px; }
+.checkbox-card input { cursor: pointer; }
+.restrict-status-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.restrict-note { font-size: 12.5px; color: var(--muted); margin: 0 0 14px; line-height: 1.6; }
+.temp-ban-active { font-size: 11.5px; color: var(--red); font-weight: 600; margin-top: 4px; }
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(5,6,9,.75); display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
 .modal-overlay.show { display: flex; }
@@ -361,6 +373,9 @@ function render() {
   const m = lastMember;
   const canAdmin = viewerTier === 'admin' || viewerTier === 'master';
   const protectedRoleIds = new Set([...(m.staffRoleIds || []), ...(m.adminRoleIds || [])]);
+  const restr = m.restriction || {};
+  const tempBanActive = Boolean(restr.bannedUntil && new Date(restr.bannedUntil).getTime() > Date.now());
+  const siteBannedNow = Boolean(restr.siteBanned || tempBanActive);
 
   const roleChips = m.roles.length
     ? m.roles.map(r => {
@@ -381,12 +396,19 @@ function render() {
 
   const hasAccess = Boolean(m.isStaff);
 
+  const restrictionBadges = [
+    siteBannedNow ? '<span class="badge siteban">Site Banned</span>' : '',
+    (restr.loginBlocked && !siteBannedNow) ? '<span class="badge loginblock">Login Blocked</span>' : '',
+    (restr.moderationBanned && !siteBannedNow) ? '<span class="badge modban">Mod Banned</span>' : '',
+    (restr.ticketsSuspended && !siteBannedNow) ? '<span class="badge ticketban">Tickets Suspended</span>' : ''
+  ].join('');
+
   document.getElementById('content').innerHTML = `
     <div class="card">
       <div class="profile-top">
         <img class="avatar-big" src="${RF.esc(m.avatarURL)}" alt="">
         <div>
-          <h2 class="profile-name">${RF.esc(m.displayName)}${m.isOwner ? '<span class="badge owner">Owner</span>' : ''}${m.isTimedOut ? '<span class="badge timeout">Timed out</span>' : ''}${hasAccess ? '<span class="badge access">Dashboard access</span>' : ''}</h2>
+          <h2 class="profile-name">${RF.esc(m.displayName)}${m.isOwner ? '<span class="badge owner">Owner</span>' : ''}${m.isTimedOut ? '<span class="badge timeout">Timed out</span>' : ''}${hasAccess ? '<span class="badge access">Dashboard access</span>' : ''}${restrictionBadges}</h2>
           <div class="profile-tag">${RF.esc(m.tag)} · ${RF.esc(m.id)}</div>
         </div>
       </div>
@@ -405,6 +427,42 @@ function render() {
         : "This member has no Staff or Admin role — they can't log into the dashboard. Granting access assigns your first configured Staff role (or Admin role if no Staff role is set)."}</p>
       ${canAdmin ? `<button class="btn ${hasAccess ? 'btn-danger' : 'btn-green solid'}" id="toggleAccessBtn">${hasAccess ? 'Revoke Access' : 'Grant Access'}</button>` : '<p style="font-size:12.5px;color:var(--muted);margin:0;">Only Administrators can grant or revoke dashboard access.</p>'}
     </div>
+
+    ${canAdmin ? `
+    <div class="card">
+      <div class="card-header"><h2>Staff Access Controls<span class="badge-new">NEW</span></h2></div>
+      <p class="restrict-note">Lock this member down independently of their roles — this stacks on top of Dashboard Access above. A full ban instantly kills any session they already have open. These only affect Discord-login sessions; the shared access code has no per-user identity to restrict.</p>
+      <div class="restrict-grid">
+        <label class="checkbox-card"><input type="checkbox" id="r-loginBlocked" ${restr.loginBlocked ? 'checked' : ''}> Block sign-in</label>
+        <label class="checkbox-card"><input type="checkbox" id="r-siteBanned" ${restr.siteBanned ? 'checked' : ''}> Ban from website entirely</label>
+        <label class="checkbox-card"><input type="checkbox" id="r-moderationBanned" ${restr.moderationBanned ? 'checked' : ''}> Ban from moderating users</label>
+        <label class="checkbox-card"><input type="checkbox" id="r-ticketsSuspended" ${restr.ticketsSuspended ? 'checked' : ''}> Suspend from tickets</label>
+      </div>
+      <div class="inline-row" style="margin-top:14px;">
+        <div class="field">
+          <label>Temporary full ban</label>
+          <select id="r-tempMinutes">
+            <option value="60">1 hour</option>
+            <option value="360">6 hours</option>
+            <option value="1440">1 day</option>
+            <option value="10080">1 week</option>
+            <option value="43200">30 days</option>
+          </select>
+          ${tempBanActive ? `<div class="temp-ban-active">Active until ${RF.fmtDateTime(restr.bannedUntil)}</div>` : ''}
+        </div>
+        <button class="btn btn-amber" id="applyTempBanBtn">Apply temp ban</button>
+        ${restr.bannedUntil ? '<button class="btn btn-ghost" id="clearTempBanBtn">Clear temp ban</button>' : ''}
+      </div>
+      <div class="field" style="margin-top:14px;">
+        <label>Reason</label>
+        <input type="text" id="r-reason" maxlength="300" value="${RF.esc(restr.reason || '')}" placeholder="Why is this member being restricted?">
+      </div>
+      <div class="action-row" style="margin-top:14px;">
+        <button class="btn btn-accent" id="saveRestrictionsBtn">Save restrictions</button>
+        <button class="btn btn-ghost" id="clearAllRestrictionsBtn">Clear all restrictions</button>
+      </div>
+      ${restr.byName ? `<p style="font-size:11px;color:var(--faint);margin:12px 0 0;">Last changed by ${RF.esc(restr.byName)} · ${RF.fmtDateTime(restr.at)}</p>` : ''}
+    </div>` : ''}
 
     <div class="card">
       <div class="card-header"><h2>Nickname &amp; roles</h2></div>
@@ -617,6 +675,64 @@ function wireActions() {
     document.getElementById('banError').textContent = '';
     document.getElementById('banOverlay').classList.add('show');
   });
+
+  const saveRestrBtn = document.getElementById('saveRestrictionsBtn');
+  if (saveRestrBtn) {
+    saveRestrBtn.addEventListener('click', async (e) => {
+      try {
+        await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/restrictions`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            loginBlocked: document.getElementById('r-loginBlocked').checked,
+            siteBanned: document.getElementById('r-siteBanned').checked,
+            moderationBanned: document.getElementById('r-moderationBanned').checked,
+            ticketsSuspended: document.getElementById('r-ticketsSuspended').checked,
+            reason: document.getElementById('r-reason').value.trim()
+          })
+        }), { okMessage: 'Access controls saved', failMessage: "Couldn't save access controls" });
+        load();
+      } catch { /* toast already shown */ }
+    });
+  }
+
+  const applyTempBtn = document.getElementById('applyTempBanBtn');
+  if (applyTempBtn) {
+    applyTempBtn.addEventListener('click', async (e) => {
+      const minutes = parseInt(document.getElementById('r-tempMinutes').value, 10);
+      try {
+        await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/restrictions`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tempBanMinutes: minutes, reason: document.getElementById('r-reason').value.trim() })
+        }), { okMessage: 'Temporary ban applied', failMessage: "Couldn't apply temp ban" });
+        load();
+      } catch { /* toast already shown */ }
+    });
+  }
+
+  const clearTempBtn = document.getElementById('clearTempBanBtn');
+  if (clearTempBtn) {
+    clearTempBtn.addEventListener('click', async (e) => {
+      try {
+        await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/restrictions`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clearTempBan: true })
+        }), { okMessage: 'Temp ban cleared', failMessage: "Couldn't clear temp ban" });
+        load();
+      } catch { /* toast already shown */ }
+    });
+  }
+
+  const clearAllBtn = document.getElementById('clearAllRestrictionsBtn');
+  if (clearAllBtn) {
+    clearAllBtn.addEventListener('click', async (e) => {
+      try {
+        await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/restrictions`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ loginBlocked: false, siteBanned: false, moderationBanned: false, ticketsSuspended: false, clearTempBan: true, reason: '' })
+        }), { okMessage: 'All restrictions cleared', failMessage: "Couldn't clear restrictions" });
+        load();
+      } catch { /* toast already shown */ }
+    });
+  }
 }
 
 document.getElementById('cancelKick').addEventListener('click', () => document.getElementById('kickOverlay').classList.remove('show'));

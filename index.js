@@ -583,7 +583,8 @@ function lockPageHtml(error, returnTo, allowCode = true) {
         discord_denied: 'Discord login was cancelled.',
         discord_notstaff: "That Discord account isn't staff on this server.",
         discord_failed: 'Discord login failed — try again or use the access code.',
-        discord_required: 'Please sign in with Discord to continue.'
+        discord_required: 'Please sign in with Discord to continue.',
+        discord_banned: 'Your access to this website has been suspended by an Administrator.'
     };
     const shouldShowTranscriptMessage = returnTo && returnTo.startsWith('/transcript');
     const errorText = error
@@ -800,6 +801,11 @@ app.get('/auth/discord/callback', async (req, res) => {
             return res.send(lockPageHtml('discord_notstaff', returnTo));
         }
 
+        const restriction = getStaffRestriction(guildConfig, discordUser.id);
+        if (isLoginBlocked(restriction)) {
+            return res.send(lockPageHtml('discord_banned', returnTo));
+        }
+
         const expiresAt = Date.now() + SESSION_SECONDS * 1000;
         const session = signDiscordSession({ id: discordUser.id, tag: member.user.tag, exp: expiresAt });
         res.setHeader('Set-Cookie', [
@@ -840,15 +846,24 @@ app.use((req, res, next) => {
 });
 app.use(express.static(path.join(__dirname, 'views'), { index: false }));
 
-function requireAuthOrTicketToken(req, res, next) {
-    if (isRequestAuthed(req)) return next();
-    const ticket = archivedTickets.get(req.params.id);
-    if (ticket && ticket.accessToken && req.query.token && req.query.token === ticket.accessToken) return next();
-    if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
-    return res.send(lockPageHtml(req.query.err, req.path));
-}
-
 function requireDiscordOrTicketToken(req, res, next) {
+    const staffAuth = isRequestAuthed(req);
+    if (staffAuth) {
+        if (staffAuth.id) {
+            const guild = getTargetGuild();
+            if (guild) {
+                const guildConfig = getGuildConfig(guild.id);
+                if (isSiteBanned(getStaffRestriction(guildConfig, staffAuth.id))) {
+                    clearAuthCookies(res);
+                    if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Your website access has been suspended by an Administrator.' });
+                    return res.send(lockPageHtml('discord_banned', req.path, false));
+                }
+            }
+        }
+        req.authUser = staffAuth;
+        return next();
+    }
+
     const cookies = parseCookies(req);
     const session = verifyDiscordSession(cookies.discordAuth);
     const ticket = archivedTickets.get(req.params.id);
@@ -893,11 +908,6 @@ app.get('/api/tickets/:id', maintenanceGate, requireDiscordOrTicketToken, (req, 
 // API ROUTES
 // ---------------------------------------------------------------------------
 app.get('/api/tickets', maintenanceGate, requireAuth, requireTabPermission('archive'), (req, res) => res.json(Array.from(archivedTickets.values())));
-app.get('/api/tickets/:id', maintenanceGate, requireAuthOrTicketToken, (req, res) => {
-    const ticket = archivedTickets.get(req.params.id);
-    if (!ticket) return res.status(404).json({ error: 'Not found' });
-    res.json(ticket);
-});
 app.delete('/api/tickets/:id', requireAuth, requireTabPermission('archive'), (req, res) => {
     if (!archivedTickets.has(req.params.id)) return res.status(404).json({ error: 'Not found' });
     archivedTickets.delete(req.params.id);
@@ -1259,6 +1269,14 @@ app.post('/api/open-tickets/:channelId/messages', maintenanceGate, requireAuth, 
     const ticket = openTickets.get(req.params.channelId);
     if (!ticket) return res.status(404).json({ error: 'This ticket is no longer open.' });
 
+    const guild = getTargetGuild();
+    if (req.authUser && req.authUser.id) {
+        const guildConfig = guild ? getGuildConfig(guild.id) : null;
+        if (guildConfig && isTicketsSuspended(getStaffRestriction(guildConfig, req.authUser.id))) {
+            return res.status(403).json({ error: 'An Administrator has suspended you from working on tickets.' });
+        }
+    }
+
     const content = String(req.body?.content || '').trim();
     const asName = String(req.body?.asName || '').trim().slice(0, 40);
     if (!content) return res.status(400).json({ error: 'Message cannot be blank.' });
@@ -1284,6 +1302,11 @@ app.post('/api/open-tickets/:channelId/close', maintenanceGate, requireAuth, req
     if (!ticket) return res.status(404).json({ error: 'This ticket is already closed.' });
     if (ticket.closing) return res.status(409).json({ error: 'Already closing.' });
 
+    const guildConfigForCheck = getGuildConfig(guild.id);
+    if (req.authUser && req.authUser.id && isTicketsSuspended(getStaffRestriction(guildConfigForCheck, req.authUser.id))) {
+        return res.status(403).json({ error: 'An Administrator has suspended you from working on tickets.' });
+    }
+
     const asName = String(req.body?.asName || '').trim().slice(0, 40) || 'Staff (via Website)';
 
     try {
@@ -1296,6 +1319,7 @@ app.post('/api/open-tickets/:channelId/close', maintenanceGate, requireAuth, req
 
         const guildConfig = getGuildConfig(guild.id);
         await channel.send(`⛔ **${asName}** closed this ticket from the website. Archiving now...`).catch(() => {});
+        clearCloseRequestTimer(channel.id);
         await finalizeTicketClose(channel, guild, guildConfig, asName);
         res.json({ success: true });
     } catch (err) {
@@ -1407,8 +1431,9 @@ app.get('/api/guild/members', maintenanceGate, requireAuth, async (req, res) => 
 // ---------------------------------------------------------------------------
 // MODERATION API
 // ---------------------------------------------------------------------------
-function serializeMember(guild, m) {
+function serializeMember(guild, m, guildConfig) {
     const notes = moderationNotes.get(m.id) || [];
+    const restriction = guildConfig ? getStaffRestriction(guildConfig, m.id) : null;
     return {
         id: m.id,
         tag: m.user.tag,
@@ -1418,7 +1443,8 @@ function serializeMember(guild, m) {
         isTimedOut: Boolean(m.communicationDisabledUntil && m.communicationDisabledUntil.getTime() > Date.now()),
         isOwner: m.id === guild.ownerId,
         noteCount: notes.length,
-        warningCount: notes.filter(n => n.type === 'warning').length
+        warningCount: notes.filter(n => n.type === 'warning').length,
+        restricted: Boolean(restriction)
     };
 }
 
@@ -1428,10 +1454,11 @@ app.get('/api/moderation/members', maintenanceGate, requireAuth, requireTabPermi
     const query = (req.query.query || '').trim();
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
     const after = req.query.after || undefined;
+    const guildConfig = getGuildConfig(guild.id);
 
     try {
         let members = query ? await guild.members.fetch({ query, limit }) : await guild.members.list({ limit, after });
-        const list = members.map(m => serializeMember(guild, m));
+        const list = members.map(m => serializeMember(guild, m, guildConfig));
         const nextAfter = (!query && members.size === limit) ? members.last().id : null;
         res.json({ members: list, nextAfter, totalMemberCount: guild.memberCount });
     } catch (err) {
@@ -1448,7 +1475,7 @@ app.get('/api/moderation/members/:userId', maintenanceGate, requireAuth, require
         if (!member) return res.status(404).json({ error: 'That member is no longer in the server.' });
         const guildConfig = getGuildConfig(guild.id);
         res.json({
-            ...serializeMember(guild, member),
+            ...serializeMember(guild, member, guildConfig),
             avatarURL: member.displayAvatarURL({ size: 64 }),
             createdAt: member.user.createdAt.toISOString(),
             timeoutUntil: member.communicationDisabledUntil ? member.communicationDisabledUntil.toISOString() : null,
@@ -1456,7 +1483,8 @@ app.get('/api/moderation/members/:userId', maintenanceGate, requireAuth, require
             allGuildRoles: guild.roles.cache.filter(r => r.id !== guild.id).sort((a, b) => b.position - a.position).map(r => ({ id: r.id, name: r.name, color: r.hexColor === '#000000' ? null : r.hexColor, isAdmin: r.permissions.has(PermissionFlagsBits.Administrator) })),
             isStaff: isStaff(member, guildConfig),
             staffRoleIds: guildConfig.staffRoleIds || [],
-            adminRoleIds: guildConfig.adminRoleIds || []
+            adminRoleIds: guildConfig.adminRoleIds || [],
+            restriction: getStaffRestriction(guildConfig, req.params.userId)
         });
     } catch (err) {
         console.error('[moderation member detail] failed:', err);
@@ -1705,6 +1733,80 @@ app.get('/api/moderation/log', maintenanceGate, requireAuth, requireTabPermissio
     res.json(moderationLog.slice(0, 100));
 });
 
+// ---------------------------------------------------------------------------
+// STAFF ACCESS RESTRICTIONS (NEW)
+// ---------------------------------------------------------------------------
+// Per-user restrictions layered on top of role-based access. These let an
+// Administrator lock down one specific staff member without touching their
+// Discord roles: block their sign-in, ban them from the website outright
+// (which also instantly kills any session they already have open), ban them
+// from performing moderation actions, suspend them from working tickets, or
+// apply all of the above temporarily with an auto-expiring ban.
+//
+// NOTE: this only affects Discord-login sessions, since the shared access
+// code has no per-user identity to restrict by.
+app.post('/api/moderation/members/:userId/restrictions', maintenanceGate, requireAuth, requireTabPermission('moderation'), async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const guildConfig = getGuildConfig(guild.id);
+    const actorIsAdmin = isCurrentActorAdmin(req, guild, guildConfig);
+    if (!actorIsAdmin) return res.status(403).json({ error: 'Only Administrators can manage staff access restrictions.' });
+
+    const targetId = req.params.userId;
+    if (targetId === guild.ownerId) return res.status(400).json({ error: "Can't restrict the server owner." });
+    if (req.authUser && req.authUser.id === targetId) return res.status(400).json({ error: "Can't restrict your own account." });
+
+    const targetMember = await guild.members.fetch(targetId).catch(() => null);
+    // A password-login ("master") admin has no req.authUser.id and may act as a
+    // safety valve; a Discord-logged-in admin cannot restrict another Admin.
+    if (targetMember && isAdmin(targetMember, guildConfig) && req.authUser && req.authUser.id) {
+        return res.status(403).json({ error: "Can't restrict another Administrator." });
+    }
+
+    const byName = resolveActorName(req);
+    const body = req.body || {};
+    const reason = String(body.reason || '').trim().slice(0, 300);
+    const existing = guildConfig.staffRestrictions[targetId] || {};
+
+    const next = {
+        loginBlocked: typeof body.loginBlocked === 'boolean' ? body.loginBlocked : Boolean(existing.loginBlocked),
+        siteBanned: typeof body.siteBanned === 'boolean' ? body.siteBanned : Boolean(existing.siteBanned),
+        moderationBanned: typeof body.moderationBanned === 'boolean' ? body.moderationBanned : Boolean(existing.moderationBanned),
+        ticketsSuspended: typeof body.ticketsSuspended === 'boolean' ? body.ticketsSuspended : Boolean(existing.ticketsSuspended),
+        bannedUntil: existing.bannedUntil || null,
+        reason: reason || existing.reason || '',
+        byName,
+        at: new Date().toISOString()
+    };
+
+    if (body.clearTempBan) next.bannedUntil = null;
+    if (Number.isFinite(body.tempBanMinutes) && body.tempBanMinutes > 0) {
+        const cappedMinutes = Math.min(body.tempBanMinutes, 129600); // cap at 90 days
+        next.bannedUntil = new Date(Date.now() + cappedMinutes * 60000).toISOString();
+    }
+
+    const isNoop = !next.loginBlocked && !next.siteBanned && !next.moderationBanned && !next.ticketsSuspended && !next.bannedUntil;
+    if (isNoop) {
+        delete guildConfig.staffRestrictions[targetId];
+    } else {
+        guildConfig.staffRestrictions[targetId] = next;
+    }
+    saveConfigs();
+
+    const targetTag = targetMember ? targetMember.user.tag : targetId;
+    const summary = isNoop
+        ? `Cleared all access restrictions for ${targetTag}`
+        : `Updated access restrictions for ${targetTag} (login:${next.loginBlocked ? 'blocked' : 'ok'}, site:${next.siteBanned ? 'banned' : 'ok'}, mod:${next.moderationBanned ? 'banned' : 'ok'}, tickets:${next.ticketsSuspended ? 'suspended' : 'ok'}${next.bannedUntil ? `, tempBanUntil:${next.bannedUntil}` : ''})`;
+    logAudit('UPDATE_STAFF_RESTRICTIONS', byName, summary);
+    logModerationAction('restrict', targetId, targetTag, reason || (isNoop ? 'Cleared restrictions' : null), byName);
+
+    if (targetMember && !isNoop) {
+        sendModerationDM(targetMember, 'Your dashboard access has changed', `An Administrator (${byName}) updated your staff access restrictions on **${guild.name}**.${reason ? `\nReason: ${reason}` : ''}`);
+    }
+
+    res.json({ success: true, restriction: guildConfig.staffRestrictions[targetId] || null });
+});
+
 app.post('/api/guild/blacklist', maintenanceGate, requireAuth, requireTabPermission('blacklist'), (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
@@ -1810,6 +1912,31 @@ function isModerationTargetRestricted(actorIsAdmin, targetMember, guildConfig) {
     return isAdmin(targetMember, guildConfig) || (isStaff(targetMember, guildConfig) && !isAdmin(targetMember, guildConfig));
 }
 
+// ---------------------------------------------------------------------------
+// STAFF ACCESS RESTRICTIONS — helpers (NEW)
+// ---------------------------------------------------------------------------
+function getStaffRestriction(guildConfig, userId) {
+    return (guildConfig.staffRestrictions && guildConfig.staffRestrictions[userId]) || null;
+}
+function isTempBanActive(restriction) {
+    return Boolean(restriction && restriction.bannedUntil && new Date(restriction.bannedUntil).getTime() > Date.now());
+}
+function isSiteBanned(restriction) {
+    return Boolean(restriction && (restriction.siteBanned || isTempBanActive(restriction)));
+}
+function isLoginBlocked(restriction) {
+    return Boolean(restriction && (restriction.loginBlocked || isSiteBanned(restriction)));
+}
+function isModerationBanned(restriction) {
+    return Boolean(restriction && (restriction.moderationBanned || isSiteBanned(restriction)));
+}
+function isTicketsSuspended(restriction) {
+    return Boolean(restriction && (restriction.ticketsSuspended || isSiteBanned(restriction)));
+}
+function isSuspendedFromTickets(guildConfig, userId) {
+    return isTicketsSuspended(getStaffRestriction(guildConfig, userId));
+}
+
 function isValidEmoji(emoji) {
     try {
         new ButtonBuilder().setCustomId('test').setLabel('t').setStyle(ButtonStyle.Secondary).setEmoji(emoji);
@@ -1903,6 +2030,7 @@ async function fetchAllMessages(channel, maxMessages = 2000) {
 }
 
 async function finalizeTicketClose(channel, guild, guildConfig, closedByTag) {
+    clearCloseRequestTimer(channel.id);
     try {
         const messagesArray = await fetchAllMessages(channel);
         const meta = openTickets.get(channel.id) || {};
@@ -2147,6 +2275,7 @@ client.on('interactionCreate', async (interaction) => {
             if (commandName === 'claim') {
                 if (!openTickets.has(channel.id)) return interaction.reply({ content: "This isn't an open ticket channel.", ephemeral: true });
                 if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can claim tickets.', ephemeral: true });
+                if (isSuspendedFromTickets(guildConfig, user.id)) return interaction.reply({ content: '❌ An Administrator has suspended you from working on tickets.', ephemeral: true });
 
                 const ticket = openTickets.get(channel.id);
                 if (ticket.claimedBy) return interaction.reply({ content: `❌ Already claimed by **${ticket.claimedBy.tag}**.`, ephemeral: true });
@@ -2171,7 +2300,11 @@ client.on('interactionCreate', async (interaction) => {
                 if (!ticket) return interaction.reply({ content: "This isn't an open ticket channel.", ephemeral: true });
 
                 const isOpener = ticket.userId === user.id;
-                if (!isOpener && !isStaff(member, guildConfig)) return interaction.reply({ content: '❌ You are not allowed to close this ticket.', ephemeral: true });
+                const canClose = isStaff(member, guildConfig) || (isOpener && guildConfig.allowOpenerClose);
+                if (!canClose) return interaction.reply({ content: '❌ You are not allowed to close this ticket.', ephemeral: true });
+                if (isStaff(member, guildConfig) && isSuspendedFromTickets(guildConfig, user.id)) {
+                    return interaction.reply({ content: '❌ An Administrator has suspended you from working on tickets.', ephemeral: true });
+                }
 
                 const confirmRow = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId('confirm_close').setLabel('Confirm Close').setStyle(ButtonStyle.Danger),
@@ -2182,6 +2315,7 @@ client.on('interactionCreate', async (interaction) => {
 
             if (commandName === 'closerequest') {
                 if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can request a close.', ephemeral: true });
+                if (isSuspendedFromTickets(guildConfig, user.id)) return interaction.reply({ content: '❌ An Administrator has suspended you from working on tickets.', ephemeral: true });
                 const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
                 if (!ticket || !ticket.userId) return interaction.reply({ content: "⚠️ Could not identify ticket opener.", ephemeral: true });
 
@@ -2250,6 +2384,7 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             if (customId === 'ticket_quickwords') {
+                if (isSuspendedFromTickets(guildConfig, user.id)) return interaction.reply({ content: '❌ An Administrator has suspended you from working on tickets.', ephemeral: true });
                 const globalWords = quickWordsData.global || [];
                 const personalWords = quickWordsData.personal[user.id] || [];
                 const combined = [...globalWords.map(w => ({ ...w, type: 'Global' })), ...personalWords.map(w => ({ ...w, type: 'Personal' }))];
@@ -2266,6 +2401,7 @@ client.on('interactionCreate', async (interaction) => {
 
             if (customId === 'claim_ticket') {
                 if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can claim tickets.', ephemeral: true });
+                if (isSuspendedFromTickets(guildConfig, user.id)) return interaction.reply({ content: '❌ An Administrator has suspended you from working on tickets.', ephemeral: true });
 
                 const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
                 if (!ticket) return interaction.reply({ content: "⚠️ Could not find this ticket's data.", ephemeral: true });
@@ -2311,6 +2447,11 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             if (customId === 'ticket_close') {
+                const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
+                const isOpener = Boolean(ticket && ticket.userId === user.id);
+                const canClose = isStaff(member, guildConfig) || (isOpener && guildConfig.allowOpenerClose);
+                if (!canClose) return interaction.reply({ content: '❌ You are not allowed to close this ticket.', ephemeral: true });
+
                 const confirmRow = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId('confirm_close').setLabel('Confirm Close').setStyle(ButtonStyle.Danger),
                     new ButtonBuilder().setCustomId('cancel_close').setLabel('Cancel').setStyle(ButtonStyle.Secondary)
@@ -2318,13 +2459,49 @@ client.on('interactionCreate', async (interaction) => {
                 return interaction.reply({ content: `⚠️ Close this ticket?`, components: [confirmRow] });
             }
 
+            if (customId === 'ticket_close_with_reason') {
+                const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
+                const isOpener = Boolean(ticket && ticket.userId === user.id);
+                const canClose = isStaff(member, guildConfig) || (isOpener && guildConfig.allowOpenerClose);
+                if (!canClose) return interaction.reply({ content: '❌ You are not allowed to close this ticket.', ephemeral: true });
+                if (isStaff(member, guildConfig) && isSuspendedFromTickets(guildConfig, user.id)) {
+                    return interaction.reply({ content: '❌ An Administrator has suspended you from working on tickets.', ephemeral: true });
+                }
+                const modal = new ModalBuilder().setCustomId('close_reason_modal').setTitle('Close Ticket With Reason');
+                modal.addComponents(new ActionRowBuilder().addComponents(
+                    new TextInputBuilder().setCustomId('closeReason').setLabel('Reason for closing').setStyle(TextInputStyle.Paragraph).setMaxLength(500).setRequired(true)
+                ));
+                return interaction.showModal(modal);
+            }
+
             if (customId === 'confirm_close') {
+                const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
+                const isOpener = Boolean(ticket && ticket.userId === user.id);
+                const canClose = isStaff(member, guildConfig) || (isOpener && guildConfig.allowOpenerClose);
+                if (!canClose) return interaction.update({ content: '❌ You are not allowed to close this ticket.', components: [] });
+                if (isStaff(member, guildConfig) && isSuspendedFromTickets(guildConfig, user.id)) {
+                    return interaction.update({ content: '❌ An Administrator has suspended you from working on tickets.', components: [] });
+                }
                 await interaction.update({ content: '🔒 Closing ticket...', components: [] });
                 await finalizeTicketClose(channel, interaction.guild, guildConfig, user.tag);
             }
 
             if (customId === 'cancel_close') {
                 return interaction.update({ content: '✅ Close cancelled — this ticket stays open.', components: [] });
+            }
+
+            if (customId === 'closerequest_accept') {
+                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can accept a close request.', ephemeral: true });
+                if (isSuspendedFromTickets(guildConfig, user.id)) return interaction.reply({ content: '❌ An Administrator has suspended you from working on tickets.', ephemeral: true });
+                await interaction.update({ content: `🔒 **${user.tag}** accepted the close request — closing ticket...`, components: [] });
+                await finalizeTicketClose(channel, interaction.guild, guildConfig, user.tag);
+                return;
+            }
+
+            if (customId === 'closerequest_deny') {
+                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can deny a close request.', ephemeral: true });
+                clearCloseRequestTimer(channel.id);
+                return interaction.update({ content: `❌ **${user.tag}** denied the close request — ticket stays open.`, components: [] });
             }
 
             if (customId.startsWith('open_ticket_')) {
@@ -2344,6 +2521,9 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isStringSelectMenu() && interaction.customId === 'quickword_select') {
+            if (isSuspendedFromTickets(guildConfig, interaction.user.id)) {
+                return interaction.update({ content: '❌ An Administrator has suspended you from working on tickets.', components: [] });
+            }
             const idx = Number(interaction.values[0]);
             const globalWords = quickWordsData.global || [];
             const personalWords = quickWordsData.personal[interaction.user.id] || [];
@@ -2375,6 +2555,19 @@ client.on('interactionCreate', async (interaction) => {
                     console.error('[ticket modal submit] failed:', err);
                     return await interaction.editReply({ content: `⚠️ Could not create ticket: ${err.message}` });
                 }
+            }
+
+            if (interaction.customId === 'close_reason_modal') {
+                const reason = interaction.fields.getTextInputValue('closeReason');
+                const ticket = openTickets.get(interaction.channel.id) || recoverTicketFromTopic(interaction.channel);
+                if (ticket) {
+                    ticket.reason = reason;
+                    openTickets.set(interaction.channel.id, ticket);
+                    saveOpenTickets();
+                }
+                await interaction.reply({ content: `🔒 Closing with reason: ${reason}` });
+                await finalizeTicketClose(interaction.channel, interaction.guild, guildConfig, interaction.user.tag);
+                return;
             }
         }
     } catch (error) {
