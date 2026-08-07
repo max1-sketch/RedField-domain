@@ -480,7 +480,7 @@ function getViewerContext(req, guild, guildConfig) {
     if (!authUser.id) {
         return {
             tier: 'master',
-            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'blacklist', 'settings'],
+            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'blacklist', 'settings', 'lookup'],
             canModerate: true
         };
     }
@@ -489,7 +489,7 @@ function getViewerContext(req, guild, guildConfig) {
     if (isAdmin(member, guildConfig)) {
         return {
             tier: 'admin',
-            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'blacklist', 'settings'],
+            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'blacklist', 'settings', 'lookup'],
             canModerate: true
         };
     }
