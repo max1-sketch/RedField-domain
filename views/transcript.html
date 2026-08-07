@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{SITE_TITLE}} — Transcript</title>
+<title>{{SITE_TITLE}} — Transcripts</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
@@ -116,6 +116,9 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
   </aside>
 
   <main class="content-area">
+    <h1 class="page-title">Transcripts</h1>
+    <p class="page-sub">Only the ticket opener can view this transcript after signing in with Discord.</p>
+
     <div class="top-actions">
       <a href="/" class="back-link" id="backLink" style="display:none;">← Back to archive</a>
       <div>
@@ -195,13 +198,13 @@ window.RF = (function () {
   };
   function renderNav(activePath) {
     const tabs = [
-      { href: '/', label: 'Archive', ic: ICONS.archive },
+      { href: '/', label: 'Home', ic: ICONS.archive },
       { href: '/tickets', label: 'Open Tickets', ic: ICONS.tickets },
-      { href: '/panels', label: 'Panels', ic: ICONS.panels },
+      { href: '/panels', label: 'Panel Configs', ic: ICONS.panels },
       { href: '/tags', label: 'Tags', ic: ICONS.tags },
       { href: '/moderation', label: 'Moderation', ic: ICONS.shield },
       { href: '/blacklist', label: 'Blacklist', ic: ICONS.blacklist },
-      { href: '/settings', label: 'Settings', ic: ICONS.settings }
+      { href: '/settings', label: 'Server Configs', ic: ICONS.settings }
     ];
     return tabs.map(t => `<a class="nav-item${t.href === activePath ? ' active' : ''}" href="${t.href}"><span class="ic">${t.ic}</span> ${t.label}</a>`).join('');
   }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{SITE_TITLE}} — Panels</title>
+<title>{{SITE_TITLE}} — Panel Configs</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
@@ -121,7 +121,7 @@ input[type=color] { width: 44px; height: 34px; padding: 2px; border-radius: 7px;
   </aside>
 
   <main class="content-area" id="main">
-    <h1 class="page-title">Ticket Panels</h1>
+    <h1 class="page-title">Panel Configs</h1>
     <div class="loading-line">Loading…</div>
   </main>
 </div>
@@ -192,16 +192,16 @@ window.RF = (function () {
   };
   function renderNav(activePath, allowedTabs) {
     const tabs = [
-      { key: 'archive', href: '/', label: 'Archive', ic: ICONS.archive },
+      { key: 'archive', href: '/', label: 'Home', ic: ICONS.archive },
       { key: 'tickets', href: '/tickets', label: 'Open Tickets', ic: ICONS.tickets },
-      { key: 'panels', href: '/panels', label: 'Panels', ic: ICONS.panels },
+      { key: 'panels', href: '/panels', label: 'Panel Configs', ic: ICONS.panels },
       { key: 'tags', href: '/tags', label: 'Tags', ic: ICONS.tags },
       { key: 'quickwords', href: '/quickwords', label: 'Quick Words', ic: ICONS.quickwords },
       { key: 'feedback', href: '/feedback', label: 'Feedback', ic: ICONS.feedback },
-      { key: 'auditlog', href: '/audit-log', label: 'Audit Log', ic: ICONS.auditlog, adminOnly: true },
+      { key: 'auditlog', href: '/audit-log', label: 'Logging', ic: ICONS.auditlog, adminOnly: true },
       { key: 'moderation', href: '/moderation', label: 'Moderation', ic: ICONS.shield },
       { key: 'blacklist', href: '/blacklist', label: 'Blacklist', ic: ICONS.blacklist },
-      { key: 'settings', href: '/settings', label: 'Settings', ic: ICONS.settings, adminOnly: true }
+      { key: 'settings', href: '/settings', label: 'Server Configs', ic: ICONS.settings, adminOnly: true }
     ];
 
     const visible = allowedTabs
@@ -242,7 +242,7 @@ async function load() {
     if (res.status === 401) { window.location.reload(); return; }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      document.getElementById('main').innerHTML = `<h1 class="page-title">Ticket Panels</h1><div class="card"><p style="margin:0;color:var(--muted);font-size:12.5px;">${RF.esc(err.error || 'Could not load — check the bot is online.')}</p></div>`;
+      document.getElementById('main').innerHTML = `<h1 class="page-title">Panel Configs</h1><div class="card"><p style="margin:0;color:var(--muted);font-size:12.5px;">${RF.esc(err.error || 'Could not load — check the bot is online.')}</p></div>`;
       return;
     }
     const data = await res.json();
@@ -250,7 +250,7 @@ async function load() {
     roles = data.roles || [];
     renderPage();
   } catch (err) {
-    document.getElementById('main').innerHTML = `<h1 class="page-title">Ticket Panels</h1><div class="card"><p style="margin:0;color:var(--muted);font-size:12.5px;">Couldn't reach the server. Refresh and try again.</p></div>`;
+    document.getElementById('main').innerHTML = `<h1 class="page-title">Panel Configs</h1><div class="card"><p style="margin:0;color:var(--muted);font-size:12.5px;">Couldn't reach the server. Refresh and try again.</p></div>`;
   }
 }
 
