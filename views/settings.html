@@ -54,14 +54,10 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .card-header h2 { font-size: 15.5px; font-weight: 700; color: var(--ink); margin: 0; }
 .card-sub { font-size: 12.5px; color: var(--muted); margin: -8px 0 16px; line-height: 1.6; }
 
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 8px; padding: 9px 15px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; min-height: 36px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 8px; padding: 9px 15px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; min-height: 36px; min-width: 130px; }
 .btn-accent { background: var(--accent); color: #0a0c11; }
 .btn-accent:hover { opacity: .9; }
-.btn-ghost { background: var(--panel-2); color: var(--ink); border: 1px solid var(--border); }
-.btn-ghost:hover { border-color: var(--accent); }
-.btn-danger { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
-.btn-danger:hover { background: rgba(239,68,68,0.2); }
-.btn:disabled { opacity: .6; cursor: not-allowed; }
+.btn:disabled { opacity: .7; cursor: not-allowed; }
 
 input[type=text], select {
   background: var(--panel-2); border: 1px solid var(--border); color: var(--ink);
@@ -99,18 +95,16 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 .save-status.show { opacity: 1; }
 .loading-line { font-size: 13px; color: var(--faint); padding: 24px 0; text-align: center; }
 
+/* ---------- Three Dot Loader Animation ---------- */
 .dot-loader { display: inline-flex; gap: 4px; align-items: center; }
 .dot-loader span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: dotbounce 1s infinite ease-in-out; }
 .dot-loader span:nth-child(2) { animation-delay: .15s; }
 .dot-loader span:nth-child(3) { animation-delay: .3s; }
 @keyframes dotbounce { 0%, 80%, 100% { transform: scale(.5); opacity: .35; } 40% { transform: scale(1); opacity: 1; } }
+
 #toastStack { position: fixed; top: 18px; right: 18px; z-index: 200; display: flex; flex-direction: column; gap: 10px; max-width: 320px; }
-.toast { background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--green); border-radius: 6px; padding: 12px 14px; font-size: 12.5px; color: var(--ink); box-shadow: 0 12px 34px rgba(0,0,0,.45); animation: toastin .2s ease; }
+.toast { background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--green); border-radius: 6px; padding: 12px 14px; font-size: 12.5px; color: var(--ink); box-shadow: 0 12px 34px rgba(0,0,0,.45); }
 .toast.error { border-left-color: var(--red); }
-.toast .toast-title { font-weight: 700; }
-.toast.fading { animation: toastout .25s ease forwards; }
-@keyframes toastin { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
-@keyframes toastout { to { opacity: 0; transform: translateX(24px); } }
 
 @media (max-width: 860px) {
   .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
@@ -137,7 +131,68 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 
   <main class="content-area" id="main">
     <h1 class="page-title">Server Configs</h1>
-    <div class="loading-line">Reading server roles and channels…</div>
+    <div class="loading-line" id="loading">Reading server roles and channels…</div>
+    
+    <div id="content" style="display:none;">
+      <p class="page-sub">Managing <b id="guildNameText"></b></p>
+
+      <!-- Roles Section -->
+      <div class="card">
+        <div class="card-header"><h2>Roles &amp; Tiers</h2></div>
+        <p class="card-sub">Pick what each role can do. Admins can do everything staff can, plus they're the only ones who can use this Server Configs tab.</p>
+
+        <div class="owner-row"><span class="owner-badge">Owner</span> <span id="ownerText"></span> <span style="color:var(--faint)">— always full access, can't be changed here</span></div>
+
+        <div class="tier-legend">
+          <span><b>Admin</b> — full control, including Settings</span>
+          <span><b>Staff</b> — claim/force-close tickets</span>
+          <span><b>Normal</b> — can only open tickets</span>
+        </div>
+
+        <div class="role-list-wrap">
+          <table>
+            <thead><tr><th>Role</th><th>Members</th><th style="width:140px;">Tier</th></tr></thead>
+            <tbody id="roleTbody"></tbody>
+          </table>
+        </div>
+
+        <div class="panel-actions">
+          <button class="btn btn-accent" id="saveRolesBtn" onclick="saveRoles(this)">Save roles</button>
+          <span class="save-status" id="rolesStatus">Saved ✓</span>
+        </div>
+      </div>
+
+      <!-- Staff Dashboard Permissions -->
+      <div class="card">
+        <div class="card-header"><h2>Staff Dashboard Permissions (Admin Only)</h2></div>
+        <p class="card-sub">Choose which dashboard tabs Staff members can see, and whether they are allowed to perform moderation actions.</p>
+
+        <div style="font-weight: 600; font-size: 12px; color: var(--ink); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em;">Visible Tabs for Staff</div>
+        <div class="perm-grid" id="permGrid"></div>
+
+        <div style="font-weight: 600; font-size: 12px; color: var(--ink); margin-top: 18px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em;">Moderation Capabilities</div>
+        <label class="checkbox-card" style="display: flex;">
+          <input type="checkbox" id="canModerateCheck">
+          <span>Allow Staff members to moderate members (timeout, kick, ban, warn, add notes)</span>
+        </label>
+
+        <div class="panel-actions">
+          <button class="btn btn-accent" id="savePermsBtn" onclick="savePermissions(this)">Save permissions</button>
+          <span class="save-status" id="permsStatus">Saved ✓</span>
+        </div>
+      </div>
+
+      <!-- Categories Section -->
+      <div class="card">
+        <div class="card-header"><h2>Ticket Categories</h2></div>
+        <p class="card-sub">Which Discord category each ticket type gets created under. Pick an existing one or type a new name.</p>
+        <div id="catGrid"></div>
+        <div class="panel-actions">
+          <button class="btn btn-accent" id="saveCatBtn" onclick="saveCategories(this)">Save categories</button>
+          <span class="save-status" id="catStatus">Saved ✓</span>
+        </div>
+      </div>
+    </div>
     {{FOOTER_NOTE_HTML}}
   </main>
 </div>
@@ -147,6 +202,28 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 RF.startSessionClock(document.getElementById('sessionClock'));
 
 let guildData = null;
+
+function notify(msg, ok = true) {
+  const stack = document.getElementById('toastStack');
+  if (!stack) return;
+  const t = document.createElement('div');
+  t.className = 'toast' + (ok ? '' : ' error');
+  t.textContent = (ok ? '✓ ' : '✕ ') + msg;
+  stack.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function flashStatus(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+function safeEsc(str) {
+  if (window.RF && window.RF.esc) return window.RF.esc(str);
+  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 async function initNav() {
   try {
@@ -171,94 +248,23 @@ async function load() {
     if (res.status === 401) { window.location.reload(); return; }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      document.getElementById('main').innerHTML = `<h1 class="page-title">Server Configs</h1><div class="card"><h2 style="margin:0 0 6px;font-size:15px;">Couldn't load server data</h2><p class="card-sub" style="margin-top:0;">${RF.esc(err.error || 'Unknown error — check the bot is online and in the server.')}</p></div>`;
+      document.getElementById('main').innerHTML = `<h1 class="page-title">Server Configs</h1><div class="card"><h2 style="margin:0 0 6px;font-size:15px;">Couldn't load server data</h2><p class="card-sub" style="margin-top:0;">${safeEsc(err.error || 'Unknown error — check the bot is online and in the server.')}</p></div>`;
       return;
     }
     guildData = await res.json();
-    renderPage();
+    
+    document.getElementById('guildNameText').textContent = guildData.guildName || 'Server';
+    document.getElementById('ownerText').textContent = guildData.ownerTag || guildData.ownerId || 'Server Owner';
+    
+    renderRoles();
+    renderPermissions();
+    renderCategories();
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
   } catch (err) {
     document.getElementById('main').innerHTML = `<h1 class="page-title">Server Configs</h1><div class="card"><h2 style="margin:0 0 6px;font-size:15px;">Couldn't reach the server</h2><p class="card-sub" style="margin-top:0;">Refresh the page and try again.</p></div>`;
   }
-}
-
-function renderPage() {
-  const g = guildData;
-  const perms = g.staffPermissions || { allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'moderation', 'lookup', 'blacklist'], canModerate: true };
-
-  document.getElementById('main').innerHTML = `
-    <h1 class="page-title">Server Configs</h1>
-    <p class="page-sub">Managing <b>${RF.esc(g.guildName)}</b></p>
-
-    <div class="card">
-      <div class="card-header"><h2>Roles &amp; Tiers</h2></div>
-      <p class="card-sub">Pick what each role can do. Admins can do everything staff can, plus they're the only ones who can use this Server Configs tab. No role assigned = normal member (can only open tickets). Also settable with <code>/configure</code> in Discord.</p>
-
-      <div class="owner-row"><span class="owner-badge">Owner</span> ${RF.esc(g.ownerTag || g.ownerId)} <span style="color:var(--faint)">— always full access, can't be changed here</span></div>
-
-      <div class="tier-legend">
-        <span><b>Admin</b> — full control, including Settings</span>
-        <span><b>Staff</b> — claim/force-close tickets</span>
-        <span><b>Normal</b> — can only open tickets</span>
-      </div>
-
-      <div class="role-list-wrap">
-        <table>
-          <thead><tr><th>Role</th><th>Members</th><th style="width:140px;">Tier</th></tr></thead>
-          <tbody id="roleTbody"></tbody>
-        </table>
-      </div>
-
-      <div class="panel-actions">
-        <button class="btn btn-accent" id="saveRolesBtn">Save roles</button>
-        <span class="save-status" id="rolesStatus">Saved ✓</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header"><h2>Staff Dashboard Permissions (Admin Only)</h2></div>
-      <p class="card-sub">Choose which dashboard tabs Staff members can see, and whether they are allowed to perform moderation actions (timeout, kick, ban, warn). This only filters non-admin Discord-login staff — it has no effect on the shared access-code login, which always has full access.</p>
-
-      <div style="font-weight: 600; font-size: 12px; color: var(--ink); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em;">Visible Tabs for Staff</div>
-      <div class="perm-grid">
-        <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="archive" ${perms.allowedTabs.includes('archive') ? 'checked' : ''}> Archive</label>
-        <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="tickets" ${perms.allowedTabs.includes('tickets') ? 'checked' : ''}> Open Tickets</label>
-        <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="panels" ${perms.allowedTabs.includes('panels') ? 'checked' : ''}> Panels</label>
-        <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="tags" ${perms.allowedTabs.includes('tags') ? 'checked' : ''}> Tags</label>
-        <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="moderation" ${perms.allowedTabs.includes('moderation') ? 'checked' : ''}> Moderation</label>
-        <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="lookup" ${perms.allowedTabs.includes('lookup') ? 'checked' : ''}> User Lookup</label>
-        <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="blacklist" ${perms.allowedTabs.includes('blacklist') ? 'checked' : ''}> Blacklist</label>
-        <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="quickwords" ${perms.allowedTabs.includes('quickwords') ? 'checked' : ''}> Quick Words</label>
-        <label class="checkbox-card"><input type="checkbox" class="tab-perm" value="feedback" ${perms.allowedTabs.includes('feedback') ? 'checked' : ''}> Feedback</label>
-      </div>
-
-      <div style="font-weight: 600; font-size: 12px; color: var(--ink); margin-top: 18px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em;">Moderation Capabilities</div>
-      <label class="checkbox-card" style="display: flex;">
-        <input type="checkbox" id="canModerateCheck" ${perms.canModerate ? 'checked' : ''}>
-        <span>Allow Staff members to moderate members (timeout, kick, ban, warn, add notes)</span>
-      </label>
-
-      <div class="panel-actions">
-        <button class="btn btn-accent" id="savePermsBtn">Save permissions</button>
-        <span class="save-status" id="permsStatus">Saved ✓</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header"><h2>Ticket Categories</h2></div>
-      <p class="card-sub">Which Discord category each ticket type gets created under. Pick an existing one or type a new name — it's created automatically the next time that ticket type is opened.</p>
-      <div id="catGrid"></div>
-      <div class="panel-actions">
-        <button class="btn btn-accent" id="saveCatBtn">Save categories</button>
-        <span class="save-status" id="catStatus">Saved ✓</span>
-      </div>
-    </div>
-  `;
-
-  renderRoles();
-  renderCategories();
-  wireRoleSave();
-  wirePermsSave();
-  wireCategorySave();
 }
 
 function tierOf(roleId) {
@@ -269,16 +275,16 @@ function tierOf(roleId) {
 
 function renderRoles() {
   const tbody = document.getElementById('roleTbody');
-  if (!guildData.roles.length) {
+  if (!guildData.roles || !guildData.roles.length) {
     tbody.innerHTML = `<tr><td colspan="3" class="empty-note">No assignable roles found in this server.</td></tr>`;
     return;
   }
   tbody.innerHTML = guildData.roles.map(r => `
     <tr data-role-id="${r.id}">
-      <td><span class="role-swatch" style="background:${r.color || '#8d9297'}"></span>${RF.esc(r.name)}</td>
+      <td><span class="role-swatch" style="background:${r.color || '#8d9297'}"></span>${safeEsc(r.name)}</td>
       <td class="mono" style="color:var(--faint);">${r.memberCount}</td>
       <td>
-        <select data-role-id="${r.id}" style="width:100%;">
+        <select class="role-select" data-role-id="${r.id}" style="width:100%;">
           <option value="normal" ${tierOf(r.id) === 'normal' ? 'selected' : ''}>Normal</option>
           <option value="staff" ${tierOf(r.id) === 'staff' ? 'selected' : ''}>Staff</option>
           <option value="admin" ${tierOf(r.id) === 'admin' ? 'selected' : ''}>Admin</option>
@@ -288,50 +294,35 @@ function renderRoles() {
   `).join('');
 }
 
-function wireRoleSave() {
-  document.getElementById('saveRolesBtn').addEventListener('click', async (e) => {
-    const staffRoleIds = [], adminRoleIds = [];
-    document.querySelectorAll('#roleTbody select').forEach(sel => {
-      const id = sel.getAttribute('data-role-id');
-      if (sel.value === 'staff') staffRoleIds.push(id);
-      if (sel.value === 'admin') adminRoleIds.push(id);
-    });
-    try {
-      await RF.withLoading(e.currentTarget, () => RF.apiCall('/api/guild/roles', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ staffRoleIds, adminRoleIds })
-      }), { okMessage: 'Roles saved', failMessage: "Couldn't save roles" });
-      guildData.staffRoleIds = staffRoleIds;
-      guildData.adminRoleIds = adminRoleIds;
-      flashStatus('rolesStatus');
-    } catch { /* toast already shown */ }
-  });
-}
+function renderPermissions() {
+  const grid = document.getElementById('permGrid');
+  const perms = guildData.staffPermissions || { allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'moderation', 'lookup', 'blacklist'], canModerate: true };
+  const allowed = perms.allowedTabs || [];
+  const tabs = ['archive', 'tickets', 'panels', 'tags', 'moderation', 'lookup', 'blacklist', 'quickwords', 'feedback'];
+  
+  grid.innerHTML = tabs.map(t => `
+    <label class="checkbox-card">
+      <input type="checkbox" class="tab-perm" value="${t}" ${allowed.includes(t) ? 'checked' : ''}>
+      ${t.toUpperCase()}
+    </label>
+  `).join('');
 
-function wirePermsSave() {
-  document.getElementById('savePermsBtn').addEventListener('click', async (e) => {
-    const allowedTabs = Array.from(document.querySelectorAll('.tab-perm:checked')).map(cb => cb.value);
-    const canModerate = document.getElementById('canModerateCheck').checked;
-    try {
-      const data = await RF.withLoading(e.currentTarget, () => RF.apiCall('/api/guild/permissions', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ allowedTabs, canModerate })
-      }), { okMessage: 'Permissions saved', failMessage: "Couldn't save permissions" });
-      guildData.staffPermissions = data.staffPermissions;
-      flashStatus('permsStatus');
-    } catch { /* toast already shown */ }
-  });
+  document.getElementById('canModerateCheck').checked = Boolean(perms.canModerate);
 }
 
 function renderCategories() {
   const grid = document.getElementById('catGrid');
-  const catNames = guildData.categories.map(c => c.name.toUpperCase());
+  if (!guildData.panels) return;
+  const catNames = (guildData.categories || []).map(c => c.name.toUpperCase());
+  
   grid.innerHTML = Object.entries(guildData.panels).map(([typeKey, panel]) => {
     const current = (panel.categoryName || '').toUpperCase();
     const options = [...new Set([current, ...catNames])].filter(Boolean);
     return `
       <div class="cat-row" data-type="${typeKey}">
-        <span class="cat-label">${RF.esc(panel.buttonLabel || typeKey)}</span>
+        <span class="cat-label">${safeEsc(panel.buttonLabel || typeKey)}</span>
         <select class="cat-select" data-type="${typeKey}">
-          ${options.map(name => `<option value="${RF.esc(name)}" ${name === current ? 'selected' : ''}>${RF.esc(name)}</option>`).join('')}
+          ${options.map(name => `<option value="${safeEsc(name)}" ${name === current ? 'selected' : ''}>${safeEsc(name)}</option>`).join('')}
           <option value="__new__">+ New category…</option>
         </select>
         <input type="text" class="cat-new-input" data-type="${typeKey}" placeholder="New category name" maxlength="90" style="display:none;">
@@ -348,36 +339,116 @@ function renderCategories() {
   });
 }
 
-function wireCategorySave() {
-  document.getElementById('saveCatBtn').addEventListener('click', async (e) => {
-    const updates = {};
-    const blankRows = [];
-    document.querySelectorAll('.cat-row').forEach(row => {
-      const type = row.getAttribute('data-type');
-      const sel = row.querySelector('.cat-select');
-      const input = row.querySelector('.cat-new-input');
-      const value = sel.value === '__new__' ? input.value.trim() : sel.value;
-      if (sel.value === '__new__' && (!value || value.length > 90)) { blankRows.push(type); return; }
-      updates[type] = value;
-    });
-    if (blankRows.length) {
-      RF.toast(`Category for ${blankRows.join(', ')} is blank or too long (max 90 chars)`, false);
-      return;
-    }
-    try {
-      await RF.withLoading(e.currentTarget, () => RF.apiCall('/api/guild/categories', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates)
-      }), { okMessage: 'Categories saved', failMessage: "Couldn't save categories" });
-      flashStatus('catStatus');
-      load();
-    } catch { /* toast already shown */ }
-  });
+async function withButtonLoading(btn, actionFn) {
+  const originalText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="dot-loader"><span></span><span></span><span></span></span>';
+  
+  const startTime = Date.now();
+  let error = null;
+
+  try {
+    await actionFn();
+  } catch (err) {
+    error = err;
+  }
+
+  const elapsed = Date.now() - startTime;
+  const minDelay = 1500;
+  if (elapsed < minDelay) {
+    await new Promise(r => setTimeout(r, minDelay - elapsed));
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = originalText;
+
+  if (error) throw error;
 }
 
-function flashStatus(id) {
-  const el = document.getElementById(id);
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 1800);
+async function saveRoles(btn) {
+  const staffRoleIds = [], adminRoleIds = [];
+  document.querySelectorAll('#roleTbody select').forEach(s => {
+    const id = s.getAttribute('data-role-id');
+    if (s.value === 'staff') staffRoleIds.push(id);
+    if (s.value === 'admin') adminRoleIds.push(id);
+  });
+
+  try {
+    await withButtonLoading(btn, async () => {
+      const res = await fetch('/api/guild/roles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staffRoleIds, adminRoleIds })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      guildData.staffRoleIds = staffRoleIds;
+      guildData.adminRoleIds = adminRoleIds;
+    });
+
+    flashStatus('rolesStatus');
+    notify('Roles saved successfully!');
+  } catch (err) {
+    notify('Failed to save roles: ' + err.message, false);
+  }
+}
+
+async function savePermissions(btn) {
+  const allowedTabs = Array.from(document.querySelectorAll('.tab-perm:checked')).map(c => c.value);
+  const canModerate = document.getElementById('canModerateCheck').checked;
+
+  try {
+    await withButtonLoading(btn, async () => {
+      const res = await fetch('/api/guild/permissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ allowedTabs, canModerate })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      guildData.staffPermissions = data.staffPermissions;
+    });
+
+    flashStatus('permsStatus');
+    notify('Permissions saved successfully!');
+  } catch (err) {
+    notify('Failed to save permissions: ' + err.message, false);
+  }
+}
+
+async function saveCategories(btn) {
+  const updates = {};
+  document.querySelectorAll('.cat-row').forEach(row => {
+    const type = row.getAttribute('data-type');
+    const sel = row.querySelector('.cat-select');
+    const input = row.querySelector('.cat-new-input');
+    updates[type] = sel.value === '__new__' ? input.value.trim() : sel.value;
+  });
+
+  try {
+    await withButtonLoading(btn, async () => {
+      const res = await fetch('/api/guild/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+    });
+
+    flashStatus('catStatus');
+    notify('Categories saved successfully!');
+    load();
+  } catch (err) {
+    notify('Failed to save categories: ' + err.message, false);
+  }
 }
 
 initNav();
