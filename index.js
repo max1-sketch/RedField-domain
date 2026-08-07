@@ -1413,6 +1413,38 @@ app.post('/api/guild/roles', maintenanceGate, requireAuth, async (req, res) => {
     res.json({ success: true });
 });
 
+app.post('/api/guild/roles', maintenanceGate, requireAuth, async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const { staffRoleIds, adminRoleIds } = req.body || {};
+    if (!Array.isArray(staffRoleIds) || !Array.isArray(adminRoleIds)) {
+        return res.status(400).json({ error: 'staffRoleIds and adminRoleIds must be arrays.' });
+    }
+
+    const guildConfig = getGuildConfig(guild.id);
+    guildConfig.staffRoleIds = staffRoleIds;
+    guildConfig.adminRoleIds = adminRoleIds;
+    saveConfigs();
+    logAudit('UPDATE_ROLES', resolveActorName(req), 'Updated staff & admin role assignments');
+    res.json({ success: true });
+});
+
+app.post('/api/guild/permissions', maintenanceGate, requireAuth, async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const { allowedTabs, canModerate } = req.body || {};
+    const guildConfig = getGuildConfig(guild.id);
+
+    guildConfig.staffPermissions = {
+        allowedTabs: Array.isArray(allowedTabs) ? allowedTabs : (guildConfig.staffPermissions?.allowedTabs || []),
+        canModerate: typeof canModerate === 'boolean' ? canModerate : Boolean(guildConfig.staffPermissions?.canModerate)
+    };
+
+    saveConfigs();
+    logAudit('UPDATE_PERMISSIONS', resolveActorName(req), 'Updated staff dashboard permissions');
+    res.json({ success: true, staffPermissions: guildConfig.staffPermissions });
+});
+
 app.post('/api/guild/categories', maintenanceGate, requireAuth, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
