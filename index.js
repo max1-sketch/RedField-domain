@@ -664,6 +664,7 @@ function maintenanceGate(req, res, next) {
 app.get('/auth/discord', (req, res) => {
     if (!DISCORD_LOGIN_CONFIGURED) return res.status(503).send('Discord login is not configured.');
 
+    // 1. Determine where to send the user after login
     let returnTo = req.query.returnTo;
     if (!returnTo && req.headers.referer) {
         try {
@@ -672,9 +673,15 @@ app.get('/auth/discord', (req, res) => {
         } catch (e) {}
     }
 
-    const safeReturnTo = (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/hub';
+    // 2. If coming from the home login page (/ or /login or /staff-login), default return path to /hub
+    if (!returnTo || returnTo === '/' || returnTo === '/login' || returnTo === '/staff-login') {
+        returnTo = '/hub';
+    }
+
+    const safeReturnTo = (returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/hub';
     const state = crypto.randomBytes(16).toString('hex');
 
+    // 3. Set cookies with SameSite=Lax so modern browsers retain them across Discord's redirect
     res.setHeader('Set-Cookie', [
         `oauthState=${state}; HttpOnly; Path=/; Max-Age=300; SameSite=Lax`,
         `oauthReturnTo=${encodeURIComponent(safeReturnTo)}; HttpOnly; Path=/; Max-Age=300; SameSite=Lax`
@@ -696,8 +703,10 @@ app.get('/auth/discord', (req, res) => {
 app.get('/auth/discord/callback', async (req, res) => {
     const cookies = parseCookies(req);
     const { code, state, error: oauthError } = req.query;
+    
+    // Read stored return target from cookie
     const rawReturnTo = cookies.oauthReturnTo ? decodeURIComponent(cookies.oauthReturnTo) : '/hub';
-    const returnTo = (rawReturnTo && rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')) ? rawReturnTo : '/hub';
+    let returnTo = (rawReturnTo && rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')) ? rawReturnTo : '/hub';
 
     if (oauthError || !code || !state || state !== cookies.oauthState) {
         return res.redirect('/?error=auth_failed');
@@ -716,7 +725,7 @@ app.get('/auth/discord/callback', async (req, res) => {
             })
         });
         const tokenData = await tokenRes.json();
-        if (!tokenData.access_token) throw new Error('Discord token exchange failed');
+        if (!tokenData.access_token) throw new Error(tokenData.error_description || 'Discord token exchange failed');
 
         const userRes = await fetch('https://discord.com/api/users/@me', {
             headers: { Authorization: `Bearer ${tokenData.access_token}` }
@@ -728,11 +737,7 @@ app.get('/auth/discord/callback', async (req, res) => {
         const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
         const member = guild ? await guild.members.fetch(discordUser.id).catch(() => null) : null;
 
-        // A blocked or banned staff member can't log back in, full stop —
-        // checked here (before the session cookie is even issued) in
-        // addition to requireDiscordAuth re-checking every request, so a
-        // fresh login attempt is turned away immediately with a clear reason
-        // rather than silently landing them on the hub.
+        // Restriction check
         const restriction = getStaffRestriction(guildConfig, discordUser.id);
         if (isLoginBlocked(restriction)) {
             return res.redirect('/staff-login?error=access_suspended');
@@ -741,28 +746,31 @@ app.get('/auth/discord/callback', async (req, res) => {
         const expiresAt = Date.now() + SESSION_SECONDS * 1000;
         const session = signDiscordSession({ id: discordUser.id, tag: discordUser.username, exp: expiresAt });
 
+        // Set cookies with SameSite=Lax to prevent redirect loops across domains
         res.setHeader('Set-Cookie', [
             `discordAuth=${session}; HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
             `sessionExpires=${expiresAt}; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
             'oauthState=; Path=/; Max-Age=0',
             'oauthReturnTo=; Path=/; Max-Age=0'
         ]);
+
         logAudit('DISCORD_LOGIN', discordUser.username, `Logged in via Discord OAuth2`);
 
-        // Smart Redirect: send staff to /staff if they hit the login flow
-        // without a specific return path (e.g. clicked "Sign in" from the
-        // member landing page but they're actually staff).
-        if (member && isStaff(member, guildConfig) && returnTo === '/hub') {
+        // Send staff to /staff and members to /hub
+        if (member && isStaff(member, guildConfig) && (returnTo === '/hub' || returnTo === '/')) {
             return res.redirect('/staff');
         }
 
-        res.redirect(returnTo);
+        if (returnTo === '/' || returnTo === '/login' || returnTo === '/staff-login') {
+            returnTo = '/hub';
+        }
+
+        return res.redirect(returnTo);
     } catch (err) {
         console.error('[discord oauth] failed:', err);
-        res.redirect('/?error=server_error');
+        return res.redirect('/?error=server_error');
     }
 });
-
 function clearAuthCookies(res) {
     res.setHeader('Set-Cookie', [
         'discordAuth=; Path=/; Max-Age=0',
