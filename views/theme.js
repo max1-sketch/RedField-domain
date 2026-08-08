@@ -104,7 +104,7 @@
     };
 
     // ---------------------------------------------------------------------------
-    // SIDEBAR CATEGORIZATION & RENDERING (FULL TABS RESTORED)
+    // SIDEBAR CATEGORIZATION & RENDERING
     // ---------------------------------------------------------------------------
 
     RF.ICONS = {
@@ -157,7 +157,12 @@
 
     RF.renderNav = function (currentPath, allowedTabs) {
         return NAV_GROUPS.map(group => {
-            const visibleItems = group.items.filter(item => !Array.isArray(allowedTabs) || allowedTabs.includes(item.key));
+            // Safety fallback: If allowedTabs isn't explicitly passed, show all items
+            const visibleItems = group.items.filter(item => {
+                if (!Array.isArray(allowedTabs) || !allowedTabs.length) return true;
+                return allowedTabs.includes(item.key);
+            });
+
             if (!visibleItems.length) return '';
 
             const itemsHtml = visibleItems.map(item => {
