@@ -755,12 +755,24 @@ app.post('/api/login', (req, res) => {
 
 app.get('/auth/discord', (req, res) => {
     if (!DISCORD_LOGIN_CONFIGURED) return res.status(503).send('Discord login is not configured.');
-    const returnTo = (req.query.returnTo && req.query.returnTo.startsWith('/') && !req.query.returnTo.startsWith('//')) ? req.query.returnTo : '/';
+    
+    // Fall back to the request Referer if returnTo isn't explicitly passed in query
+    let returnTo = req.query.returnTo;
+    if (!returnTo && req.headers.referer) {
+        try {
+            const parsed = new URL(req.headers.referer);
+            returnTo = parsed.pathname + parsed.search;
+        } catch (e) {}
+    }
+    
+    const safeReturnTo = (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/';
     const state = crypto.randomBytes(16).toString('hex');
+
     res.setHeader('Set-Cookie', [
         `oauthState=${state}; HttpOnly; Path=/; Max-Age=300`,
-        `oauthReturnTo=${encodeURIComponent(returnTo)}; HttpOnly; Path=/; Max-Age=300`
+        `oauthReturnTo=${encodeURIComponent(safeReturnTo)}; HttpOnly; Path=/; Max-Age=300`
     ]);
+
     const params = new URLSearchParams({
         client_id: process.env.DISCORD_CLIENT_ID,
         redirect_uri: `${getWebsiteUrl()}/auth/discord/callback`,
