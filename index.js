@@ -865,37 +865,47 @@ app.get('/version-check.js', (req, res) => {
 app.use(express.static(path.join(__dirname, 'views'), { index: false }));
 
 function requireDiscordOrTicketToken(req, res, next) {
-    const staffAuth = isRequestAuthed(req);
-    if (staffAuth) {
-        if (staffAuth.id) {
-            const guild = getTargetGuild();
-            if (guild) {
-                const guildConfig = getGuildConfig(guild.id);
-                if (isSiteBanned(getStaffRestriction(guildConfig, staffAuth.id))) {
-                    clearAuthCookies(res);
-                    if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Your website access has been suspended by an Administrator.' });
-                    return res.send(lockPageHtml('discord_banned', req.path, false));
-                }
-            }
-        }
-        req.authUser = staffAuth;
-        return next();
-    }
-
     const cookies = parseCookies(req);
     const session = verifyDiscordSession(cookies.discordAuth);
+
+    // 1. Force Discord OAuth Sign-In (General access codes are ignored for transcripts)
+    if (!session) {
+        if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized: Discord sign-in required.' });
+        return res.send(lockPageHtml('discord_required', req.path, false));
+    }
+
+    const guild = getTargetGuild();
+    const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
+    const restriction = getStaffRestriction(guildConfig, session.id);
+
+    // 2. Check if Discord user is banned or blocked from the site (Staff or Normal Member)
+    if (isSiteBanned(restriction) || isLoginBlocked(restriction)) {
+        clearAuthCookies(res);
+        if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Your access to website transcripts has been banned by an Administrator.' });
+        return res.send(lockPageHtml('discord_banned', req.path, false));
+    }
+
+    req.authUser = session;
+
+    // 3. Fetch archived ticket
     const ticket = archivedTickets.get(req.params.id);
-    if (session && ticket && ticket.openedById === session.id) {
-        req.authUser = session;
+    if (!ticket) {
+        if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Transcript not found.' });
+        return res.status(404).send('Transcript not found.');
+    }
+
+    // 4. Verify viewer permissions (Must be a Staff member OR the user who opened the ticket)
+    const member = guild ? guild.members.cache.get(session.id) : null;
+    const isStaffUser = member && isStaff(member, guildConfig);
+    const isTicketOpener = ticket.openedById === session.id;
+
+    if (isStaffUser || isTicketOpener) {
         return next();
     }
 
-    if (ticket && ticket.accessToken && req.query.token && req.query.token === ticket.accessToken) {
-        return next();
-    }
-
-    if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
-    return res.send(lockPageHtml('discord_required', req.path, false));
+    // 5. Block access if they are neither Staff nor the ticket opener
+    if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Access denied: You do not have permission to view this transcript.' });
+    return res.status(403).send('<h2 style="font-family:sans-serif;color:#ef4444;padding:40px;text-align:center;background:#0a0c11;min-height:100vh;margin:0;">🔒 Access Denied: You do not have permission to view this transcript.</h2>');
 }
 
 // ---------------------------------------------------------------------------

@@ -3,326 +3,355 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{SITE_TITLE}} — Transcripts</title>
+<title>{{SITE_TITLE}} — Ticket Transcript</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  :root {
+    --accent: {{ACCENT_COLOR}};
+    --bg-0: #0a0c11;
+    --panel: #141722;
+    --panel-2: #1a1e2b;
+    --border: #262b3a;
+    --ink: #e7e9ee;
+    --muted: #9199a8;
+    --faint: #5b6272;
+    --red: #ef4444;
+    --green: #22c55e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0;
+    min-height: 100vh;
+    background: var(--bg-0);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
 
-:root {
-  --accent: {{ACCENT_COLOR}};
-  --bg-0: #0a0c11;
-  --sidebar-bg: #0d0f16;
-  --panel: #141722;
-  --panel-2: #1a1e2b;
-  --border: #262b3a;
-  --ink: #e7e9ee;
-  --muted: #9199a8;
-  --faint: #5b6272;
-  --red: #ef4444;
-}
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
-body { min-height: 100vh; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
-a { color: inherit; text-decoration: none; }
-.mono { font-family: 'IBM Plex Mono', monospace; }
-.site-banner { background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; }
+  .transcript-container {
+    width: 100%;
+    max-width: 900px;
+    padding: 30px 20px 60px;
+  }
 
-.app-shell { display: flex; min-height: 100vh; }
-.sidebar { width: 250px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
-.sidebar-brand { display: flex; align-items: center; gap: 10px; background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px; margin-bottom: 18px; line-height: 1.25; }
-.sidebar-brand .dot { width: 8px; height: 8px; border-radius: 50%; background: #0a0c11; flex-shrink: 0; opacity: .55; }
-nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
-.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); font-size: 13.5px; font-weight: 500; }
-.nav-item:hover { background: var(--panel-2); color: var(--ink); }
-.nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
-.nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
-.nav-item .ic svg { width: 100%; height: 100%; }
-.nav-item.active .ic { opacity: 1; }
-.badge-beta { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b44; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: auto; text-transform: uppercase; }
+  .header-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  }
 
-.sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
-.session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
-.session-line.warn { color: var(--red); }
+  .ticket-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
 
-.content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 860px; }
+  .ticket-title {
+    font-size: 22px;
+    font-weight: 800;
+    margin: 0;
+    color: var(--ink);
+  }
 
-.top-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
-.back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
-.back-link:hover { color: var(--accent); }
-.btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 8px 14px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
-.btn-ghost { background: var(--panel-2); color: var(--ink); border: 1px solid var(--border); }
-.btn-ghost:hover { border-color: var(--accent); }
+  .ticket-type-badge {
+    background: rgba(214, 154, 78, 0.15);
+    color: var(--accent);
+    border: 1px solid rgba(214, 154, 78, 0.3);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
 
-.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 16px; }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    font-size: 12.5px;
+  }
 
-.type-badge { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; padding: 3px 9px; border-radius: 5px; text-transform: uppercase; margin-bottom: 10px; }
-.case-title { font-size: 19px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
-.case-no { font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
-.reason { font-size: 13px; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--border); padding-top: 14px; margin-top: 16px; white-space: pre-wrap; }
-.tag-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
-.tag-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 99px; }
-.tag-x { background: none; border: none; color: inherit; opacity: .6; cursor: pointer; font-size: 13px; line-height: 1; padding: 0; }
-.tag-x:hover { opacity: 1; }
-#tagAdder { background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); font-size: 11.5px; padding: 5px 8px; border-radius: 99px; font-family: inherit; }
-#tagAdder:focus { outline: none; border-color: var(--accent); }
-.meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px 18px; font-size: 12px; color: var(--faint); margin-top: 6px; }
-.meta-grid span b { display: block; color: var(--muted); font-weight: 600; margin-bottom: 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+  .meta-item {
+    color: var(--muted);
+  }
+  .meta-item strong {
+    display: block;
+    color: var(--faint);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
 
-.log { display: flex; flex-direction: column; gap: 2px; }
-.msg { display: flex; gap: 12px; padding: 10px; border-radius: 8px; }
-.msg:hover { background: rgba(255,255,255,0.02); }
-.avatar { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; color: #0a0c11; font-weight: 700; font-size: 12px; margin-top: 2px; }
-.msg .body { flex: 1; min-width: 0; }
-.line1 { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.author { color: var(--ink); font-weight: 700; font-size: 13px; }
-.time { color: var(--faint); font-size: 10.5px; font-family: 'IBM Plex Mono', monospace; }
-.content { color: var(--ink); font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; margin-top: 3px; }
-.content a { color: var(--accent); text-decoration: underline; }
-.attachments { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
-.attachments img { max-width: 320px; max-height: 260px; border-radius: 8px; border: 1px solid var(--border); display: block; }
-.attachments a.filelink { display: inline-block; font-size: 11.5px; border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; }
+  .chat-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  }
 
-.day-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0 8px; color: var(--faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; }
-.day-divider::before, .day-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .msg-row {
+    display: flex;
+    gap: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .msg-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
 
-.empty-state, .error-state { text-align: center; padding: 60px 20px; color: var(--faint); }
-.empty-state .icon, .error-state .icon { font-size: 22px; margin-bottom: 8px; display: block; }
-.error-state h2 { font-size: 15px; color: var(--muted); margin: 0 0 4px; font-weight: 700; }
-.error-state p { font-size: 12.5px; margin: 0; }
+  .msg-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--panel-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+    font-size: 14px;
+  }
 
-.opener-note { text-align: center; font-size: 11px; color: var(--faint); margin-top: 14px; }
+  .msg-content-wrap {
+    flex: 1;
+    min-width: 0;
+  }
 
-@media (max-width: 860px) {
-  .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
-  .sidebar.open { transform: translateX(0); }
-  .content-area { padding: 18px 16px 50px; }
-}
-@media (max-width: 520px) { .attachments img { max-width: 100%; } }
-@media print {
-  .sidebar, .top-actions, .opener-note { display: none; }
-  body { background: #fff; color: #111; }
-  .card, .msg:hover { background: transparent; }
-}
+  .msg-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .msg-author {
+    font-weight: 700;
+    font-size: 13.5px;
+    color: var(--ink);
+  }
+
+  .bot-tag {
+    background: #5865f2;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+
+  .msg-time {
+    font-size: 11px;
+    color: var(--faint);
+  }
+
+  .msg-text {
+    color: var(--muted);
+    line-height: 1.5;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+
+  .msg-attachment {
+    margin-top: 8px;
+  }
+  .msg-attachment img {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .access-denied-box {
+    min-height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+  .denied-card {
+    text-align: center;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--red);
+    padding: 40px 30px;
+    border-radius: 16px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  .denied-card h2 {
+    margin: 0 0 10px;
+    color: var(--red);
+    font-size: 20px;
+    font-weight: 800;
+  }
+  .denied-card p {
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.6;
+    margin: 0 0 20px;
+  }
+  .btn-login {
+    display: inline-block;
+    background: #5865f2;
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    transition: opacity .15s;
+  }
+  .btn-login:hover { opacity: .9; }
+
+  .footer-sub {
+    margin-top: 40px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+  }
 </style>
 </head>
 <body>
 
-{{BANNER_HTML}}
-
-<div class="app-shell">
-  <aside class="sidebar">
-    <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
-    <nav class="sidebar-nav" id="navTabs"></nav>
-    <div class="sidebar-footer">
-      <span class="session-line mono" id="sessionClock">session --:--</span>
-    </div>
-  </aside>
-
-  <main class="content-area">
-    <h1 class="page-title">Transcripts</h1>
-    <p class="page-sub">Only the ticket opener can view this transcript after signing in with Discord.</p>
-
-    <div class="top-actions">
-      <a href="/" class="back-link" id="backLink" style="display:none;">← Back to archive</a>
-      <div>
-        <button class="btn btn-ghost" id="copyLinkBtn">Copy link</button>
-        <button class="btn btn-ghost" onclick="window.print()">Print</button>
-      </div>
+  <div class="transcript-container">
+    <div id="transcriptContent">
+      <div style="text-align:center; padding: 60px; color: var(--faint);">Loading transcript history...</div>
     </div>
 
-    <div id="content">
-      <div class="empty-state"><span class="icon">📄</span>Pulling the file…</div>
+    <!-- Footer Notice -->
+    <div class="footer-sub">
+      <p style="margin: 0 0 6px;">If there are any bugs with the bot or website, be sure to reach out to <strong style="color: var(--accent);">golddoggo9866</strong>.</p>
+      <p style="margin: 0; opacity: 0.75;">© 2026 Izzyan Studios LLC. All Rights Reserved.</p>
     </div>
-    {{FOOTER_NOTE_HTML}}
-  </main>
-</div>
+  </div>
 
-<script src="/theme.js"></script>
-<script>
-RF.startSessionClock(document.getElementById('sessionClock'));
+  <script src="/theme.js"></script>
+  <script>
+    async function loadTranscript() {
+      const pathParts = window.location.pathname.split('/');
+      const ticketId = pathParts[pathParts.length - 1];
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token');
 
-async function initNav() {
-  if (!RF.getCookie('ticketAuth') && !RF.getCookie('discordAuth')) {
-    document.getElementById('navTabs').innerHTML = '';
-    return;
-  }
-  try {
-    const res = await fetch('/api/guild');
-    if (res.ok) {
-      const g = await res.json();
-      const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions?.allowedTabs : null;
-      document.getElementById('navTabs').innerHTML = RF.renderNav('/', allowedTabs);
-    } else {
-      document.getElementById('navTabs').innerHTML = RF.renderNav('/', null);
+      const endpoint = `/api/tickets/${encodeURIComponent(ticketId)}${token ? '?token=' + encodeURIComponent(token) : ''}`;
+
+      try {
+        const res = await fetch(endpoint);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          document.getElementById('transcriptContent').innerHTML = `
+            <div class="access-denied-box">
+              <div class="denied-card">
+                <h2>🔒 Access Restricted</h2>
+                <p>${RF.esc(errData.error || 'You are not authorized to view this ticket transcript.')}</p>
+                <a href="/login" class="btn-login">Sign in with Discord</a>
+              </div>
+            </div>
+          `;
+          return;
+        }
+
+        const data = await res.json();
+        renderTranscript(data);
+      } catch (err) {
+        document.getElementById('transcriptContent').innerHTML = `
+          <div style="text-align:center; color: var(--red); padding: 40px;">
+            Error loading transcript: ${RF.esc(err.message)}
+          </div>
+        `;
+      }
     }
-  } catch {
-    document.getElementById('navTabs').innerHTML = RF.renderNav('/', null);
-  }
-}
 
-document.getElementById('backLink').style.display = RF.getCookie('ticketAuth') ? 'inline-flex' : 'none';
-if (!RF.getCookie('ticketAuth') && !RF.getCookie('discordAuth')) {
-  document.getElementById('sessionClock').style.display = 'none';
-}
+    function renderTranscript(ticket) {
+      const messagesHtml = (ticket.messages || []).map(m => {
+        const authorInitial = (m.author || 'U').charAt(0).toUpperCase();
+        
+        let attachmentsHtml = '';
+        if (m.attachments && m.attachments.length) {
+          attachmentsHtml = m.attachments.map(a => {
+            if (a.contentType && a.contentType.startsWith('image/')) {
+              return `<div class="msg-attachment"><img src="${RF.esc(a.url)}" alt="attachment"></div>`;
+            }
+            return `<div class="msg-attachment"><a href="${RF.esc(a.url)}" target="_blank" style="color:var(--accent);">📁 View Attachment</a></div>`;
+          }).join('');
+        }
 
-document.getElementById('copyLinkBtn').addEventListener('click', () => {
-  const btn = document.getElementById('copyLinkBtn');
-  const original = btn.textContent;
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(window.location.href)
-      .then(() => { btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = original; }, 1500); })
-      .catch(() => { btn.textContent = 'Copy failed'; setTimeout(() => { btn.textContent = original; }, 1500); });
-  }
-});
+        return `
+          <div class="msg-row">
+            <div class="msg-avatar">${authorInitial}</div>
+            <div class="msg-content-wrap">
+              <div class="msg-header">
+                <span class="msg-author">${RF.esc(m.author)}</span>
+                ${m.isBot ? '<span class="bot-tag">BOT</span>' : ''}
+                <span class="msg-time mono">${m.timestamp ? new Date(m.timestamp).toLocaleString() : ''}</span>
+              </div>
+              <div class="msg-text">${RF.esc(m.content)}</div>
+              ${attachmentsHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
 
-function isImage(url, contentType) {
-  if (contentType && contentType.startsWith('image/')) return true;
-  return /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(url || '');
-}
+      document.getElementById('transcriptContent').innerHTML = `
+        <div class="header-card">
+          <div class="ticket-title-row">
+            <h1 class="ticket-title">Ticket Transcript <span class="mono" style="font-size:16px; color:var(--muted);">#${RF.esc(ticket.id.slice(-6))}</span></h1>
+            <span class="ticket-type-badge">${RF.esc(ticket.type || 'SUPPORT')}</span>
+          </div>
 
-let allTags = [];
-let currentTicketId = null;
-
-async function loadTags() {
-  if (!RF.getCookie('ticketAuth')) return;
-  try {
-    const res = await fetch('/api/guild');
-    if (res.ok) { const data = await res.json(); allTags = data.tags || []; }
-  } catch { /* tag editor just won't offer options if this fails */ }
-}
-
-async function load() {
-  const id = window.location.pathname.split('/').pop();
-  currentTicketId = id;
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get('token');
-  const url = token ? `/api/tickets/${encodeURIComponent(id)}?token=${encodeURIComponent(token)}` : `/api/tickets/${encodeURIComponent(id)}`;
-
-  await loadTags();
-
-  try {
-    const res = await fetch(url);
-    if (res.status === 401) {
-      document.getElementById('content').innerHTML = `<div class="card error-state"><span class="icon">🔒</span><h2>This link isn't valid</h2><p>The access code or link has expired. Contact staff for a new one.</p></div>`;
-      return;
-    }
-    if (!res.ok) {
-      document.getElementById('content').innerHTML = `<div class="card error-state"><span class="icon">🗄️</span><h2>Transcript not found</h2><p>This ticket may have been deleted from the archive.</p></div>`;
-      return;
-    }
-    render(await res.json());
-  } catch (err) {
-    document.getElementById('content').innerHTML = `<div class="card error-state"><span class="icon">⚠</span><h2>Could not load this transcript</h2><p>Refresh the page and try again.</p></div>`;
-  }
-}
-
-function renderTagSection(currentTagIds) {
-  const current = Array.isArray(currentTagIds) ? currentTagIds : [];
-  const chips = current.map(tagId => {
-    const tag = allTags.find(t => t.id === tagId);
-    if (!tag) return '';
-    const removeBtn = RF.getCookie('ticketAuth') ? `<button class="tag-x" onclick="removeTag('${tag.id}')">×</button>` : '';
-    return `<span class="tag-chip" style="background:${tag.color}22; color:${tag.color};">${RF.esc(tag.name)}${removeBtn}</span>`;
-  }).join('');
-
-  if (!RF.getCookie('ticketAuth')) {
-    return chips ? `<div class="tag-row">${chips}</div>` : '';
-  }
-
-  const available = allTags.filter(t => !current.includes(t.id));
-  const picker = available.length
-    ? `<select id="tagAdder" onchange="addTag(this.value); this.value='';">
-        <option value="">+ Add tag…</option>
-        ${available.map(t => `<option value="${t.id}">${RF.esc(t.name)}</option>`).join('')}
-      </select>`
-    : (allTags.length ? '' : `<a href="/tags" style="font-size:11.5px;color:var(--faint);">No tags yet — create one</a>`);
-
-  return `<div class="tag-row">${chips}${picker}</div>`;
-}
-
-async function saveTags(newTagIds) {
-  try {
-    const res = await fetch(`/api/tickets/${encodeURIComponent(currentTicketId)}/tags`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tagIds: newTagIds })
-    });
-    if (!res.ok) { alert('Could not update tags — try again.'); return; }
-    lastRenderedTicket.tags = newTagIds;
-    document.getElementById('tagSection').innerHTML = renderTagSection(newTagIds);
-  } catch { alert('Could not update tags — check your connection.'); }
-}
-
-function addTag(tagId) {
-  if (!tagId) return;
-  const current = Array.isArray(lastRenderedTicket.tags) ? lastRenderedTicket.tags : [];
-  if (current.includes(tagId)) return;
-  saveTags([...current, tagId]);
-}
-
-function removeTag(tagId) {
-  const current = Array.isArray(lastRenderedTicket.tags) ? lastRenderedTicket.tags : [];
-  saveTags(current.filter(id => id !== tagId));
-}
-
-let lastRenderedTicket = {};
-
-function render(t) {
-  lastRenderedTicket = t;
-  const color = RF.typeColor(t.type);
-  const header = `
-    <div class="card">
-      <span class="type-badge" style="background:${color}22; color:${color};">${RF.esc(t.type || 'TICKET')}</span>
-      <h2 class="case-title">${RF.esc(t.channelName || 'unnamed-ticket')}</h2>
-      <div class="case-no">CASE ${RF.esc((t.id || '').slice(-6))}</div>
-      <div class="meta-grid">
-        <span><b>Opened by</b>${RF.esc(t.openedBy || 'Unknown')}</span>
-        <span><b>Roblox user</b>${RF.esc(t.robloxUsername || '—')}</span>
-        <span><b>Claimed by</b>${RF.esc(t.claimedBy || '—')}</span>
-        <span><b>Closed by</b>${RF.esc(t.closedBy || 'Unknown')}</span>
-        <span><b>Opened</b>${RF.esc(t.openedAt || 'Recently')}</span>
-        <span><b>Closed</b>${RF.esc(t.closedAt || 'Recently')}</span>
-      </div>
-      <div id="tagSection">${renderTagSection(t.tags)}</div>
-      <div class="reason">${RF.esc(t.reason || 'No reason provided')}</div>
-    </div>
-  `;
-
-  const messages = Array.isArray(t.messages) ? t.messages : [];
-  if (!messages.length) {
-    document.getElementById('content').innerHTML = header + `<div class="card empty-state"><span class="icon">💬</span>No messages were recorded in this ticket.</div>`;
-    return;
-  }
-
-  let log = '';
-  for (const m of messages) {
-    const attachmentsHtml = (m.attachments || []).map(a =>
-      isImage(a.url, a.contentType)
-        ? `<a href="${RF.esc(a.url)}" target="_blank" rel="noopener"><img src="${RF.esc(a.url)}" loading="lazy" alt="attachment"></a>`
-        : `<a class="filelink" href="${RF.esc(a.url)}" target="_blank" rel="noopener">📎 Attachment</a>`
-    ).join('');
-    const embedImagesHtml = (m.embedImages || []).map(url =>
-      `<a href="${RF.esc(url)}" target="_blank" rel="noopener"><img src="${RF.esc(url)}" loading="lazy" alt="embed image"></a>`
-    ).join('');
-
-    log += `
-      <div class="msg">
-        <div class="avatar" style="background:${RF.typeColor(t.type)};">${RF.esc(m.author ? m.author.slice(0,2).toUpperCase() : '?')}</div>
-        <div class="body">
-          <div class="line1"><span class="author">${RF.esc(m.author || 'Unknown')}</span><span class="time">${RF.esc(m.timestamp)}</span></div>
-          ${m.content ? `<div class="content">${RF.esc(m.content)}</div>` : ''}
-          ${(attachmentsHtml || embedImagesHtml) ? `<div class="attachments">${attachmentsHtml}${embedImagesHtml}</div>` : ''}
+          <div class="meta-grid">
+            <div class="meta-item">
+              <strong>Opened By</strong>
+              ${RF.esc(ticket.openedBy || 'Unknown User')}
+            </div>
+            <div class="meta-item">
+              <strong>Claimed By</strong>
+              ${RF.esc(ticket.claimedBy || 'Unclaimed')}
+            </div>
+            <div class="meta-item">
+              <strong>Closed By</strong>
+              ${RF.esc(ticket.closedBy || 'System')}
+            </div>
+            <div class="meta-item">
+              <strong>Closed At</strong>
+              ${ticket.closedAt ? new Date(ticket.closedAt).toLocaleDateString() : '—'}
+            </div>
+          </div>
         </div>
-      </div>
-    `;
-  }
 
-  const openerNote = !RF.getCookie('ticketAuth')
-    ? `<div class="opener-note">This link only shows your own ticket — it doesn't unlock the full staff archive.</div>`
-    : '';
+        <div class="chat-box">
+          ${messagesHtml || '<div style="text-align:center; color:var(--faint); padding: 20px;">No message history stored for this ticket.</div>'}
+        </div>
+      `;
+    }
 
-  document.getElementById('content').innerHTML = header + `<div class="card"><div class="log">${log}</div></div>` + openerNote;
-}
-
-initNav();
-load();
-</script>
+    loadTranscript();
+  </script>
 </body>
 </html>
