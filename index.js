@@ -537,8 +537,17 @@ function requireModerationCapability(req, res, next) {
 // ---------------------------------------------------------------------------
 // EXPRESS WEB SERVER
 // ---------------------------------------------------------------------------
+const http = require('http');
+const { Server } = require('socket.io');
+
 const app = express();
 app.use(express.json());
+
+// Wrap Express with HTTP server for Socket.io
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: { origin: '*', methods: ['GET', 'POST'] }
+});
 
 function parseCookies(req) {
     const header = req.headers.cookie;
@@ -2046,8 +2055,9 @@ app.use((req, res) => {
     res.json({ error: 'Page Not Found' });
 });
 
-app.listen(process.env.PORT || 3002, () => {
-    console.log(`🌐 Web Dashboard running at ${getWebsiteUrl()} (locked with access code)`);
+// ✅ NEW (REPLACE WITH THIS)
+server.listen(process.env.PORT || 3002, () => {
+    console.log(`🌐 Real-time Web Dashboard running at ${getWebsiteUrl()} (locked with access code)`);
 });
 
 // ---------------------------------------------------------------------------

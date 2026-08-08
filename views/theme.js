@@ -1,11 +1,36 @@
 (function () {
     window.RF = window.RF || {};
 
-    // Inject Global Badge, Loader & Toast Styles
+    // Inject Global Badge, Glassmorphism, Loader, Toast & Scrollbar Styles
     if (!document.getElementById('rf-theme-styles')) {
         const style = document.createElement('style');
         style.id = 'rf-theme-styles';
         style.textContent = `
+            /* Glassmorphism Panels & Modern Aesthetics */
+            .card, .login-card, .sidebar, .art-hero-container {
+                background: rgba(15, 18, 26, 0.75) !important;
+                backdrop-filter: blur(16px) !important;
+                -webkit-backdrop-filter: blur(16px) !important;
+                border: 1px solid rgba(255, 255, 255, 0.08) !important;
+                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45) !important;
+            }
+
+            /* Interactive Hover Glows */
+            .feature-card, .nav-item, .btn {
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            }
+            .feature-card:hover, .card:hover {
+                border-color: rgba(214, 154, 78, 0.35) !important;
+                box-shadow: 0 8px 24px rgba(214, 154, 78, 0.12) !important;
+            }
+
+            /* Sleek Custom Scrollbars */
+            ::-webkit-scrollbar { width: 6px; height: 6px; }
+            ::-webkit-scrollbar-track { background: #0a0c11; }
+            ::-webkit-scrollbar-thumb { background: #262b3a; border-radius: 4px; }
+            ::-webkit-scrollbar-thumb:hover { background: #d69a4e; }
+
+            /* Badges & Indicators */
             .badge-beta {
                 display: inline-flex !important;
                 align-items: center !important;
@@ -85,6 +110,34 @@
                 0%, 80%, 100% { transform: scale(0.4); opacity: 0.3; }
                 40% { transform: scale(1.2); opacity: 1; }
             }
+
+            /* Toast Stack & Animations */
+            #toastStack {
+                position: fixed;
+                top: 18px;
+                right: 18px;
+                z-index: 9999;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                max-width: 340px;
+            }
+            .toast {
+                background: var(--panel, #141722);
+                border: 1px solid var(--border, #262b3a);
+                border-left: 4px solid var(--green, #22c55e);
+                border-radius: 8px;
+                padding: 12px 16px;
+                font-size: 13px;
+                color: var(--ink, #e7e9ee);
+                box-shadow: 0 12px 34px rgba(0,0,0,0.5);
+                animation: toastin 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            }
+            .toast.error { border-left-color: var(--red, #ef4444); }
+            .toast .toast-title { font-weight: 800; margin-bottom: 2px; }
+            .toast.fading { animation: toastout 0.25s forwards; }
+            @keyframes toastin { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+            @keyframes toastout { to { opacity: 0; transform: translateX(30px); } }
         `;
         document.head.appendChild(style);
     }
@@ -179,6 +232,34 @@
         if (t.includes('MANAGEMENT')) return '#5865f2';
         if (t.includes('REDFIELD') || t.includes('SUPPORT')) return '#2ecc71';
         return '#d69a4e';
+    };
+
+    // Audio Chime & Desktop Notification Engine
+    RF.playChime = function () {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+            gain.gain.setValueAtTime(0.08, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.3);
+        } catch (e) {}
+    };
+
+    RF.notifyDesktop = function (title, body) {
+        if (!("Notification" in window)) return;
+        if (Notification.permission === "granted") {
+            new Notification(title, { body, icon: '/favicon.ico' });
+        } else if (Notification.permission !== "denied") {
+            Notification.requestPermission().then(perm => {
+                if (perm === "granted") new Notification(title, { body, icon: '/favicon.ico' });
+            });
+        }
     };
 
     // Sidebar Icons
