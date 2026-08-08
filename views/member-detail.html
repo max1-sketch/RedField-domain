@@ -335,7 +335,7 @@ function render() {
     ${canAdmin ? `
     <div class="card">
       <div class="card-header"><h2>Staff Access Controls<span class="badge-new">NEW</span></h2></div>
-      <p class="restrict-note">Lock this member down independently of their roles — this stacks on top of Dashboard Access above. A full ban instantly kills any session they already have open. These only affect Discord-login sessions; the shared access code has no per-user identity to restrict.</p>
+      <p class="restrict-note">Override standard role permissions to restrict web access or ticketing for this user.</p>
       <div class="restrict-grid">
         <label class="checkbox-card"><input type="checkbox" id="r-loginBlocked" ${restr.loginBlocked ? 'checked' : ''}> Block sign-in</label>
         <label class="checkbox-card"><input type="checkbox" id="r-siteBanned" ${restr.siteBanned ? 'checked' : ''}> Ban from website entirely</label>
@@ -359,7 +359,7 @@ function render() {
       </div>
       <div class="field" style="margin-top:14px;">
         <label>Reason</label>
-        <input type="text" id="r-reason" maxlength="300" value="${RF.esc(restr.reason || '')}" placeholder="Why is this member being restricted?">
+        <input type="text" id="r-reason" maxlength="300" value="${RF.esc(restr.reason || '')}" placeholder="Enter restriction reason...">
       </div>
       <div class="action-row" style="margin-top:14px;">
         <button class="btn btn-accent" id="saveRestrictionsBtn">Save restrictions</button>
@@ -424,7 +424,7 @@ function render() {
           <option value="note">Note</option>
           <option value="warning">Warning</option>
         </select>
-        <input type="text" id="noteContent" placeholder="What happened…" maxlength="500">
+        <input type="text" id="noteContent" placeholder="Add details about this note..." maxlength="500">
         <button class="btn btn-accent" id="addNoteBtn">Add</button>
       </div>
       <div id="notesList"></div>

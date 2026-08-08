@@ -87,7 +87,7 @@ tbody tr:last-child td { border-bottom: none; }
         <h2>Your Duty Status</h2>
         <div id="myDutyBadge" class="status-badge off">Off Duty</div>
       </div>
-      <p style="color:var(--muted); margin: 0 0 16px;">Toggle your duty status on or off to let the team know when you're available for tickets.</p>
+      <p style="color:var(--muted); margin: 0 0 16px;">Track team activity and toggle your availability for support tickets.</p>
       <button class="btn btn-accent" id="toggleDutyBtn" onclick="toggleDuty()">Go On Duty</button>
     </div>
 
@@ -135,7 +135,7 @@ async function loadRoster() {
     if (!res.ok) return;
     const data = await res.json();
     isOnDuty = Boolean(data.myStatus?.onDuty);
-    
+
     // Update duty toggle UI
     const badge = document.getElementById('myDutyBadge');
     const btn = document.getElementById('toggleDutyBtn');
@@ -173,19 +173,13 @@ async function loadRoster() {
 
 async function toggleDuty() {
   const btn = document.getElementById('toggleDutyBtn');
-  btn.disabled = true;
-  try {
+  await RF.withLoader(btn, async () => {
     const res = await fetch('/api/shifts/toggle', { method: 'POST' });
-    if (res.ok) {
-      await loadRoster();
-    } else {
-      alert('Could not update duty status.');
+    if (!res.ok) {
+      throw new Error('Could not update duty status.');
     }
-  } catch {
-    alert('Network error — try again.');
-  } finally {
-    btn.disabled = false;
-  }
+    await loadRoster();
+  }, 'Duty status updated!');
 }
 
 initNav();

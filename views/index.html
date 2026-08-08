@@ -25,7 +25,7 @@
   body { min-height: 100vh; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
   a { color: inherit; text-decoration: none; }
   .mono { font-family: 'IBM Plex Mono', monospace; }
-  
+
   .site-banner { background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; }
 
   .app-shell { display: flex; min-height: 100vh; }
@@ -44,7 +44,7 @@
 
   .content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 1200px; }
 
-  /* Upgraded 3D Cyber Core Art Banner */
+  /* 3D Cyber Core Art Banner */
   .art-hero-container {
     background: linear-gradient(135deg, rgba(20, 23, 34, 0.95), rgba(13, 15, 22, 0.98));
     border: 1px solid var(--border);
@@ -153,8 +153,8 @@
   tbody td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 13px; }
   tbody tr:hover { background: rgba(255,255,255,0.02); }
   tbody tr:last-child td { border-bottom: none; }
-  
-  .btn-view { background: var(--panel-2); border: 1px solid var(--border); color: var(--ink); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+
+  .btn-view { background: var(--panel-2); border: 1px solid var(--border); color: var(--ink); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; transition: border-color 0.15s, color 0.15s; }
   .btn-view:hover { border-color: var(--accent); color: var(--accent); }
 </style>
 </head>
@@ -173,7 +173,7 @@
   </aside>
 
   <main class="content-area">
-    <!-- Live 3D Hero Art Banner -->
+    <!-- Hero Art Banner -->
     <div class="art-hero-container">
       <div class="art-canvas-wrap">
         <div class="cyber-core">
@@ -189,13 +189,13 @@
           </div>
         </div>
       </div>
-      
+
       <div class="hero-text-wrap">
         <div class="hero-badge-row">
           <span class="system-status"><span class="status-pulse"></span> System Online</span>
         </div>
         <h1 class="bot-3d-title">{{SITE_TITLE}}</h1>
-        <p class="bot-credits">Engineered &amp; Developed by <span class="creator-tag">Max-Golddoggo9866</span></p>
+        <p class="bot-credits">Built by <span class="creator-tag">Max-Golddoggo9866</span></p>
       </div>
     </div>
 
@@ -229,7 +229,10 @@
 
 <script src="/theme.js"></script>
 <script>
-RF.startSessionClock(document.getElementById('sessionClock'));
+// Safely run session clock
+if (typeof RF !== 'undefined' && typeof RF.startSessionClock === 'function') {
+  RF.startSessionClock(document.getElementById('sessionClock'));
+}
 
 let allTickets = [];
 
@@ -237,13 +240,26 @@ async function initNav() {
   try {
     const res = await fetch('/api/guild');
     const g = res.ok ? await res.json() : {};
-    const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions?.allowedTabs : null;
-    document.getElementById('navTabs').innerHTML = RF.renderNav('/', allowedTabs);
+
+    // Only apply tab filtering for standard staff roles; Admins and Master logins see ALL tabs
+    let allowedTabs = null;
+    if (g.viewerTier === 'staff' && g.staffPermissions && Array.isArray(g.staffPermissions.allowedTabs)) {
+      allowedTabs = g.staffPermissions.allowedTabs;
+    }
+
+    if (typeof RF !== 'undefined' && typeof RF.renderNav === 'function') {
+      document.getElementById('navTabs').innerHTML = RF.renderNav('/', allowedTabs);
+    }
   } catch {
-    document.getElementById('navTabs').innerHTML = RF.renderNav('/', null);
+    if (typeof RF !== 'undefined' && typeof RF.renderNav === 'function') {
+      document.getElementById('navTabs').innerHTML = RF.renderNav('/', null);
+    }
   }
+
   const logoutIconEl = document.getElementById('logoutIcon');
-  if (logoutIconEl && RF.ICONS?.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
+  if (logoutIconEl && typeof RF !== 'undefined' && RF.ICONS && RF.ICONS.logout) {
+    logoutIconEl.innerHTML = RF.ICONS.logout;
+  }
 }
 
 async function loadTickets() {
@@ -264,25 +280,30 @@ function renderTickets(list) {
     return;
   }
 
-  tbody.innerHTML = list.map(t => `
-    <tr>
-      <td class="mono" style="font-weight:600;">#${RF.esc(t.id.slice(-6))}</td>
-      <td><strong>${RF.esc(t.openedBy)}</strong></td>
-      <td><span style="color:var(--accent); font-weight:600;">${RF.esc(t.type)}</span></td>
-      <td>${RF.esc(t.closedBy || 'System')}</td>
-      <td style="color:var(--muted);">${t.closedAt ? new Date(t.closedAt).toLocaleDateString() : '—'}</td>
-      <td style="text-align:right;">
-        <a href="/transcript/${t.id}${t.accessToken ? '?token=' + t.accessToken : ''}" class="btn-view">View Transcript</a>
-      </td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = list.map(t => {
+    const esc = (typeof RF !== 'undefined' && typeof RF.esc === 'function') ? RF.esc : str => str || '';
+    const tokenQuery = t.accessToken ? '?token=' + t.accessToken : '';
+
+    return `
+      <tr>
+        <td class="mono" style="font-weight:600;">#${esc(t.id.slice(-6))}</td>
+        <td><strong>${esc(t.openedBy)}</strong></td>
+        <td><span style="color:var(--accent); font-weight:600;">${esc(t.type)}</span></td>
+        <td>${esc(t.closedBy || 'System')}</td>
+        <td style="color:var(--muted);">${t.closedAt ? new Date(t.closedAt).toLocaleDateString() : '—'}</td>
+        <td style="text-align:right;">
+          <a href="/transcript/${t.id}${tokenQuery}" class="btn-view">View Transcript</a>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
 function filterTickets() {
   const query = document.getElementById('searchInput').value.toLowerCase().trim();
   if (!query) return renderTickets(allTickets);
 
-  const filtered = allTickets.filter(t => 
+  const filtered = allTickets.filter(t =>
     (t.id && t.id.toLowerCase().includes(query)) ||
     (t.openedBy && t.openedBy.toLowerCase().includes(query)) ||
     (t.reason && t.reason.toLowerCase().includes(query)) ||

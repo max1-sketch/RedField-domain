@@ -1,175 +1,466 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{SITE_TITLE}} — Feedback</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{SITE_TITLE}} — Feedback</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
-:root {
-  --accent: {{ACCENT_COLOR}};
-  --bg-0: #0a0c11;
-  --sidebar-bg: #0d0f16;
-  --panel: #141722;
-  --panel-2: #1a1e2b;
-  --border: #262b3a;
-  --ink: #e7e9ee;
-  --muted: #9199a8;
-  --faint: #5b6272;
-  --red: #ef4444;
-  --green: #22c55e;
-  --amber: #f59e0b;
-}
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
-body { min-height: 100vh; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
-a { color: inherit; text-decoration: none; }
-.mono { font-family: 'IBM Plex Mono', monospace; }
-.site-banner { background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; }
+    :root {
+      --accent: {
+          {
+          ACCENT_COLOR
+        }
+      }
 
-.app-shell { display: flex; min-height: 100vh; }
-.sidebar { width: 250px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
-.sidebar-brand { display: flex; align-items: center; gap: 10px; background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px; margin-bottom: 18px; line-height: 1.25; }
-.sidebar-brand .dot { width: 8px; height: 8px; border-radius: 50%; background: #0a0c11; flex-shrink: 0; opacity: .55; }
-nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
-.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); font-size: 13.5px; font-weight: 500; }
-.nav-item:hover { background: var(--panel-2); color: var(--ink); }
-.nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
-.nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
-.nav-item .ic svg { width: 100%; height: 100%; }
-.nav-item.active .ic { opacity: 1; }
-.badge-beta { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b44; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: auto; text-transform: uppercase; }
+      ;
+      --bg-0: #0a0c11;
+      --sidebar-bg: #0d0f16;
+      --panel: #141722;
+      --panel-2: #1a1e2b;
+      --border: #262b3a;
+      --ink: #e7e9ee;
+      --muted: #9199a8;
+      --faint: #5b6272;
+      --red: #ef4444;
+      --green: #22c55e;
+      --amber: #f59e0b;
+    }
 
-.sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
-.session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
-.session-line.warn { color: var(--red); }
+    * {
+      box-sizing: border-box;
+    }
 
-.content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 1100px; }
-.page-title { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
-.page-sub { font-size: 13px; color: var(--muted); margin: 0 0 22px; }
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+    }
 
-.summary-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
-.summary-card { flex: 1; min-width: 180px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; }
-.summary-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); font-weight: 600; margin-bottom: 8px; }
-.summary-card .value { font-size: 28px; font-weight: 800; color: var(--ink); }
-.summary-card .value.stars { color: var(--amber); }
-.star-bar { display: flex; gap: 2px; margin-top: 6px; }
+    body {
+      min-height: 100vh;
+      background: var(--bg-0);
+      color: var(--ink);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+    }
 
-.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; }
-.card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 18px 20px; border-bottom: 1px solid var(--border); }
-.card-header h2 { font-size: 15.5px; font-weight: 700; color: var(--ink); margin: 0; }
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
 
-table { width: 100%; border-collapse: collapse; }
-thead th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); font-weight: 600; padding: 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
-tbody td { padding: 12px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 13px; }
-tbody tr:last-child td { border-bottom: none; }
-tbody tr:hover { background: rgba(255,255,255,0.02); }
-.cell-main { color: var(--ink); font-weight: 600; }
-.cell-muted { color: var(--muted); }
-.rating-stars { color: var(--amber); letter-spacing: 2px; }
-.rating-stars .dim { color: var(--border); }
+    .mono {
+      font-family: 'IBM Plex Mono', monospace;
+    }
 
-.empty-row td { text-align: center; padding: 50px 20px; color: var(--faint); }
-.empty-row .icon { font-size: 22px; margin-bottom: 8px; display: block; }
-.empty-row h3 { font-size: 14px; color: var(--muted); margin: 0 0 4px; font-weight: 600; }
-.empty-row p { font-size: 12.5px; margin: 0; }
+    .site-banner {
+      background: var(--accent);
+      color: #0a0c11;
+      font-weight: 700;
+      font-size: 12.5px;
+      text-align: center;
+      padding: 9px 16px;
+    }
 
-@media (max-width: 860px) {
-  .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
-  .sidebar.open { transform: translateX(0); }
-  .content-area { padding: 18px 16px 50px; }
-}
-</style>
+    .app-shell {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 250px;
+      flex-shrink: 0;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      padding: 18px 14px;
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .sidebar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--accent);
+      color: #0a0c11;
+      padding: 13px 15px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 14.5px;
+      margin-bottom: 18px;
+      line-height: 1.25;
+    }
+
+    .sidebar-brand .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #0a0c11;
+      flex-shrink: 0;
+      opacity: .55;
+    }
+
+    nav.sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 13px;
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 13.5px;
+      font-weight: 500;
+    }
+
+    .nav-item:hover {
+      background: var(--panel-2);
+      color: var(--ink);
+    }
+
+    .nav-item.active {
+      background: var(--accent);
+      color: #0a0c11;
+      font-weight: 700;
+    }
+
+    .nav-item .ic {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      display: inline-flex;
+      opacity: .85;
+    }
+
+    .nav-item .ic svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .nav-item.active .ic {
+      opacity: 1;
+    }
+
+    .badge-beta {
+      background: #f59e0b22;
+      color: #f59e0b;
+      border: 1px solid #f59e0b44;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: auto;
+      text-transform: uppercase;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .session-line {
+      padding: 0 13px;
+      font-size: 11px;
+      color: var(--faint);
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .session-line.warn {
+      color: var(--red);
+    }
+
+    .content-area {
+      flex: 1;
+      min-width: 0;
+      padding: 26px 30px 60px;
+      max-width: 1100px;
+    }
+
+    .page-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--ink);
+      margin: 0 0 4px;
+    }
+
+    .page-sub {
+      font-size: 13px;
+      color: var(--muted);
+      margin: 0 0 22px;
+    }
+
+    .summary-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .summary-card {
+      flex: 1;
+      min-width: 180px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 22px;
+    }
+
+    .summary-card .label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--faint);
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .summary-card .value {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+
+    .summary-card .value.stars {
+      color: var(--amber);
+    }
+
+    .star-bar {
+      display: flex;
+      gap: 2px;
+      margin-top: 6px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 16px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-header h2 {
+      font-size: 15.5px;
+      font-weight: 700;
+      color: var(--ink);
+      margin: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      text-align: left;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--faint);
+      font-weight: 600;
+      padding: 10px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    tbody td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+      font-size: 13px;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .cell-main {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    .cell-muted {
+      color: var(--muted);
+    }
+
+    .rating-stars {
+      color: var(--amber);
+      letter-spacing: 2px;
+    }
+
+    .rating-stars .dim {
+      color: var(--border);
+    }
+
+    .empty-row td {
+      text-align: center;
+      padding: 50px 20px;
+      color: var(--faint);
+    }
+
+    .empty-row .icon {
+      font-size: 22px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .empty-row h3 {
+      font-size: 14px;
+      color: var(--muted);
+      margin: 0 0 4px;
+      font-weight: 600;
+    }
+
+    .empty-row p {
+      font-size: 12.5px;
+      margin: 0;
+    }
+
+    @media (max-width: 860px) {
+      .sidebar {
+        position: fixed;
+        z-index: 40;
+        transform: translateX(-100%);
+        transition: transform .2s ease;
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      .content-area {
+        padding: 18px 16px 50px;
+      }
+    }
+  </style>
 </head>
+
 <body>
 
-{{BANNER_HTML}}
+  {{BANNER_HTML}}
 
-<div class="app-shell">
-  <aside class="sidebar">
-    <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
-    <nav class="sidebar-nav" id="navTabs"></nav>
-    <div class="sidebar-footer">
-      <span class="session-line mono" id="sessionClock">session --:--</span>
-      <a href="/logout" class="nav-item"><span class="ic" id="logoutIcon"></span> Log out</a>
-    </div>
-  </aside>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
+      <nav class="sidebar-nav" id="navTabs"></nav>
+      <div class="sidebar-footer">
+        <span class="session-line mono" id="sessionClock">session --:--</span>
+        <a href="/logout" class="nav-item"><span class="ic" id="logoutIcon"></span> Log out</a>
+      </div>
+    </aside>
 
-  <main class="content-area">
-    <h1 class="page-title">Feedback</h1>
-    <p class="page-sub">Star ratings submitted by ticket openers after their ticket closed.</p>
+    <main class="content-area">
+      <h1 class="page-title">Feedback</h1>
+      <p class="page-sub">Customer ratings and reviews submitted upon ticket closure.</p>
 
-    <div class="summary-row" id="summaryRow"></div>
+      <div class="summary-row" id="summaryRow"></div>
 
-    <div class="card" style="overflow-x:auto;">
-      <div class="card-header"><h2>All ratings</h2></div>
-      <table>
-        <thead><tr><th>Rating</th><th>User</th><th>Ticket</th><th>Submitted</th></tr></thead>
-        <tbody id="tbody">
-          <tr class="empty-row"><td colspan="4">Loading…</td></tr>
-        </tbody>
-      </table>
-    </div>
-    {{FOOTER_NOTE_HTML}}
-  </main>
-</div>
+      <div class="card" style="overflow-x:auto;">
+        <div class="card-header">
+          <h2>All ratings</h2>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Rating</th>
+              <th>User</th>
+              <th>Ticket</th>
+              <th>Submitted</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr class="empty-row">
+              <td colspan="4">Loading…</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {{FOOTER_NOTE_HTML}}
+    </main>
+  </div>
 
-<script src="/theme.js"></script>
-<script>
-RF.startSessionClock(document.getElementById('sessionClock'));
+  <script src="/theme.js"></script>
+  <script>
+    RF.startSessionClock(document.getElementById('sessionClock'));
 
-function starString(rating, dim) {
-  const full = '★'.repeat(rating);
-  const empty = dim ? `<span class="dim">${'★'.repeat(5 - rating)}</span>` : '';
-  return `<span class="rating-stars">${full}${empty}</span>`;
-}
-
-async function initNav() {
-  try {
-    const res = await fetch('/api/guild');
-    if (res.ok) {
-      const g = await res.json();
-      const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions?.allowedTabs : null;
-      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, allowedTabs);
-    } else {
-      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
+    function starString(rating, dim) {
+      const full = '★'.repeat(rating);
+      const empty = dim ? `<span class="dim">${'★'.repeat(5 - rating)}</span>` : '';
+      return `<span class="rating-stars">${full}${empty}</span>`;
     }
-  } catch {
-    document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
-  }
-  const logoutIconEl = document.getElementById('logoutIcon');
-  if (logoutIconEl && RF.ICONS?.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
-}
 
-async function load() {
-  try {
-    const res = await fetch('/api/feedback');
-    if (res.status === 401) { window.location.reload(); return; }
-    if (!res.ok) {
-      document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="4">Couldn't load feedback.</td></tr>`;
-      return;
+    async function initNav() {
+      try {
+        const res = await fetch('/api/guild');
+        if (res.ok) {
+          const g = await res.json();
+          const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions?.allowedTabs : null;
+          document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, allowedTabs);
+        } else {
+          document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
+        }
+      } catch {
+        document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
+      }
+      const logoutIconEl = document.getElementById('logoutIcon');
+      if (logoutIconEl && RF.ICONS?.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
     }
-    const entries = await res.json();
-    renderSummary(entries);
-    renderTable(entries);
-  } catch {
-    document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="4">Couldn't reach the server.</td></tr>`;
-  }
-}
 
-function renderSummary(entries) {
-  const row = document.getElementById('summaryRow');
-  if (!entries.length) {
-    row.innerHTML = `
+    async function load() {
+      try {
+        const res = await fetch('/api/feedback');
+        if (res.status === 401) { window.location.reload(); return; }
+        if (!res.ok) {
+          document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="4">Couldn't load feedback.</td></tr>`;
+          return;
+        }
+        const entries = await res.json();
+        renderSummary(entries);
+        renderTable(entries);
+      } catch {
+        document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="4">Couldn't reach the server.</td></tr>`;
+      }
+    }
+
+    function renderSummary(entries) {
+      const row = document.getElementById('summaryRow');
+      if (!entries.length) {
+        row.innerHTML = `
       <div class="summary-card"><div class="label">Average rating</div><div class="value stars">—</div></div>
       <div class="summary-card"><div class="label">Total reviews</div><div class="value">0</div></div>
     `;
-    return;
-  }
-  const avg = entries.reduce((sum, e) => sum + e.rating, 0) / entries.length;
-  const rounded = Math.round(avg);
-  row.innerHTML = `
+        return;
+      }
+      const avg = entries.reduce((sum, e) => sum + e.rating, 0) / entries.length;
+      const rounded = Math.round(avg);
+      row.innerHTML = `
     <div class="summary-card">
       <div class="label">Average rating</div>
       <div class="value stars">${avg.toFixed(1)} / 5.0</div>
@@ -177,15 +468,15 @@ function renderSummary(entries) {
     </div>
     <div class="summary-card"><div class="label">Total reviews</div><div class="value">${entries.length}</div></div>
   `;
-}
+    }
 
-function renderTable(entries) {
-  const tbody = document.getElementById('tbody');
-  if (!entries.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="4"><span class="icon">⭐</span><h3>No feedback yet</h3><p>Ratings show up here once ticket openers rate their support experience.</p></td></tr>`;
-    return;
-  }
-  tbody.innerHTML = entries.map(e => `
+    function renderTable(entries) {
+      const tbody = document.getElementById('tbody');
+      if (!entries.length) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="4"><span class="icon">⭐</span><h3>No feedback yet</h3><p>Ratings show up here once ticket openers rate their support experience.</p></td></tr>`;
+        return;
+      }
+      tbody.innerHTML = entries.map(e => `
     <tr>
       <td>${starString(e.rating, true)}</td>
       <td class="cell-main">${RF.esc(e.userTag)}</td>
@@ -193,10 +484,11 @@ function renderTable(entries) {
       <td class="cell-muted">${RF.fmtDateTime(e.at)}</td>
     </tr>
   `).join('');
-}
+    }
 
-initNav();
-load();
-</script>
+    initNav();
+    load();
+  </script>
 </body>
+
 </html>

@@ -132,14 +132,14 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
   <main class="content-area" id="main">
     <h1 class="page-title">Server Configs</h1>
     <div class="loading-line" id="loading">Reading server roles and channels…</div>
-    
+
     <div id="content" style="display:none;">
       <p class="page-sub">Managing <b id="guildNameText"></b></p>
 
       <!-- Roles Section -->
       <div class="card">
         <div class="card-header"><h2>Roles &amp; Tiers</h2></div>
-        <p class="card-sub">Pick what each role can do. Admins can do everything staff can, plus they're the only ones who can use this Server Configs tab.</p>
+        <p class="card-sub">Configure permissions and access levels for server roles.</p>
 
         <div class="owner-row"><span class="owner-badge">Owner</span> <span id="ownerText"></span> <span style="color:var(--faint)">— always full access, can't be changed here</span></div>
 
@@ -165,7 +165,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
       <!-- Staff Dashboard Permissions -->
       <div class="card">
         <div class="card-header"><h2>Staff Dashboard Permissions (Admin Only)</h2></div>
-        <p class="card-sub">Choose which dashboard tabs Staff members can see, and whether they are allowed to perform moderation actions.</p>
+        <p class="card-sub">Select feature visibility and permissions for staff.</p>
 
         <div style="font-weight: 600; font-size: 12px; color: var(--ink); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em;">Visible Tabs for Staff</div>
         <div class="perm-grid" id="permGrid"></div>
@@ -185,7 +185,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
       <!-- Categories Section -->
       <div class="card">
         <div class="card-header"><h2>Ticket Categories</h2></div>
-        <p class="card-sub">Which Discord category each ticket type gets created under. Pick an existing one or type a new name.</p>
+        <p class="card-sub">Assign Discord categories to ticket types.</p>
         <div id="catGrid"></div>
         <div class="panel-actions">
           <button class="btn btn-accent" id="saveCatBtn" onclick="saveCategories(this)">Save categories</button>
@@ -252,10 +252,10 @@ async function load() {
       return;
     }
     guildData = await res.json();
-    
+
     document.getElementById('guildNameText').textContent = guildData.guildName || 'Server';
     document.getElementById('ownerText').textContent = guildData.ownerTag || guildData.ownerId || 'Server Owner';
-    
+
     renderRoles();
     renderPermissions();
     renderCategories();
@@ -299,7 +299,7 @@ function renderPermissions() {
   const perms = guildData.staffPermissions || { allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'moderation', 'lookup', 'blacklist'], canModerate: true };
   const allowed = perms.allowedTabs || [];
   const tabs = ['archive', 'tickets', 'panels', 'tags', 'moderation', 'lookup', 'blacklist', 'quickwords', 'feedback'];
-  
+
   grid.innerHTML = tabs.map(t => `
     <label class="checkbox-card">
       <input type="checkbox" class="tab-perm" value="${t}" ${allowed.includes(t) ? 'checked' : ''}>
@@ -314,7 +314,7 @@ function renderCategories() {
   const grid = document.getElementById('catGrid');
   if (!guildData.panels) return;
   const catNames = (guildData.categories || []).map(c => c.name.toUpperCase());
-  
+
   grid.innerHTML = Object.entries(guildData.panels).map(([typeKey, panel]) => {
     const current = (panel.categoryName || '').toUpperCase();
     const options = [...new Set([current, ...catNames])].filter(Boolean);
@@ -331,10 +331,20 @@ function renderCategories() {
   }).join('');
 
   grid.querySelectorAll('.cat-select').forEach(sel => {
-    sel.addEventListener('change', () => {
+    sel.addEventListener('change', async () => {
       const input = grid.querySelector(`.cat-new-input[data-type="${sel.getAttribute('data-type')}"]`);
-      input.style.display = sel.value === '__new__' ? 'block' : 'none';
-      if (sel.value === '__new__') input.focus();
+      if (sel.value === '__new__') {
+        const newCat = await RF.promptModal({ title: 'New Category', placeholder: 'Enter category name...' });
+        if (newCat) {
+          input.value = newCat;
+          input.style.display = 'block';
+        } else {
+          sel.value = '';
+          input.style.display = 'none';
+        }
+      } else {
+        input.style.display = 'none';
+      }
     });
   });
 }
@@ -343,7 +353,7 @@ async function withButtonLoading(btn, actionFn) {
   const originalText = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<span class="dot-loader"><span></span><span></span><span></span></span>';
-  
+
   const startTime = Date.now();
   let error = null;
 
@@ -374,7 +384,7 @@ async function saveRoles(btn) {
   });
 
   try {
-    await withButtonLoading(btn, async () => {
+    await RF.withLoader(btn, async () => {
       const res = await fetch('/api/guild/roles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -386,12 +396,14 @@ async function saveRoles(btn) {
       }
       guildData.staffRoleIds = staffRoleIds;
       guildData.adminRoleIds = adminRoleIds;
-    });
-
-    flashStatus('rolesStatus');
-    notify('Roles saved successfully!');
+      flashStatus('rolesStatus');
+    }, 'Roles saved successfully!');
   } catch (err) {
-    notify('Failed to save roles: ' + err.message, false);
+    if (window.RF && window.RF.showToast) {
+      RF.showToast('Failed to save roles: ' + err.message, 'error');
+    } else {
+      notify('Failed to save roles: ' + err.message, false);
+    }
   }
 }
 
@@ -400,7 +412,7 @@ async function savePermissions(btn) {
   const canModerate = document.getElementById('canModerateCheck').checked;
 
   try {
-    await withButtonLoading(btn, async () => {
+    await RF.withLoader(btn, async () => {
       const res = await fetch('/api/guild/permissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -412,12 +424,14 @@ async function savePermissions(btn) {
       }
       const data = await res.json();
       guildData.staffPermissions = data.staffPermissions;
-    });
-
-    flashStatus('permsStatus');
-    notify('Permissions saved successfully!');
+      flashStatus('permsStatus');
+    }, 'Permissions saved successfully!');
   } catch (err) {
-    notify('Failed to save permissions: ' + err.message, false);
+    if (window.RF && window.RF.showToast) {
+      RF.showToast('Failed to save permissions: ' + err.message, 'error');
+    } else {
+      notify('Failed to save permissions: ' + err.message, false);
+    }
   }
 }
 
@@ -431,7 +445,7 @@ async function saveCategories(btn) {
   });
 
   try {
-    await withButtonLoading(btn, async () => {
+    await RF.withLoader(btn, async () => {
       const res = await fetch('/api/guild/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -441,13 +455,15 @@ async function saveCategories(btn) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
-    });
-
-    flashStatus('catStatus');
-    notify('Categories saved successfully!');
-    load();
+      flashStatus('catStatus');
+      load();
+    }, 'Categories saved successfully!');
   } catch (err) {
-    notify('Failed to save categories: ' + err.message, false);
+    if (window.RF && window.RF.showToast) {
+      RF.showToast('Failed to save categories: ' + err.message, 'error');
+    } else {
+      notify('Failed to save categories: ' + err.message, false);
+    }
   }
 }
 

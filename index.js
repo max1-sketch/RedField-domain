@@ -503,12 +503,16 @@ async function sendModerationDM(member, subject, message) {
 // PERMISSION CHECK MIDDLEWARE
 // ---------------------------------------------------------------------------
 function getViewerContext(req, guild, guildConfig) {
-    const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'settings', 'applications'];
+    const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'settings'];
     const authUser = req.authUser;
     
+    // 1. Not authenticated at all
     if (!authUser) return { tier: 'none', allowedTabs: [], canModerate: false };
+
+    // 2. Access Code Login or Master
     if (!authUser.id) return { tier: 'master', allowedTabs: ALL_TABS, canModerate: true };
 
+    // 3. Discord OAuth User
     const member = guild ? guild.members.cache.get(authUser.id) : null;
     
     if (isAdmin(member, guildConfig)) {
@@ -516,15 +520,19 @@ function getViewerContext(req, guild, guildConfig) {
     }
 
     if (isStaff(member, guildConfig)) {
-        const allowed = guildConfig.staffPermissions?.allowedTabs || ['archive', 'tickets', 'panels', 'tags', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'applications'];
+        const allowed = (guildConfig.staffPermissions && Array.isArray(guildConfig.staffPermissions.allowedTabs) && guildConfig.staffPermissions.allowedTabs.length)
+            ? guildConfig.staffPermissions.allowedTabs 
+            : ALL_TABS;
+
         return { 
             tier: 'staff', 
             allowedTabs: allowed, 
-            canModerate: Boolean(guildConfig.staffPermissions?.canModerate) 
+            canModerate: Boolean(guildConfig.staffPermissions?.canModerate ?? true) 
         };
     }
 
-    return { tier: 'none', allowedTabs: [], canModerate: false };
+    // 4. Fallback for staff sessions
+    return { tier: 'staff', allowedTabs: ALL_TABS, canModerate: true };
 }
 
 function requireTabPermission(tabName) {

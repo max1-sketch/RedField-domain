@@ -83,7 +83,7 @@
 
   /* Live Chat Workspace */
   .chat-layout { flex: 1; display: flex; overflow: hidden; }
-  
+
   .chat-main { flex: 1; display: flex; flex-direction: column; background: var(--bg); }
   .chat-messages {
     flex: 1;
@@ -157,8 +157,8 @@
       <h1 class="ticket-title" id="ticketHeader">Live Ticket Channel</h1>
     </div>
     <div class="btn-group" id="headerActions">
-      <button class="btn" id="claimBtn" onclick="toggleClaim()">Claim Ticket</button>
-      <button class="btn btn-danger" onclick="closeTicket()">Close Ticket</button>
+      <button class="btn" id="claimBtn" onclick="toggleClaim(this)">Claim Ticket</button>
+      <button class="btn btn-danger" onclick="closeTicket(this)">Close Ticket</button>
     </div>
   </header>
 
@@ -243,7 +243,7 @@
       document.getElementById('sideOpener').textContent = `@${ticket.userTag || 'Unknown'}`;
       document.getElementById('sideType').textContent = ticket.type || 'SUPPORT';
       document.getElementById('sideReason').textContent = ticket.reason || 'No reason provided';
-      
+
       isClaimed = Boolean(ticket.claimedBy);
       document.getElementById('sideClaimed').textContent = ticket.claimedBy || 'Unclaimed';
       document.getElementById('claimBtn').textContent = isClaimed ? 'Unclaim Ticket' : 'Claim Ticket';
@@ -263,7 +263,7 @@
     function createMsgHtml(m) {
       const initial = (m.author || 'U').charAt(0).toUpperCase();
       const timeStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-      
+
       return `
         <div class="msg-row">
           <div class="msg-avatar">${initial}</div>
@@ -309,14 +309,32 @@
       }
     });
 
-    async function closeTicket() {
-      if (!confirm('Are you sure you want to close and archive this ticket?')) return;
-      try {
+    async function toggleClaim(btn) {
+      const targetBtn = btn || document.getElementById('claimBtn');
+      await RF.withLoader(targetBtn, async () => {
+        const endpoint = isClaimed ? `/api/open-tickets/${channelId}/unclaim` : `/api/open-tickets/${channelId}/claim`;
+        const res = await fetch(endpoint, { method: 'POST' });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Failed to update claim status');
+        }
+        const data = await res.json();
+        isClaimed = !isClaimed;
+        document.getElementById('sideClaimed').textContent = isClaimed ? (data.claimedBy || 'Staff') : 'Unclaimed';
+        document.getElementById('claimBtn').textContent = isClaimed ? 'Unclaim Ticket' : 'Claim Ticket';
+      }, isClaimed ? 'Ticket unclaimed' : 'Ticket claimed!');
+    }
+
+    async function closeTicket(btn) {
+      const targetBtn = btn || document.querySelector('.btn-danger');
+      await RF.withLoader(targetBtn, async () => {
         const res = await fetch(`/api/open-tickets/${channelId}/close`, { method: 'POST' });
-        if (res.ok) window.location.href = '/tickets';
-      } catch (err) {
-        RF.toast('Could not close ticket: ' + err.message, false);
-      }
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Could not close ticket');
+        }
+        window.location.href = '/tickets';
+      }, 'Ticket closed');
     }
 
     initLiveChat();
