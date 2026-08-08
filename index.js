@@ -1299,7 +1299,7 @@ app.post('/api/open-tickets/:channelId/close', maintenanceGate, requireAuth, req
 
     const asName = String(req.body?.asName || '').trim().slice(0, 40) || 'Staff (via Website)';
 
-    try {
+   try {
         const channel = await client.channels.fetch(req.params.channelId).catch(() => null);
         if (!channel) return res.status(404).json({ error: "Could not find channel in Discord." });
 
@@ -1310,14 +1310,19 @@ app.post('/api/open-tickets/:channelId/close', maintenanceGate, requireAuth, req
         const guildConfig = getGuildConfig(guild.id);
         await channel.send(`⛔ **${asName}** closed this ticket from the website. Archiving now...`).catch(() => {});
         clearCloseRequestTimer(channel.id);
+        
+        // Finalize transcript archiving
         await finalizeTicketClose(channel, guild, guildConfig, asName);
+
+        // Delete the channel immediately from Discord
+        await channel.delete().catch(err => console.error('Failed to delete ticket channel:', err.message));
+
         res.json({ success: true });
     } catch (err) {
         console.error('[open-ticket close] failed:', err);
         res.status(500).json({ error: 'Could not close the ticket.' });
     }
 });
-
 app.post('/api/guild/tags', maintenanceGate, requireAuth, requireTabPermission('tags'), (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });

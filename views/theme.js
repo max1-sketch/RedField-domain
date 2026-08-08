@@ -1,10 +1,10 @@
 (function () {
     window.RF = window.RF || {};
 
-    // Inject Global Badge & Status Styles
-    if (!document.getElementById('rf-badge-styles')) {
+    // Inject Global Badge, Loader & Toast Styles
+    if (!document.getElementById('rf-theme-styles')) {
         const style = document.createElement('style');
-        style.id = 'rf-badge-styles';
+        style.id = 'rf-theme-styles';
         style.textContent = `
             .badge-beta {
                 display: inline-flex !important;
@@ -48,7 +48,6 @@
                 letter-spacing: 0.05em !important;
             }
 
-            /* Disabled Nav Tab */
             .nav-item.disabled-tab {
                 opacity: 0.45 !important;
                 cursor: not-allowed !important;
@@ -65,10 +64,75 @@
                 0%, 100% { opacity: 0.4; transform: scale(0.85); }
                 50% { opacity: 1; transform: scale(1.2); }
             }
+
+            /* Bouncing 3D Loading Dots */
+            .dot-loader {
+                display: inline-flex;
+                gap: 4px;
+                align-items: center;
+                justify-content: center;
+            }
+            .dot-loader span {
+                width: 5px;
+                height: 5px;
+                border-radius: 50%;
+                background: currentColor;
+                animation: dotbounce 1s infinite ease-in-out;
+            }
+            .dot-loader span:nth-child(2) { animation-delay: 0.15s; }
+            .dot-loader span:nth-child(3) { animation-delay: 0.30s; }
+            @keyframes dotbounce {
+                0%, 80%, 100% { transform: scale(0.4); opacity: 0.3; }
+                40% { transform: scale(1.2); opacity: 1; }
+            }
         `;
         document.head.appendChild(style);
     }
 
+    // Toast Notification System
+    RF.toast = function (message, isSuccess = true) {
+        let stack = document.getElementById('toastStack');
+        if (!stack) {
+            stack = document.createElement('div');
+            stack.id = 'toastStack';
+            document.body.appendChild(stack);
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `toast ${isSuccess ? 'success' : 'error'}`;
+        toast.innerHTML = `<div class="toast-title">${isSuccess ? '✅ Success' : '⚠️ Error'}</div><div>${RF.esc(message)}</div>`;
+
+        stack.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.add('fading');
+            setTimeout(() => toast.remove(), 250);
+        }, 3500);
+    };
+
+    // Button Loading State Handler (Shows 3 Bouncing Dots)
+    RF.withLoading = async function (buttonElement, actionPromise, options = {}) {
+        if (!buttonElement) return await actionPromise();
+
+        const originalHtml = buttonElement.innerHTML;
+        buttonElement.disabled = true;
+        buttonElement.innerHTML = `<span class="dot-loader"><span></span><span></span><span></span></span>`;
+
+        try {
+            const result = await actionPromise();
+            if (options.okMessage) RF.toast(options.okMessage, true);
+            return result;
+        } catch (err) {
+            const errMsg = options.failMessage ? `${options.failMessage}: ${err.message}` : err.message;
+            RF.toast(errMsg, false);
+            throw err;
+        } finally {
+            buttonElement.disabled = false;
+            buttonElement.innerHTML = originalHtml;
+        }
+    };
+
+    // HTML Escaping Utility
     RF.esc = function (str) {
         if (str === null || str === undefined) return '';
         return String(str)
@@ -79,6 +143,35 @@
             .replace(/'/g, '&#039;');
     };
 
+    // Cookie Utilities
+    RF.getCookie = function (name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift());
+        return null;
+    };
+
+    RF.setCookie = function (name, value, days = 30) {
+        const expires = new Date(Date.now() + days * 864e5).toUTCString();
+        document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`;
+    };
+
+    // Generic API Call Helper
+    RF.apiCall = async function (endpoint, options = {}) {
+        options.headers = options.headers || {};
+        if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
+            options.headers['Content-Type'] = 'application/json';
+            options.body = JSON.stringify(options.body);
+        }
+        const res = await fetch(endpoint, options);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.error || `HTTP ${res.status}`);
+        }
+        return data;
+    };
+
+    // Ticket Type Color Helper
     RF.typeColor = function (type) {
         if (!type) return '#5865f2';
         const t = String(type).toUpperCase();
@@ -88,6 +181,7 @@
         return '#d69a4e';
     };
 
+    // Sidebar Icons
     RF.ICONS = {
         archive: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8M1 3h20v5H1zM10 12h4"/></svg>`,
         tickets: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5v2m0 4v2m0 4v2M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V7a2 2 0 0 1 2-2z"/></svg>`,
