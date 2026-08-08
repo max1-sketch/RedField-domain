@@ -3,223 +3,79 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{SITE_TITLE}} — Staff Portal</title>
+<title>{{SITE_TITLE}} — Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
     --accent: {{ACCENT_COLOR}};
-    --bg-0: #0a0c11;
-    --panel: #141722;
-    --panel-2: #1a1e2b;
-    --border: #262b3a;
-    --ink: #e7e9ee;
-    --muted: #9199a8;
-    --faint: #5b6272;
+    --bg-0: #0b0d12;
+    --panel: #131720;
+    --border: #222735;
+    --ink: #e3e6ed;
+    --muted: #8891a0;
     --discord-blue: #5865f2;
     --discord-blue-hover: #4752c4;
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0;
-    min-height: 100vh;
-    background: var(--bg-0);
-    color: var(--ink);
-    font-family: 'Inter', sans-serif;
-    display: flex;
-    flex-direction: column;
-    overflow-x: hidden;
+    margin: 0; min-height: 100vh; background: var(--bg-0); color: var(--ink);
+    font-family: 'Inter', sans-serif; display: flex; flex-direction: column;
   }
 
   header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 24px 6%;
-    width: 100%;
-    max-width: 1300px;
-    margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 6%; width: 100%; max-width: 1200px; margin: 0 auto;
   }
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 800;
-    font-size: 18px;
-  }
-  .brand-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--accent);
-  }
-  nav { display: flex; align-items: center; gap: 24px; }
-  nav a { color: var(--muted); text-decoration: none; font-size: 13.5px; font-weight: 500; transition: color .15s; }
+  .brand { font-size: 18px; font-weight: 800; }
+
+  nav { display: flex; align-items: center; gap: 16px; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; transition: color .15s; }
   nav a:hover { color: var(--ink); }
 
-  .hero-container {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 40px;
-    max-width: 1280px;
-    width: 100%;
-    margin: 0 auto;
-    padding: 20px 6% 60px;
-  }
-  
-  /* Reduced visual weight on the left side */
-  .hero-left { flex: 1; max-width: 500px; }
-
-  .team-banner {
+  /* Member Login Button in Header */
+  .btn-member-login {
+    background: var(--discord-blue);
+    color: #fff !important;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-weight: 600 !important;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 4px 12px;
-    font-size: 12px;
-    color: var(--muted);
-    margin-bottom: 20px;
+    transition: background 0.15s;
   }
-  .team-banner .tag-accent {
-    color: var(--accent);
-    font-weight: 600;
-  }
+  .btn-member-login:hover { background: var(--discord-blue-hover) !important; }
 
-  h1 { font-size: 32px; font-weight: 800; line-height: 1.2; margin: 0 0 10px; letter-spacing: -0.01em; }
-  p.sub { font-size: 14.5px; color: var(--muted); line-height: 1.6; margin: 0 0 28px; }
-
-  /* Cleaner 3-item list */
-  .system-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .system-item {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .system-item .icon { font-size: 16px; opacity: 0.8; }
-  .system-item h3 { font-size: 13.5px; font-weight: 700; margin: 0 0 2px; color: var(--ink); }
-  .system-item p { font-size: 12px; color: var(--muted); margin: 0; }
-
-  /* Enlarged Sign-In Card (Primary Focus) */
-  .hero-right { flex: 1.1; display: flex; justify-content: flex-end; }
-  .login-card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 40px 36px;
-    width: 100%;
-    max-width: 460px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-    position: relative;
+  .hero-container {
+    flex: 1; display: flex; align-items: center; justify-content: space-between;
+    gap: 40px; max-width: 1200px; width: 100%; margin: 0 auto; padding: 20px 6% 60px;
   }
   
-  .login-card h2 { font-size: 22px; font-weight: 800; margin: 0 0 6px; }
-  .login-card p.card-sub { font-size: 13px; color: var(--muted); margin: 0 0 24px; }
+  .hero-left { flex: 1; max-width: 480px; }
+  h1 { font-size: 32px; font-weight: 800; margin: 0 0 10px; }
+  p.sub { font-size: 14.5px; color: var(--muted); line-height: 1.6; margin: 0 0 28px; }
+
+  .hero-right { flex: 1; display: flex; justify-content: flex-end; }
+  .login-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 36px; width: 100%; max-width: 420px; box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+  }
 
   .discord-login-btn {
-    width: 100%;
-    background: var(--discord-blue);
-    color: #fff;
-    font-weight: 600;
-    padding: 12px;
-    border-radius: 10px;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    font-size: 13.5px;
-    cursor: pointer;
-    border: none;
-    outline: none;
-    transition: background .15s, transform .15s;
+    width: 100%; background: var(--discord-blue); color: #fff; font-weight: 600;
+    padding: 12px; border-radius: 8px; text-decoration: none; display: flex;
+    align-items: center; justify-content: center; gap: 10px; font-size: 14px;
+    border: none; cursor: pointer; transition: background 0.15s;
   }
-  .discord-login-btn:hover {
-    background: var(--discord-blue-hover);
-    transform: translateY(-1px);
-  }
-  .discord-login-btn:active { transform: translateY(0); }
+  .discord-login-btn:hover { background: var(--discord-blue-hover); }
 
-  .divider {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    color: var(--faint);
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    margin: 22px 0;
-  }
-  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-
-  input[type=password] {
-    width: 100%;
-    background: var(--panel-2);
-    border: 1px solid var(--border);
-    color: var(--ink);
-    padding: 12px 14px;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 13.5px;
-    margin-bottom: 8px;
-    text-align: center;
-  }
-  input[type=password]:focus { outline: none; border-color: var(--accent); }
-
-  .code-hint {
-    font-size: 11.5px;
-    color: var(--faint);
-    text-align: center;
-    margin-bottom: 14px;
+  .trust-notice {
+    margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);
+    font-size: 11.5px; color: var(--muted); text-align: center;
   }
 
-  button[type=submit] {
-    width: 100%;
-    background: var(--panel-2);
-    border: 1px solid var(--border);
-    color: var(--ink);
-    font-weight: 600;
-    padding: 11px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 13px;
-    transition: border-color .15s, color .15s;
-  }
-  button[type=submit]:hover { border-color: var(--accent); color: var(--accent); }
-
-  /* Trust signal & Support notices */
-  .trust-signal {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    font-size: 11.5px;
-    color: var(--faint);
-    margin-top: 20px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-  }
-
-  .footer-sub {
-    font-size: 12px;
-    color: var(--muted);
-    text-align: center;
-    margin-top: 14px;
-    line-height: 1.5;
-  }
-
-  @media (max-width: 900px) {
+  @media (max-width: 800px) {
     .hero-container { flex-direction: column; text-align: center; }
     .hero-left { max-width: 100%; }
     .hero-right { justify-content: center; width: 100%; }
@@ -230,112 +86,39 @@
 <body>
 
   <header>
-    <div class="brand">
-      <div class="brand-dot"></div>
-      {{SITE_TITLE}}
-    </div>
+    <div class="brand">{{SITE_TITLE}}</div>
     <nav>
       <a href="/terms">Terms</a>
-      <a href="/privacy">Privacy Policy</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/auth/discord" class="btn-member-login">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20.3 4.4A19.7 19.7 0 0 0 15.6 3l-.3.6a14 14 0 0 1 4 1.6c-2.9-1.4-6.7-1.4-9.6 0a10 10 0 0 1 4-1.6L13.4 3a19.7 19.7 0 0 0-4.7 1.4C5.6 8.6 4.8 12.7 5.2 16.7a19.9 19.9 0 0 0 5.1 2.5l.7-1.1a13 13 0 0 1-2-1c.2-.1.3-.2.5-.3a14 14 0 0 0 11 0l.5.3c-.6.4-1.3.7-2 1l.7 1.1a19.8 19.8 0 0 0 5.1-2.5c.5-4.6-.7-8.7-2.9-12.3ZM9.7 14.3c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.5.8 1.5 1.7c0 1-.7 1.7-1.5 1.7Zm5.6 0c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.5.8 1.5 1.7c0 1-.7 1.7-1.5 1.7Z"/></svg>
+        Member Login
+      </a>
     </nav>
   </header>
 
   <div class="hero-container">
     <div class="hero-left">
-      <div class="team-banner">
-        <span>Maintained by <strong class="tag-accent">Redfield Archives Team</strong></span>
-      </div>
-
-      <h1>Staff Portal</h1>
-      <p class="sub">Sign in to access support tools and moderation systems.</p>
-
-      <div class="system-list">
-        <div class="system-item">
-          <div class="icon">🎫</div>
-          <div>
-            <h3>Support Tickets</h3>
-            <p>Manage active support requests and live chat channels.</p>
-          </div>
-        </div>
-        <div class="system-item">
-          <div class="icon">🛡️</div>
-          <div>
-            <h3>Moderation Logs</h3>
-            <p>Execute warnings, timeouts, and user restriction checks.</p>
-          </div>
-        </div>
-        <div class="system-item">
-          <div class="icon">⚙️</div>
-          <div>
-            <h3>Staff Dashboard</h3>
-            <p>Review system settings, duty rosters, and server transcripts.</p>
-          </div>
-        </div>
-      </div>
+      <h1>Redfield Portal</h1>
+      <p class="sub">Sign in with your Discord account to access support tickets, community services, and portal features.</p>
     </div>
 
     <div class="hero-right">
       <div class="login-card">
-        <h2>Sign In</h2>
-        <p class="card-sub">Authorized staff members only.</p>
+        <h2 style="margin:0 0 6px; font-size:20px;">Sign In</h2>
+        <p style="margin:0 0 20px; font-size:13px; color:var(--muted);">Sign in using Discord OAuth2 to continue.</p>
 
-        <button type="button" class="discord-login-btn" id="discordLoginBtn" onclick="loginWithDiscordPopup()">
+        <a href="/auth/discord" class="discord-login-btn">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M20.3 4.4A19.7 19.7 0 0 0 15.6 3l-.3.6a14 14 0 0 1 4 1.6c-2.9-1.4-6.7-1.4-9.6 0a10 10 0 0 1 4-1.6L13.4 3a19.7 19.7 0 0 0-4.7 1.4C5.6 8.6 4.8 12.7 5.2 16.7a19.9 19.9 0 0 0 5.1 2.5l.7-1.1a13 13 0 0 1-2-1c.2-.1.3-.2.5-.3a14 14 0 0 0 11 0l.5.3c-.6.4-1.3.7-2 1l.7 1.1a19.8 19.8 0 0 0 5.1-2.5c.5-4.6-.7-8.7-2.9-12.3ZM9.7 14.3c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.5.8 1.5 1.7c0 1-.7 1.7-1.5 1.7Zm5.6 0c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.5.8 1.5 1.7c0 1-.7 1.7-1.5 1.7Z"/></svg>
-          <span>Sign in with Discord</span>
-        </button>
+          Sign in with Discord
+        </a>
 
-        <div class="divider">or use access code</div>
-
-        <form id="accessCodeForm">
-          <input type="password" id="pw" placeholder="ACCESS CODE" autocomplete="off" required>
-          <div class="code-hint">Access codes are provided by server administrators.</div>
-          <button type="submit">Unlock Portal</button>
-        </form>
-
-        <div class="trust-signal">
-          <span>🔒 Secure staff authentication powered by Discord OAuth</span>
-        </div>
-
-        <div class="footer-sub">
-          Need help? Contact the Redfield Archives staff team.<br>
-          <span style="opacity: 0.7; font-size: 11px;">© 2026 Izzyan Studios LLC. All Rights Reserved.</span>
+        <div class="trust-notice">
+          🔒 Secure authentication powered by Discord OAuth2
         </div>
       </div>
     </div>
   </div>
 
-  <script src="/theme.js"></script>
-  <script>
-    function loginWithDiscordPopup() {
-      const width = 500;
-      const height = 800;
-      const left = (window.screen.width / 2) - (width / 2);
-      const top = (window.screen.height / 2) - (height / 2);
-
-      const popup = window.open(
-        '/auth/discord',
-        'DiscordOAuth',
-        `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,status=yes`
-      );
-
-      const checkPopup = setInterval(() => {
-        if (!popup || popup.closed) {
-          clearInterval(checkPopup);
-          window.location.href = '/';
-        }
-      }, 500);
-    }
-
-    document.getElementById('accessCodeForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const password = document.getElementById('pw').value;
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
-      });
-      if (res.ok) { window.location.href = '/'; } else { alert('Incorrect access code.'); }
-    });
-  </script>
 </body>
 </html>

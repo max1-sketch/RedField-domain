@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Community Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: {{ACCENT_COLOR}};
+    --bg: #090b0e;
+    --panel: #11141c;
+    --border: #1e2330;
+    --ink: #e3e6ed;
+    --muted: #848e9c;
+    --discord-blue: #5865f2;
+    --discord-hover: #4752c4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+    font-family: 'Inter', sans-serif; display: flex; flex-direction: column; justify-content: space-between;
+  }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 6%; width: 100%; max-width: 1200px; margin: 0 auto;
+  }
+  .brand { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+
+  nav { display: flex; align-items: center; gap: 20px; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; transition: color .15s; }
+  nav a:hover { color: var(--ink); }
+
+  /* Dedicated Staff Login Button Next to Terms */
+  .btn-staff-login {
+    background: rgba(214, 154, 78, 0.12);
+    color: var(--accent) !important;
+    border: 1px solid rgba(214, 154, 78, 0.3);
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-weight: 600 !important;
+    transition: background .15s, border-color .15s !important;
+  }
+  .btn-staff-login:hover { background: rgba(214, 154, 78, 0.2) !important; }
+
+  .hero-container {
+    flex: 1; display: flex; align-items: center; justify-content: space-between;
+    gap: 40px; max-width: 1100px; width: 100%; margin: 0 auto; padding: 40px 6%;
+  }
+
+  .hero-left { flex: 1; max-width: 480px; }
+  h1 { font-size: 36px; font-weight: 800; line-height: 1.15; margin: 0 0 12px; letter-spacing: -0.02em; }
+  p.sub { font-size: 15px; color: var(--muted); line-height: 1.6; margin: 0 0 32px; }
+
+  .feature-row { display: flex; flex-direction: column; gap: 14px; }
+  .feature-item { display: flex; align-items: center; gap: 12px; font-size: 13.5px; color: var(--ink); font-weight: 500; }
+  .feature-item .icon { width: 32px; height: 32px; border-radius: 6px; background: var(--panel); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 14px; }
+
+  .hero-right { flex: 0.9; display: flex; justify-content: flex-end; }
+  
+  /* Compact, Tighter Login Card */
+  .login-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 30px 28px; width: 100%; max-width: 380px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+  }
+
+  .discord-login-btn {
+    width: 100%; background: var(--discord-blue); color: #fff; font-weight: 600;
+    padding: 12px; border-radius: 8px; text-decoration: none; display: flex;
+    align-items: center; justify-content: center; gap: 10px; font-size: 14px;
+    transition: background 0.15s; margin-top: 16px;
+  }
+  .discord-login-btn:hover { background: var(--discord-hover); }
+
+  .footer-sub { font-size: 11.5px; color: var(--muted); text-align: center; padding: 20px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">{{SITE_TITLE}}</div>
+    <nav>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/staff-login" class="btn-staff-login">Staff Portal →</a>
+    </nav>
+  </header>
+
+  <div class="hero-container">
+    <div class="hero-left">
+      <h1>Welcome to Redfield Archives</h1>
+      <p class="sub">Your central hub for community support, applications, and player services.</p>
+
+      <div class="feature-row">
+        <div class="feature-item">
+          <div class="icon">🎫</div>
+          <span>Create and track support tickets</span>
+        </div>
+        <div class="feature-item">
+          <div class="icon">📋</div>
+          <span>Submit staff & community applications</span>
+        </div>
+        <div class="feature-item">
+          <div class="icon">📄</div>
+          <span>Access your official ticket transcripts</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <div class="login-card">
+        <h2 style="margin: 0 0 6px; font-size: 19px; font-weight: 800;">Member Sign In</h2>
+        <p style="margin: 0 0 16px; font-size: 12.5px; color: var(--muted);">Sign in with Discord to view your account and tickets.</p>
+
+        <a href="/auth/discord" class="discord-login-btn">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M20.3 4.4A19.7 19.7 0 0 0 15.6 3l-.3.6a14 14 0 0 1 4 1.6c-2.9-1.4-6.7-1.4-9.6 0a10 10 0 0 1 4-1.6L13.4 3a19.7 19.7 0 0 0-4.7 1.4C5.6 8.6 4.8 12.7 5.2 16.7a19.9 19.9 0 0 0 5.1 2.5l.7-1.1a13 13 0 0 1-2-1c.2-.1.3-.2.5-.3a14 14 0 0 0 11 0l.5.3c-.6.4-1.3.7-2 1l.7 1.1a19.8 19.8 0 0 0 5.1-2.5c.5-4.6-.7-8.7-2.9-12.3ZM9.7 14.3c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.5.8 1.5 1.7c0 1-.7 1.7-1.5 1.7Zm5.6 0c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.5.8 1.5 1.7c0 1-.7 1.7-1.5 1.7Z"/></svg>
+          Sign in with Discord
+        </a>
+
+        <div style="margin-top: 18px; font-size: 11px; color: var(--muted); text-align: center;">
+          🔒 Secure authentication powered by Discord OAuth2
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-sub">
+    Need help? Contact the Redfield staff team. · © 2026 Redfield Archives
+  </div>
+
+</body>
+</html>

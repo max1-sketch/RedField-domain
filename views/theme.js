@@ -1,96 +1,117 @@
 (function () {
     window.RF = window.RF || {};
 
-    // Inject Global Badge, Glassmorphism, Loader, Toast & Scrollbar Styles
-    if (!document.getElementById('rf-theme-styles')) {
+    // ---------------------------------------------------------------------------
+    // CLEAN, DENSE DASHBOARD STYLES (Reduced Gold Accent & Improved Hierarchy)
+    // ---------------------------------------------------------------------------
+    if (!document.getElementById('rf-clean-theme-styles')) {
         const style = document.createElement('style');
-        style.id = 'rf-theme-styles';
+        style.id = 'rf-clean-theme-styles';
         style.textContent = `
-            /* Glassmorphism Panels & Modern Aesthetics */
-            .card, .login-card, .sidebar, .art-hero-container {
-                background: rgba(15, 18, 26, 0.75) !important;
-                backdrop-filter: blur(16px) !important;
-                -webkit-backdrop-filter: blur(16px) !important;
-                border: 1px solid rgba(255, 255, 255, 0.08) !important;
-                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45) !important;
+            /* Reduced Gold Accent Palette & Dark Neutral Base */
+            :root {
+                --sidebar-bg: #0c0e14;
+                --panel-bg: #131720;
+                --border-color: #222735;
+                --text-main: #e3e6ed;
+                --text-muted: #8891a0;
             }
 
-            /* Interactive Hover Glows */
-            .feature-card, .nav-item, .btn {
-                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            }
-            .feature-card:hover, .card:hover {
-                border-color: rgba(214, 154, 78, 0.35) !important;
-                box-shadow: 0 8px 24px rgba(214, 154, 78, 0.12) !important;
+            body {
+                background-color: #0b0d12 !important;
+                color: var(--text-main) !important;
             }
 
-            /* Sleek Custom Scrollbars */
-            ::-webkit-scrollbar { width: 6px; height: 6px; }
-            ::-webkit-scrollbar-track { background: #0a0c11; }
-            ::-webkit-scrollbar-thumb { background: #262b3a; border-radius: 4px; }
-            ::-webkit-scrollbar-thumb:hover { background: #d69a4e; }
+            /* Clean Glass Panels (Without Neon Gold Glows) */
+            .card, .login-card, .art-hero-container {
+                background: var(--panel-bg) !important;
+                border: 1px solid var(--border-color) !important;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
+            }
 
-            /* Badges & Indicators */
-            .badge-beta {
-                display: inline-flex !important;
-                align-items: center !important;
-                gap: 5px !important;
-                background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.08)) !important;
-                color: #fbbf24 !important;
-                border: 1px solid rgba(245, 158, 11, 0.4) !important;
+            /* Categorized Sidebar Navigation */
+            .sidebar {
+                background: var(--sidebar-bg) !important;
+                border-right: 1px solid var(--border-color) !important;
+            }
+
+            .nav-section-title {
                 font-size: 10px !important;
                 font-weight: 800 !important;
-                padding: 2px 8px !important;
-                border-radius: 20px !important;
-                margin-left: auto !important;
+                color: #525a6b !important;
+                letter-spacing: 0.08em !important;
                 text-transform: uppercase !important;
-                letter-spacing: 0.06em !important;
-                box-shadow: 0 0 12px rgba(245, 158, 11, 0.2) !important;
-            }
-            .badge-beta::before {
-                content: '' !important;
-                width: 6px !important;
-                height: 6px !important;
-                border-radius: 50% !important;
-                background-color: #f59e0b !important;
-                box-shadow: 0 0 6px #f59e0b !important;
-                animation: betaPulse 1.8s infinite ease-in-out !important;
+                padding: 18px 12px 6px !important;
             }
 
-            .badge-coming-soon {
-                display: inline-flex !important;
+            .nav-item {
+                color: var(--text-muted) !important;
+                font-size: 13px !important;
+                font-weight: 500 !important;
+                padding: 8px 12px !important;
+                border-radius: 6px !important;
+                margin-bottom: 2px !important;
+                display: flex !important;
                 align-items: center !important;
-                gap: 5px !important;
-                background: rgba(239, 68, 68, 0.15) !important;
-                color: #f87171 !important;
-                border: 1px solid rgba(239, 68, 68, 0.3) !important;
-                font-size: 9.5px !important;
-                font-weight: 800 !important;
-                padding: 2px 8px !important;
-                border-radius: 20px !important;
-                margin-left: auto !important;
-                text-transform: uppercase !important;
-                letter-spacing: 0.05em !important;
+                gap: 10px !important;
+                text-decoration: none !important;
+                transition: background 0.15s, color 0.15s !important;
             }
 
-            .nav-item.disabled-tab {
-                opacity: 0.45 !important;
-                cursor: not-allowed !important;
-                user-select: none !important;
-                text-decoration: line-through !important;
-                text-decoration-color: rgba(239, 68, 68, 0.6) !important;
-            }
-            .nav-item.disabled-tab:hover {
-                background: transparent !important;
-                color: var(--muted) !important;
+            .nav-item:hover {
+                background: #161a24 !important;
+                color: var(--text-main) !important;
             }
 
-            @keyframes betaPulse {
-                0%, 100% { opacity: 0.4; transform: scale(0.85); }
-                50% { opacity: 1; transform: scale(1.2); }
+            .nav-item.active {
+                background: #1c212e !important;
+                color: #ffffff !important;
+                font-weight: 700 !important;
             }
 
-            /* Bouncing 3D Loading Dots */
+            .nav-item.active .ic {
+                color: var(--accent) !important;
+            }
+
+            /* High-Density Functional Tables */
+            table.dense-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 13px;
+                background: var(--panel-bg);
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                overflow: hidden;
+            }
+
+            table.dense-table th {
+                text-align: left;
+                padding: 12px 14px;
+                color: var(--text-muted);
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                border-bottom: 1px solid var(--border-color);
+                background: rgba(255, 255, 255, 0.02);
+            }
+
+            table.dense-table td {
+                padding: 12px 14px;
+                border-bottom: 1px solid var(--border-color);
+                color: var(--text-main);
+            }
+
+            table.dense-table tr:last-child td {
+                border-bottom: none;
+            }
+
+            /* Custom Minimal Scrollbar */
+            ::-webkit-scrollbar { width: 6px; height: 6px; }
+            ::-webkit-scrollbar-track { background: #0b0d12; }
+            ::-webkit-scrollbar-thumb { background: #222735; border-radius: 4px; }
+            ::-webkit-scrollbar-thumb:hover { background: #3b4256; }
+
+            /* Bouncing Dot Loader */
             .dot-loader {
                 display: inline-flex;
                 gap: 4px;
@@ -111,7 +132,7 @@
                 40% { transform: scale(1.2); opacity: 1; }
             }
 
-            /* Toast Stack & Animations */
+            /* Toast Stack & Floating Alerts */
             #toastStack {
                 position: fixed;
                 top: 18px;
@@ -123,17 +144,17 @@
                 max-width: 340px;
             }
             .toast {
-                background: var(--panel, #141722);
-                border: 1px solid var(--border, #262b3a);
-                border-left: 4px solid var(--green, #22c55e);
+                background: #141722;
+                border: 1px solid #262b3a;
+                border-left: 4px solid #22c55e;
                 border-radius: 8px;
                 padding: 12px 16px;
                 font-size: 13px;
-                color: var(--ink, #e7e9ee);
+                color: #e7e9ee;
                 box-shadow: 0 12px 34px rgba(0,0,0,0.5);
                 animation: toastin 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             }
-            .toast.error { border-left-color: var(--red, #ef4444); }
+            .toast.error { border-left-color: #ef4444; }
             .toast .toast-title { font-weight: 800; margin-bottom: 2px; }
             .toast.fading { animation: toastout 0.25s forwards; }
             @keyframes toastin { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
@@ -142,7 +163,44 @@
         document.head.appendChild(style);
     }
 
-    // Toast Notification System
+    // ---------------------------------------------------------------------------
+    // UTILITY FUNCTIONS
+    // ---------------------------------------------------------------------------
+
+    RF.esc = function (str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    };
+
+    RF.getCookie = function (name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift());
+        return null;
+    };
+
+    RF.setCookie = function (name, value, days = 30) {
+        const expires = new Date(Date.now() + days * 864e5).toUTCString();
+        document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`;
+    };
+
+    RF.apiCall = async function (endpoint, options = {}) {
+        options.headers = options.headers || {};
+        if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
+            options.headers['Content-Type'] = 'application/json';
+            options.body = JSON.stringify(options.body);
+        }
+        const res = await fetch(endpoint, options);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        return data;
+    };
+
     RF.toast = function (message, isSuccess = true) {
         let stack = document.getElementById('toastStack');
         if (!stack) {
@@ -163,7 +221,6 @@
         }, 3500);
     };
 
-    // Button Loading State Handler (Shows 3 Bouncing Dots)
     RF.withLoading = async function (buttonElement, actionPromise, options = {}) {
         if (!buttonElement) return await actionPromise();
 
@@ -185,46 +242,6 @@
         }
     };
 
-    // HTML Escaping Utility
-    RF.esc = function (str) {
-        if (str === null || str === undefined) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    };
-
-    // Cookie Utilities
-    RF.getCookie = function (name) {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift());
-        return null;
-    };
-
-    RF.setCookie = function (name, value, days = 30) {
-        const expires = new Date(Date.now() + days * 864e5).toUTCString();
-        document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`;
-    };
-
-    // Generic API Call Helper
-    RF.apiCall = async function (endpoint, options = {}) {
-        options.headers = options.headers || {};
-        if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
-            options.headers['Content-Type'] = 'application/json';
-            options.body = JSON.stringify(options.body);
-        }
-        const res = await fetch(endpoint, options);
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            throw new Error(data.error || `HTTP ${res.status}`);
-        }
-        return data;
-    };
-
-    // Ticket Type Color Helper
     RF.typeColor = function (type) {
         if (!type) return '#5865f2';
         const t = String(type).toUpperCase();
@@ -234,7 +251,6 @@
         return '#d69a4e';
     };
 
-    // Audio Chime & Desktop Notification Engine
     RF.playChime = function () {
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -251,80 +267,78 @@
         } catch (e) {}
     };
 
-    RF.notifyDesktop = function (title, body) {
-        if (!("Notification" in window)) return;
-        if (Notification.permission === "granted") {
-            new Notification(title, { body, icon: '/favicon.ico' });
-        } else if (Notification.permission !== "denied") {
-            Notification.requestPermission().then(perm => {
-                if (perm === "granted") new Notification(title, { body, icon: '/favicon.ico' });
-            });
-        }
-    };
+    // ---------------------------------------------------------------------------
+    // SIDEBAR CATEGORIZATION & RENDERING
+    // ---------------------------------------------------------------------------
 
-    // Sidebar Icons
     RF.ICONS = {
-        archive: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8M1 3h20v5H1zM10 12h4"/></svg>`,
-        tickets: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5v2m0 4v2m0 4v2M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V7a2 2 0 0 1 2-2z"/></svg>`,
-        panels: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>`,
-        tags: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>`,
-        quickwords: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
-        feedback: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
-        moderation: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
-        lookup: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
-        blacklist: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`,
-        shiftroster: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-        auditlog: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
-        settings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
-        logout: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`
+        archive: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8M1 3h20v5H1zM10 12h4"/></svg>`,
+        tickets: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5v2m0 4v2m0 4v2M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V7a2 2 0 0 1 2-2z"/></svg>`,
+        panels: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>`,
+        tags: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01"/></svg>`,
+        feedback: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+        moderation: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+        lookup: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+        blacklist: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`,
+        shiftroster: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+        auditlog: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+        settings: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`
     };
 
-    const ALL_NAV_ITEMS = [
-        { path: '/', label: 'Archive', key: 'archive' },
-        { path: '/tickets', label: 'Open Tickets', key: 'tickets' },
-        { path: '/panels', label: 'Panels', key: 'panels' },
-        { path: '/tags', label: 'Tags', key: 'tags' },
-        { path: '#', label: 'Quick Words', key: 'quickwords', badge: 'disabled', disabled: true },
-        { path: '/feedback', label: 'Feedback', key: 'feedback' },
-        { path: '/moderation', label: 'Moderation', key: 'moderation' },
-        { path: '/lookup', label: 'User Lookup', key: 'lookup', badge: 'beta' },
-        { path: '/blacklist', label: 'Blacklist', key: 'blacklist' },
-        { path: '/shift-roster', label: 'Shift Roster', key: 'shiftroster', badge: 'beta' },
-        { path: '/audit-log', label: 'Audit Log', key: 'auditlog' },
-        { path: '/settings', label: 'Server Configs', key: 'settings' }
+    const NAV_GROUPS = [
+        {
+            title: 'WORKSPACE',
+            items: [
+                { path: '/staff', label: 'Dashboard', key: 'archive' },
+                { path: '/tickets', label: 'Open Tickets', key: 'tickets' },
+                { path: '/panels', label: 'Panel Settings', key: 'panels' }
+            ]
+        },
+        {
+            title: 'MANAGEMENT',
+            items: [
+                { path: '/moderation', label: 'Moderation', key: 'moderation' },
+                { path: '/lookup', label: 'Members', key: 'lookup' },
+                { path: '/blacklist', label: 'Blacklist', key: 'blacklist' },
+                { path: '/tags', label: 'Tags', key: 'tags' }
+            ]
+        },
+        {
+            title: 'STAFF',
+            items: [
+                { path: '/shift-roster', label: 'Staff Shifts', key: 'shiftroster' },
+                { path: '/feedback', label: 'Feedback', key: 'feedback' }
+            ]
+        },
+        {
+            title: 'SYSTEM',
+            items: [
+                { path: '/audit-log', label: 'Audit Log', key: 'auditlog' },
+                { path: '/settings', label: 'Server Settings', key: 'settings' }
+            ]
+        }
     ];
 
     RF.renderNav = function (currentPath, allowedTabs) {
-        return ALL_NAV_ITEMS.map(item => {
-            if (Array.isArray(allowedTabs) && !allowedTabs.includes(item.key)) {
-                return '';
-            }
-            const isActive = currentPath === item.path || (item.path !== '/' && currentPath.startsWith(item.path));
-            const iconSvg = RF.ICONS[item.key] || '';
-            
-            let badgeHtml = '';
-            if (item.badge === 'disabled') {
-                badgeHtml = `<span class="badge-coming-soon">Soon</span>`;
-            } else if (item.badge === 'beta') {
-                badgeHtml = `<span class="badge-beta">Beta</span>`;
-            }
+        return NAV_GROUPS.map(group => {
+            const visibleItems = group.items.filter(item => !Array.isArray(allowedTabs) || allowedTabs.includes(item.key));
+            if (!visibleItems.length) return '';
 
-            if (item.disabled) {
+            const itemsHtml = visibleItems.map(item => {
+                const isActive = currentPath === item.path || (item.path !== '/staff' && currentPath.startsWith(item.path));
+                const iconSvg = RF.ICONS[item.key] || '';
+                
                 return `
-                    <a href="javascript:void(0);" onclick="alert('Coming soon, sorry! This feature is under development.');" class="nav-item disabled-tab">
+                    <a href="${item.path}" class="nav-item ${isActive ? 'active' : ''}">
                         <span class="ic">${iconSvg}</span>
                         <span>${RF.esc(item.label)}</span>
-                        ${badgeHtml}
                     </a>
                 `;
-            }
+            }).join('');
 
             return `
-                <a href="${item.path}" class="nav-item ${isActive ? 'active' : ''}">
-                    <span class="ic">${iconSvg}</span>
-                    <span>${RF.esc(item.label)}</span>
-                    ${badgeHtml}
-                </a>
+                <div class="nav-section-title">${group.title}</div>
+                ${itemsHtml}
             `;
         }).join('');
     };
@@ -342,7 +356,6 @@
 
             if (!expiresAt || isNaN(expiresAt)) {
                 element.textContent = 'session --:--';
-                element.classList.remove('warn');
                 return;
             }
 
@@ -350,12 +363,6 @@
             const mins = Math.floor(remaining / 60);
             const secs = remaining % 60;
             element.textContent = `session ${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-
-            if (remaining <= 60) {
-                element.classList.add('warn');
-            } else {
-                element.classList.remove('warn');
-            }
 
             if (remaining === 0) {
                 window.location.href = '/login';

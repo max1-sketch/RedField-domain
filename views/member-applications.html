@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Applications</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: {{ACCENT_COLOR}};
+    --bg: #0b0d12;
+    --panel: #131720;
+    --border: #222735;
+    --ink: #e3e6ed;
+    --muted: #8891a0;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+  
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 5%; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  .brand { font-size: 16px; font-weight: 800; text-decoration: none; color: inherit; }
+  
+  .container { max-width: 900px; margin: 40px auto; padding: 0 20px; }
+  .empty-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 40px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+
+  <header>
+    <a href="/" class="brand">← Back to {{SITE_TITLE}} Hub</a>
+  </header>
+
+  <div class="container">
+    <h1 style="font-size: 22px; font-weight: 800; margin-bottom: 20px;">Applications</h1>
+    
+    <div class="empty-card">
+      <h3 style="margin: 0 0 8px; color: var(--ink);">No Open Applications</h3>
+      <p style="margin: 0;">Staff applications and team submissions are currently closed. Please check back later or monitor server announcements.</p>
+    </div>
+
+    {{FOOTER_NOTE_HTML}}
+  </div>
+
+</body>
+</html>

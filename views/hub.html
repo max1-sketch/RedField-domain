@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: {{ACCENT_COLOR}};
+    --bg: #0b0d12;
+    --panel: #131720;
+    --border: #222735;
+    --ink: #e3e6ed;
+    --muted: #8891a0;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+  
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 5%; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  .brand { font-size: 16px; font-weight: 800; }
+  .user-bar { display: flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 500; color: var(--muted); }
+  .staff-link { color: var(--accent); text-decoration: none; font-weight: 700; }
+
+  .hub-container { max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+  h1 { font-size: 26px; font-weight: 800; margin: 0 0 6px; }
+  p.sub { font-size: 14px; color: var(--muted); margin: 0 0 32px; }
+
+  .hub-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  .hub-item {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 20px; text-decoration: none; color: inherit; transition: border-color 0.15s;
+  }
+  .hub-item:hover { border-color: #3b4256; }
+  .hub-item .icon { font-size: 22px; margin-bottom: 10px; }
+  .hub-item h3 { font-size: 15px; font-weight: 700; margin: 0 0 4px; }
+  .hub-item p { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.4; }
+</style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">{{SITE_TITLE}}</div>
+    <div class="user-bar" id="userHeader">Checking session...</div>
+  </header>
+
+  <div class="hub-container">
+    <h1 id="welcomeTitle">Welcome to Redfield Hub</h1>
+    <p class="sub">Your central hub for support, applications, and community services.</p>
+
+    <div class="hub-grid">
+      <a href="/member/tickets" class="hub-item">
+        <div class="icon">🎫</div>
+        <h3>Support</h3>
+        <p>Create a ticket or check an existing request.</p>
+      </a>
+
+      <a href="/member/applications" class="hub-item">
+        <div class="icon">📋</div>
+        <h3>Applications</h3>
+        <p>Submit applications and track their status.</p>
+      </a>
+
+      <a href="/announcements" class="hub-item">
+        <div class="icon">📢</div>
+        <h3>Announcements</h3>
+        <p>See important updates from the Redfield team.</p>
+      </a>
+
+      <a href="/account" class="hub-item">
+        <div class="icon">👤</div>
+        <h3>My Account</h3>
+        <p>View your profile, tickets, and activity.</p>
+      </a>
+    </div>
+
+    {{FOOTER_NOTE_HTML}}
+  </div>
+
+  <script src="/theme.js"></script>
+  <script>
+    async function initHub() {
+      try {
+        const res = await fetch('/api/me');
+        if (res.ok) {
+          const u = await res.json();
+          document.getElementById('welcomeTitle').textContent = `Welcome back, @${u.tag}`;
+          document.getElementById('userHeader').innerHTML = `
+            <span>@${RF.esc(u.tag)}</span>
+            ${u.isStaff ? '<a href="/staff" class="staff-link">Staff Portal →</a>' : ''}
+            <a href="/logout" style="color:var(--muted); text-decoration:none;">Log out</a>
+          `;
+        } else {
+          window.location.href = '/login';
+        }
+      } catch {
+        window.location.href = '/login';
+      }
+    }
+    initHub();
+  </script>
+</body>
+</html>

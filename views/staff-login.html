@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Staff Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: {{ACCENT_COLOR}};
+    --bg: #080a0d;
+    --panel: #11141c;
+    --border: #1e2330;
+    --ink: #e3e6ed;
+    --muted: #848e9c;
+    --discord-blue: #5865f2;
+    --discord-hover: #4752c4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+    font-family: 'Inter', sans-serif; display: flex; flex-direction: column; justify-content: space-between;
+  }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 6%; width: 100%; max-width: 1100px; margin: 0 auto;
+  }
+  .brand { font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  .brand-tag { font-size: 10px; font-weight: 800; background: rgba(214, 154, 78, 0.15); color: var(--accent); padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+
+  nav a { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; }
+  nav a:hover { color: var(--ink); }
+
+  .portal-container {
+    flex: 1; display: flex; align-items: center; justify-content: space-between;
+    gap: 40px; max-width: 1000px; width: 100%; margin: 0 auto; padding: 20px 6%;
+  }
+
+  .portal-left { flex: 1; max-width: 440px; }
+  /* Humanized Headline */
+  h1 { font-size: 30px; font-weight: 800; margin: 0 0 8px; letter-spacing: -0.01em; }
+  p.sub { font-size: 14px; color: var(--muted); line-height: 1.5; margin: 0 0 24px; }
+
+  .tool-list { display: flex; flex-direction: column; gap: 10px; }
+  .tool-item {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; display: flex; align-items: center; gap: 12px;
+  }
+  .tool-item .icon { font-size: 16px; opacity: 0.8; }
+  .tool-item div { font-size: 13px; font-weight: 600; }
+  .tool-item span { display: block; font-size: 11.5px; color: var(--muted); font-weight: 400; }
+
+  .portal-right { flex: 0.9; display: flex; justify-content: flex-end; }
+  
+  /* Tightened Login Card Vertically */
+  .staff-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 28px 24px; width: 100%; max-width: 360px;
+  }
+
+  .discord-btn {
+    width: 100%; background: var(--discord-blue); color: #fff; font-weight: 600;
+    padding: 11px; border-radius: 6px; text-decoration: none; display: flex;
+    align-items: center; justify-content: center; gap: 10px; font-size: 13.5px;
+    transition: background 0.15s; margin-top: 14px;
+  }
+  .discord-btn:hover { background: var(--discord-hover); }
+
+  .footer-sub { font-size: 11.5px; color: var(--muted); text-align: center; padding: 18px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      {{SITE_TITLE}} <span class="brand-tag">Staff</span>
+    </div>
+    <nav>
+      <a href="/">← Return to Member Portal</a>
+    </nav>
+  </header>
+
+  <div class="portal-container">
+    <div class="portal-left">
+      <h1>The control center for Redfield staff.</h1>
+      <p class="sub">Support, moderation, and archives in one place.</p>
+
+      <div class="tool-list">
+        <div class="tool-item">
+          <div class="icon">🎫</div>
+          <div>Support Queue<span>Manage active support tickets and user chats.</span></div>
+        </div>
+        <div class="tool-item">
+          <div class="icon">🔨</div>
+          <div>Moderation Tools<span>Execute user warnings, timeouts, and bans.</span></div>
+        </div>
+        <div class="tool-item">
+          <div class="icon">📄</div>
+          <div>Server Archives<span>Access full transcript logs and audit histories.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="portal-right">
+      <div class="staff-card">
+        <h2 style="margin: 0 0 4px; font-size: 18px; font-weight: 800;">Sign in to Redfield</h2>
+        <p style="margin: 0 0 14px; font-size: 12px; color: var(--muted);">Authorized staff accounts only.</p>
+
+        <a href="/auth/discord" class="discord-btn">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20.3 4.4A19.7 19.7 0 0 0 15.6 3l-.3.6a14 14 0 0 1 4 1.6c-2.9-1.4-6.7-1.4-9.6 0a10 10 0 0 1 4-1.6L13.4 3a19.7 19.7 0 0 0-4.7 1.4C5.6 8.6 4.8 12.7 5.2 16.7a19.9 19.9 0 0 0 5.1 2.5l.7-1.1a13 13 0 0 1-2-1c.2-.1.3-.2.5-.3a14 14 0 0 0 11 0l.5.3c-.6.4-1.3.7-2 1l.7 1.1a19.8 19.8 0 0 0 5.1-2.5c.5-4.6-.7-8.7-2.9-12.3ZM9.7 14.3c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.5.8 1.5 1.7c0 1-.7 1.7-1.5 1.7Zm5.6 0c-.8 0-1.5-.8-1.5-1.7 0-1 .7-1.7 1.5-1.7s1.5.8 1.5 1.7c0 1-.7 1.7-1.5 1.7Z"/></svg>
+          Sign in
+        </a>
+
+        <div style="margin-top: 14px; font-size: 10.5px; color: var(--muted); text-align: center;">
+          Sessions automatically expire after 10 minutes.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-sub">
+    Need help? Contact the Redfield Archives staff team. · © 2026 Redfield Archives
+  </div>
+
+</body>
+</html>
