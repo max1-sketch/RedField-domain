@@ -315,7 +315,7 @@ function defaultConfig() {
         logChannelId: null,
         tags: [],
         staffPermissions: {
-            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'settings'],
+            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster'],
             canModerate: true
         }
     };
@@ -325,8 +325,6 @@ function getGuildConfig(guildId) {
     const saved = guildConfigs[guildId] || {};
     const def = defaultConfig();
     const merged = { ...def, ...saved };
-
-    const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'settings'];
 
     merged.panels = {};
     for (const key of Object.keys(def.panels)) {
@@ -338,11 +336,9 @@ function getGuildConfig(guildId) {
     merged.tags = Array.isArray(saved.tags) ? saved.tags : def.tags;
     merged.staffRestrictions = saved.staffRestrictions || {};
 
-    // Force ALL tabs to remain allowed and visible across all pages
-    merged.staffPermissions = {
-        allowedTabs: ALL_TABS,
-        canModerate: true
-    };
+    if (!saved.staffPermissions) {
+        merged.staffPermissions = def.staffPermissions;
+    }
 
     guildConfigs[guildId] = merged;
     saveConfigs();
@@ -480,15 +476,18 @@ function getViewerContext(req, guild, guildConfig) {
     const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'settings'];
     const authUser = req.authUser;
     
+    // Master access code or no auth user
     if (!authUser) return { tier: 'none', allowedTabs: [], canModerate: false };
     if (!authUser.id) return { tier: 'master', allowedTabs: ALL_TABS, canModerate: true };
 
     const member = guild.members.cache.get(authUser.id);
     
+    // Server Owner or Admin Role
     if (isAdmin(member, guildConfig)) {
         return { tier: 'admin', allowedTabs: ALL_TABS, canModerate: true };
     }
 
+    // Staff Role: strictly use the allowedTabs configured by Administrators
     if (isStaff(member, guildConfig)) {
         const allowed = guildConfig.staffPermissions?.allowedTabs || ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster'];
         return { 
@@ -1145,7 +1144,7 @@ app.post('/api/guild/permissions', maintenanceGate, requireAuth, (req, res) => {
     const validTabs = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'auditlog', 'settings'];
 
     guildConfig.staffPermissions = {
-        allowedTabs: Array.isArray(allowedTabs) ? allowedTabs.filter(t => validTabs.includes(t)) : guildConfig.staffPermissions.allowedTabs,
+        allowedTabs: Array.isArray(allowedTabs) ? allowedTabs.filter(t => validTabs.includes(t)) : (guildConfig.staffPermissions?.allowedTabs || []),
         canModerate: typeof canModerate === 'boolean' ? canModerate : defaultConfig().staffPermissions.canModerate
     };
 
