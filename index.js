@@ -3,6 +3,8 @@ const BUILD_VERSION = String(Date.now());
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const http = require('http');
+const { Server } = require('socket.io');
 const {
     Client,
     GatewayIntentBits,
@@ -535,18 +537,23 @@ function requireModerationCapability(req, res, next) {
 }
 
 // ---------------------------------------------------------------------------
-// EXPRESS WEB SERVER
+// EXPRESS WEB SERVER & SOCKET.IO SETUP
 // ---------------------------------------------------------------------------
-const http = require('http');
-const { Server } = require('socket.io');
-
 const app = express();
 app.use(express.json());
 
-// Wrap Express with HTTP server for Socket.io
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: '*', methods: ['GET', 'POST'] }
+});
+
+io.on('connection', (socket) => {
+    socket.on('join_ticket', (channelId) => {
+        socket.join(`ticket_${channelId}`);
+    });
+    socket.on('leave_ticket', (channelId) => {
+        socket.leave(`ticket_${channelId}`);
+    });
 });
 
 function parseCookies(req) {
@@ -764,8 +771,7 @@ app.post('/api/login', (req, res) => {
 
 app.get('/auth/discord', (req, res) => {
     if (!DISCORD_LOGIN_CONFIGURED) return res.status(503).send('Discord login is not configured.');
-    
-    // Fall back to the request Referer if returnTo isn't explicitly passed in query
+
     let returnTo = req.query.returnTo;
     if (!returnTo && req.headers.referer) {
         try {
@@ -773,13 +779,13 @@ app.get('/auth/discord', (req, res) => {
             returnTo = parsed.pathname + parsed.search;
         } catch (e) {}
     }
-    
+
     const safeReturnTo = (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/';
     const state = crypto.randomBytes(16).toString('hex');
 
     res.setHeader('Set-Cookie', [
-        `oauthState=${state}; HttpOnly; Path=/; Max-Age=300`,
-        `oauthReturnTo=${encodeURIComponent(safeReturnTo)}; HttpOnly; Path=/; Max-Age=300`
+        `oauthState=${state}; HttpOnly; Path=/; Max-Age=300; SameSite=Lax`,
+        `oauthReturnTo=${encodeURIComponent(safeReturnTo)}; HttpOnly; Path=/; Max-Age=300; SameSite=Lax`
     ]);
 
     const params = new URLSearchParams({
@@ -795,7 +801,8 @@ app.get('/auth/discord', (req, res) => {
 app.get('/auth/discord/callback', async (req, res) => {
     const cookies = parseCookies(req);
     const { code, state, error: oauthError } = req.query;
-    const returnTo = cookies.oauthReturnTo ? decodeURIComponent(cookies.oauthReturnTo) : '/';
+    const rawReturnTo = cookies.oauthReturnTo ? decodeURIComponent(cookies.oauthReturnTo) : '/';
+    const returnTo = (rawReturnTo && rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')) ? rawReturnTo : '/';
 
     if (oauthError) return res.send(lockPageHtml('discord_denied', returnTo));
     if (!DISCORD_LOGIN_CONFIGURED) return res.status(503).send('Discord login is not configured.');
@@ -839,8 +846,8 @@ app.get('/auth/discord/callback', async (req, res) => {
         const expiresAt = Date.now() + SESSION_SECONDS * 1000;
         const session = signDiscordSession({ id: discordUser.id, tag: member.user.tag, exp: expiresAt });
         res.setHeader('Set-Cookie', [
-            `discordAuth=${session}; HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}`,
-            `sessionExpires=${expiresAt}; Path=/; Max-Age=${SESSION_SECONDS}`,
+            `discordAuth=${session}; HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
+            `sessionExpires=${expiresAt}; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
             'oauthState=; Path=/; Max-Age=0',
             'oauthReturnTo=; Path=/; Max-Age=0'
         ]);
@@ -889,7 +896,6 @@ function requireDiscordOrTicketToken(req, res, next) {
     const cookies = parseCookies(req);
     const session = verifyDiscordSession(cookies.discordAuth);
 
-    // 1. Force Discord OAuth Sign-In (General access codes are ignored for transcripts)
     if (!session) {
         if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized: Discord sign-in required.' });
         return res.send(lockPageHtml('discord_required', req.path, false));
@@ -899,7 +905,6 @@ function requireDiscordOrTicketToken(req, res, next) {
     const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
     const restriction = getStaffRestriction(guildConfig, session.id);
 
-    // 2. Check if Discord user is banned or blocked from the site (Staff or Normal Member)
     if (isSiteBanned(restriction) || isLoginBlocked(restriction)) {
         clearAuthCookies(res);
         if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Your access to website transcripts has been banned by an Administrator.' });
@@ -908,14 +913,12 @@ function requireDiscordOrTicketToken(req, res, next) {
 
     req.authUser = session;
 
-    // 3. Fetch archived ticket
     const ticket = archivedTickets.get(req.params.id);
     if (!ticket) {
         if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Transcript not found.' });
         return res.status(404).send('Transcript not found.');
     }
 
-    // 4. Verify viewer permissions (Must be a Staff member OR the user who opened the ticket)
     const member = guild ? guild.members.cache.get(session.id) : null;
     const isStaffUser = member && isStaff(member, guildConfig);
     const isTicketOpener = ticket.openedById === session.id;
@@ -924,7 +927,6 @@ function requireDiscordOrTicketToken(req, res, next) {
         return next();
     }
 
-    // 5. Block access if they are neither Staff nor the ticket opener
     if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Access denied: You do not have permission to view this transcript.' });
     return res.status(403).send('<h2 style="font-family:sans-serif;color:#ef4444;padding:40px;text-align:center;background:#0a0c11;min-height:100vh;margin:0;">🔒 Access Denied: You do not have permission to view this transcript.</h2>');
 }
@@ -939,7 +941,6 @@ app.get('/tickets/:channelId', maintenanceGate, requireAuth, requireTabPermissio
 app.get('/panels', maintenanceGate, requireAuth, requireTabPermission('panels'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'panels.html')));
 app.get('/tags', maintenanceGate, requireAuth, requireTabPermission('tags'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'tags.html')));
 
-// Disabled Quick Words Views & Endpoints
 app.get('/quickwords', maintenanceGate, requireAuth, (req, res) => {
     res.status(403).send('<h2 style="font-family:sans-serif;color:#ef4444;padding:40px;">Quick Words feature is coming soon! Check back later.</h2>');
 });
@@ -955,7 +956,6 @@ app.get('/blacklist', maintenanceGate, requireAuth, requireTabPermission('blackl
 app.get('/lookup', maintenanceGate, requireAuth, requireTabPermission('lookup'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'lookup.html')));
 app.get('/shift-roster', maintenanceGate, requireAuth, requireTabPermission('shiftroster'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'shift-roster.html')));
 
-// Admin Only Pages
 app.get('/audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'audit-log.html')));
 app.get('/settings', maintenanceGate, requireAuth, requireTabPermission('settings'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'settings.html')));
 app.get('/transcript/:id', maintenanceGate, requireDiscordOrTicketToken, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'transcript.html')));
@@ -1309,6 +1309,17 @@ app.post('/api/open-tickets/:channelId/messages', maintenanceGate, requireAuth, 
 
         const senderName = asName || ticket.claimedBy?.tag || 'Staff (via Website)';
         await sendTicketMessage(channel, content, senderName);
+
+        const messageData = {
+            author: senderName,
+            isBot: false,
+            content,
+            attachments: [],
+            timestamp: new Date().toISOString()
+        };
+
+        io.to(`ticket_${req.params.channelId}`).emit('ticket_message', messageData);
+
         res.json({ success: true });
     } catch (err) {
         console.error('[open-ticket send] failed:', err);
@@ -1354,6 +1365,7 @@ app.post('/api/open-tickets/:channelId/close', maintenanceGate, requireAuth, req
         res.status(500).json({ error: 'Could not close the ticket.' });
     }
 });
+
 app.post('/api/guild/tags', maintenanceGate, requireAuth, requireTabPermission('tags'), (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
@@ -2045,7 +2057,7 @@ app.get('/privacy', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// 404 HANDLER (DIRECTLY BEFORE app.listen)
+// 404 HANDLER (DIRECTLY BEFORE server.listen)
 // ---------------------------------------------------------------------------
 app.use((req, res) => {
     res.status(404);
@@ -2055,7 +2067,7 @@ app.use((req, res) => {
     res.json({ error: 'Page Not Found' });
 });
 
-// ✅ NEW (REPLACE WITH THIS)
+// ✅ Real-Time HTTP & Socket.io Server
 server.listen(process.env.PORT || 3002, () => {
     console.log(`🌐 Real-time Web Dashboard running at ${getWebsiteUrl()} (locked with access code)`);
 });
