@@ -176,7 +176,8 @@ function isOwnerContext(interaction) {
 
 function defaultSiteConfig() {
     return {
-        siteTitle: 'Redfield Hub',
+        password: process.env.ARCHIVE_PASSWORD || '5314',
+        siteTitle: 'Redfield Archives',
         bannerText: '',
         accentColor: '#d69a4e',
         footerNote: '',
@@ -201,6 +202,10 @@ function saveSiteConfig() {
     }
 }
 
+function computeAuthToken(password) {
+    return crypto.createHash('sha256').update(`redfield-ticket-archive-${password}`).digest('hex');
+}
+
 function escapeHtml(str) {
     if (!str) return '';
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -214,7 +219,7 @@ function renderTemplate(filePath) {
     // Global Footer with Copyright
     const footerHtml = `
       <div class="footer-note" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border, #262b3a); text-align: center; font-size: 12px; color: var(--muted, #9199a8); line-height: 1.6;">
-        <p style="margin: 0; opacity: 0.8;">© 2026 Redfield Hub. All Rights Reserved.</p>
+        <p style="margin: 0; opacity: 0.8;">© 2026 Redfield Archives. All Rights Reserved.</p>
       </div>
     `;
     
@@ -519,29 +524,7 @@ function getViewerContext(req, guild, guildConfig) {
         };
     }
 
-    // Normal members get strictly ZERO staff tabs
-    return { tier: 'member', allowedTabs: [], canModerate: false };
-}
-
-function requireRole(minRole) {
-    return (req, res, next) => {
-        const guild = getTargetGuild();
-        const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
-        const ctx = getViewerContext(req, guild, guildConfig);
-
-        const hierarchy = { none: 0, member: 1, staff: 2, admin: 3, master: 4 };
-        const userLevel = hierarchy[ctx.tier] || 0;
-        const requiredLevel = hierarchy[minRole] || 1;
-
-        if (userLevel >= requiredLevel) {
-            return next();
-        }
-
-        if (req.path.startsWith('/api/')) {
-            return res.status(403).json({ error: 'Access denied: Staff permissions required.' });
-        }
-        return res.redirect('/hub');
-    };
+    return { tier: 'none', allowedTabs: [], canModerate: false };
 }
 
 function requireTabPermission(tabName) {
@@ -558,7 +541,7 @@ function requireTabPermission(tabName) {
             return res.status(403).json({ error: 'Access denied: Tab restricted by an Administrator.' });
         }
         
-        return res.redirect('/hub');
+        return res.redirect('/login');
     };
 }
 
@@ -645,40 +628,57 @@ function verifyDiscordSession(token) {
 }
 const DISCORD_LOGIN_CONFIGURED = Boolean(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET);
 
-function requireDiscordAuth(req, res, next) {
+function isRequestAuthed(req) {
     const cookies = parseCookies(req);
+    if (cookies.ticketAuth === computeAuthToken(siteConfig.password)) return { name: 'Staff (access code)' };
     const session = verifyDiscordSession(cookies.discordAuth);
-    if (!session) {
-        if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Discord sign-in required.' });
-        return res.redirect(`/auth/discord?returnTo=${encodeURIComponent(req.path)}`);
-    }
+    if (session) return { id: session.id, name: session.tag };
+    return null;
+}
 
-    if (session.id) {
-        const guild = getTargetGuild();
-        const guildConfig = guild ? getGuildConfig(guild.id) : null;
-        if (guildConfig) {
-            const restriction = getStaffRestriction(guildConfig, session.id);
-            if (isSiteBanned(restriction) || isLoginBlocked(restriction)) {
-                clearAuthCookies(res);
-                if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Your website access has been suspended by an Administrator.' });
-                return res.status(403).send('<h2 style="font-family:sans-serif;color:#ef4444;padding:40px;text-align:center;background:#0a0c11;min-height:100vh;margin:0;">🔒 Your access to this website has been suspended by an Administrator.</h2>');
+function requireAuth(req, res, next) {
+    const authUser = isRequestAuthed(req);
+    if (authUser) {
+        if (authUser.id) {
+            const guild = getTargetGuild();
+            const guildConfig = guild ? getGuildConfig(guild.id) : null;
+            if (guildConfig) {
+                const restriction = getStaffRestriction(guildConfig, authUser.id);
+                if (isSiteBanned(restriction) || isLoginBlocked(restriction)) {
+                    clearAuthCookies(res);
+                    if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Your access to this website has been suspended by an Administrator.' });
+                    return res.status(403).send('<h2 style="font-family:sans-serif;color:#ef4444;padding:40px;text-align:center;background:#0a0c11;min-height:100vh;margin:0;">🔒 Your access to this website has been suspended by an Administrator.</h2>');
+                }
             }
         }
+        req.authUser = authUser;
+        return next();
     }
-
-    req.authUser = session;
-    next();
+    if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
+    return res.redirect('/login');
 }
 
 function maintenanceGate(req, res, next) {
     if (!siteConfig.maintenanceMode) return next();
+    if (isRequestAuthed(req)) return next();
     if (req.path.startsWith('/api/')) return res.status(503).json({ error: 'Under maintenance' });
     return res.status(503).send('<h2>System under maintenance.</h2>');
 }
 
-// ---------------------------------------------------------------------------
-// AUTHENTICATION & OAUTH ROUTES (DISCORD ONLY)
-// ---------------------------------------------------------------------------
+app.post('/api/login', (req, res) => {
+    const { password } = req.body || {};
+    if (password === siteConfig.password) {
+        const expiresAt = Date.now() + SESSION_SECONDS * 1000;
+        res.setHeader('Set-Cookie', [
+            `ticketAuth=${computeAuthToken(siteConfig.password)}; HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}`,
+            `sessionExpires=${expiresAt}; Path=/; Max-Age=${SESSION_SECONDS}`
+        ]);
+        logAudit('LOGIN', 'Staff User', 'Logged in via access code');
+        return res.json({ success: true, expiresAt });
+    }
+    return res.status(401).json({ success: false });
+});
+
 app.get('/auth/discord', (req, res) => {
     if (!DISCORD_LOGIN_CONFIGURED) return res.status(503).send('Discord login is not configured.');
 
@@ -690,11 +690,7 @@ app.get('/auth/discord', (req, res) => {
         } catch (e) {}
     }
 
-    if (!returnTo || returnTo === '/' || returnTo === '/login' || returnTo === '/staff-login') {
-        returnTo = '/hub';
-    }
-
-    const safeReturnTo = (returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/hub';
+    const safeReturnTo = (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/';
     const state = crypto.randomBytes(16).toString('hex');
 
     res.setHeader('Set-Cookie', [
@@ -712,21 +708,16 @@ app.get('/auth/discord', (req, res) => {
     res.redirect(`https://discord.com/oauth2/authorize?${params.toString()}`);
 });
 
-// ---------------------------------------------------------------------------
-// DISCORD OAUTH CALLBACK
-// ---------------------------------------------------------------------------
 app.get('/auth/discord/callback', async (req, res) => {
     const cookies = parseCookies(req);
     const { code, state, error: oauthError } = req.query;
-    
-    const rawReturnTo = cookies.oauthReturnTo ? decodeURIComponent(cookies.oauthReturnTo) : '/hub';
-    let returnTo = (rawReturnTo && rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')) ? rawReturnTo : '/hub';
 
-    if (oauthError || !code || !state || state !== cookies.oauthState) {
-        return res.redirect('/?error=auth_failed');
-    }
+    if (oauthError) return res.redirect('/login?error=discord_denied');
+    if (!DISCORD_LOGIN_CONFIGURED) return res.status(503).send('Discord login is not configured.');
+    if (!code || !state || state !== cookies.oauthState) return res.redirect('/login?error=discord_failed');
 
     try {
+        const redirectUri = `${getWebsiteUrl()}/auth/discord/callback`;
         const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -735,56 +726,44 @@ app.get('/auth/discord/callback', async (req, res) => {
                 client_secret: process.env.DISCORD_CLIENT_SECRET,
                 grant_type: 'authorization_code',
                 code,
-                redirect_uri: `${getWebsiteUrl()}/auth/discord/callback`
+                redirect_uri: redirectUri
             })
         });
         const tokenData = await tokenRes.json();
-        if (!tokenData.access_token) throw new Error(tokenData.error_description || 'Discord token exchange failed');
 
         const userRes = await fetch('https://discord.com/api/users/@me', {
             headers: { Authorization: `Bearer ${tokenData.access_token}` }
         });
         const discordUser = await userRes.json();
-        if (!discordUser.id) throw new Error('Discord user lookup failed');
 
         const guild = getTargetGuild();
-        const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
         const member = guild ? await guild.members.fetch(discordUser.id).catch(() => null) : null;
+        const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
 
-        const restriction = getStaffRestriction(guildConfig, discordUser.id);
-        if (isLoginBlocked(restriction)) {
-            return res.redirect('/staff-login?error=access_suspended');
+        // Non-staff visits route to coming-soon
+        if (!member || !isStaff(member, guildConfig)) {
+            return res.redirect('/coming-soon');
         }
 
         const expiresAt = Date.now() + SESSION_SECONDS * 1000;
-        const session = signDiscordSession({ id: discordUser.id, tag: discordUser.username, exp: expiresAt });
-
+        const session = signDiscordSession({ id: discordUser.id, tag: member.user.tag, exp: expiresAt });
         res.setHeader('Set-Cookie', [
             `discordAuth=${session}; HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
             `sessionExpires=${expiresAt}; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
             'oauthState=; Path=/; Max-Age=0',
             'oauthReturnTo=; Path=/; Max-Age=0'
         ]);
-
-        logAudit('DISCORD_LOGIN', discordUser.username, `Logged in via Discord OAuth2`);
-
-        if (member && isStaff(member, guildConfig) && (returnTo === '/hub' || returnTo === '/')) {
-            return res.redirect('/staff');
-        }
-
-        if (returnTo === '/' || returnTo === '/login' || returnTo === '/staff-login') {
-            returnTo = '/hub';
-        }
-
-        return res.redirect(returnTo);
+        logAudit('DISCORD_LOGIN', member.user.tag, `Logged in via Discord OAuth2`);
+        res.redirect('/');
     } catch (err) {
         console.error('[discord oauth] failed:', err);
-        return res.redirect('/?error=server_error');
+        res.redirect('/login?error=discord_failed');
     }
 });
 
 function clearAuthCookies(res) {
     res.setHeader('Set-Cookie', [
+        'ticketAuth=; Path=/; Max-Age=0',
         'discordAuth=; Path=/; Max-Age=0',
         'sessionExpires=; Path=/; Max-Age=0'
     ]);
@@ -792,7 +771,7 @@ function clearAuthCookies(res) {
 
 app.get('/logout', (req, res) => {
     clearAuthCookies(res);
-    res.redirect('/');
+    res.redirect('/login');
 });
 
 app.post('/api/logout', (req, res) => {
@@ -855,50 +834,34 @@ function requireDiscordOrTicketToken(req, res, next) {
 }
 
 // ---------------------------------------------------------------------------
-// VIEW ROUTES (MEMBER LANDING vs STAFF LOGIN PORTAL)
+// VIEW ROUTES
 // ---------------------------------------------------------------------------
+app.get('/login', (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'login.html')));
+app.get('/coming-soon', (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'coming-soon.html')));
 
-// Root Domain (http://localhost:3002/) -> MEMBER LOGIN PAGE
-app.get('/', (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'member-login.html')));
+app.get('/', maintenanceGate, requireAuth, requireTabPermission('archive'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'index.html')));
+app.get('/tickets', maintenanceGate, requireAuth, requireTabPermission('tickets'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'tickets.html')));
+app.get('/tickets/:channelId', maintenanceGate, requireAuth, requireTabPermission('tickets'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'live-ticket.html')));
+app.get('/panels', maintenanceGate, requireAuth, requireTabPermission('panels'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'panels.html')));
+app.get('/tags', maintenanceGate, requireAuth, requireTabPermission('tags'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'tags.html')));
 
-// Dedicated Staff Login Page -> STAFF LOGIN PORTAL
-app.get('/staff-login', (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'staff-login.html')));
-
-// Member Hub Dashboard
-app.get('/hub', maintenanceGate, requireDiscordAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'hub.html')));
-
-// Legacy Redirect
-app.get('/login', (req, res) => res.redirect('/'));
-
-app.get('/member/tickets', maintenanceGate, requireDiscordAuth, requireRole('member'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'member-tickets.html')));
-app.get('/member/applications', maintenanceGate, requireDiscordAuth, requireRole('member'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'member-applications.html')));
-app.get('/account', maintenanceGate, requireDiscordAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'account.html')));
-
-// Protected Staff Views (Redirects Non-Staff Members to /hub)
-app.get('/staff', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'index.html')));
-app.get('/tickets', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'tickets.html')));
-app.get('/tickets/:channelId', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'live-ticket.html')));
-app.get('/panels', maintenanceGate, requireDiscordAuth, requireRole('admin'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'panels.html')));
-app.get('/tags', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'tags.html')));
-
-app.get('/quickwords', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => {
+app.get('/quickwords', maintenanceGate, requireAuth, (req, res) => {
     res.status(403).send('<h2 style="font-family:sans-serif;color:#ef4444;padding:40px;">Quick Words feature is coming soon! Check back later.</h2>');
 });
 
-app.get('/api/quickwords', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => {
+app.get('/api/quickwords', maintenanceGate, requireAuth, (req, res) => {
     res.status(403).json({ error: 'Quick Words feature is currently under maintenance.' });
 });
 
-app.get('/feedback', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'feedback.html')));
-app.get('/moderation', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'moderation.html')));
-app.get('/moderation/:userId', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'member-detail.html')));
-app.get('/blacklist', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'blacklist.html')));
-app.get('/lookup', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'lookup.html')));
-app.get('/shift-roster', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'shift-roster.html')));
-app.get('/staff/applications', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'staff-applications.html')));
+app.get('/feedback', maintenanceGate, requireAuth, requireTabPermission('feedback'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'feedback.html')));
+app.get('/moderation', maintenanceGate, requireAuth, requireTabPermission('moderation'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'moderation.html')));
+app.get('/moderation/:userId', maintenanceGate, requireAuth, requireTabPermission('moderation'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'member-detail.html')));
+app.get('/blacklist', maintenanceGate, requireAuth, requireTabPermission('blacklist'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'blacklist.html')));
+app.get('/lookup', maintenanceGate, requireAuth, requireTabPermission('lookup'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'lookup.html')));
+app.get('/shift-roster', maintenanceGate, requireAuth, requireTabPermission('shiftroster'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'shift-roster.html')));
 
-app.get('/audit-log', maintenanceGate, requireDiscordAuth, requireRole('admin'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'audit-log.html')));
-app.get('/settings', maintenanceGate, requireDiscordAuth, requireRole('admin'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'settings.html')));
+app.get('/audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'audit-log.html')));
+app.get('/settings', maintenanceGate, requireAuth, requireTabPermission('settings'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'settings.html')));
 app.get('/transcript/:id', maintenanceGate, requireDiscordOrTicketToken, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'transcript.html')));
 
 app.get('/api/tickets/:id', maintenanceGate, requireDiscordOrTicketToken, (req, res) => {
@@ -907,63 +870,7 @@ app.get('/api/tickets/:id', maintenanceGate, requireDiscordOrTicketToken, (req, 
     res.json(ticket);
 });
 
-// Member Applications API
-app.get('/api/applications', maintenanceGate, requireDiscordAuth, (req, res) => {
-    const userId = req.authUser.id;
-    const myApps = applicationsData.filter(a => a.userId === userId);
-    res.json(myApps);
-});
-
-app.post('/api/applications', maintenanceGate, requireDiscordAuth, async (req, res) => {
-    const userId = req.authUser.id;
-    const userTag = req.authUser.tag;
-    const { position, answers } = req.body || {};
-
-    if (!position || !answers) return res.status(400).json({ error: 'Position and answers are required.' });
-
-    const newApp = {
-        id: crypto.randomBytes(6).toString('hex'),
-        userId,
-        userTag,
-        position,
-        answers,
-        status: 'pending',
-        submittedAt: new Date().toISOString()
-    };
-
-    applicationsData.unshift(newApp);
-    await saveApplications();
-    logAudit('SUBMIT_APPLICATION', userTag, `Submitted application for ${position}`);
-    res.json({ success: true, application: newApp });
-});
-
-// Staff Applications Manager API
-app.get('/api/staff/applications', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => {
-    res.json(applicationsData);
-});
-
-app.post('/api/staff/applications/:id/status', maintenanceGate, requireDiscordAuth, requireRole('staff'), async (req, res) => {
-    const { status } = req.body || {};
-    const appItem = applicationsData.find(a => a.id === req.params.id);
-    if (!appItem) return res.status(404).json({ error: 'Application not found.' });
-
-    appItem.status = status;
-    appItem.reviewedBy = req.authUser.tag;
-    appItem.reviewedAt = new Date().toISOString();
-
-    await saveApplications();
-    logAudit('REVIEW_APPLICATION', req.authUser.tag, `Set application ${appItem.id} status to ${status}`);
-    res.json({ success: true, application: appItem });
-});
-
-// Member Tickets API Endpoint
-app.get('/api/user/tickets', maintenanceGate, requireDiscordAuth, (req, res) => {
-    const userId = req.authUser.id;
-    const userTickets = Array.from(archivedTickets.values()).filter(t => t.openedById === userId);
-    res.json(userTickets);
-});
-
-// User Context API for Navbar State
+// User Context API
 app.get('/api/me', (req, res) => {
     const cookies = parseCookies(req);
     const session = verifyDiscordSession(cookies.discordAuth);
@@ -984,7 +891,7 @@ app.get('/api/me', (req, res) => {
 // ---------------------------------------------------------------------------
 // SHIFT & DUTY API
 // ---------------------------------------------------------------------------
-app.get('/api/shifts', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => {
+app.get('/api/shifts', maintenanceGate, requireAuth, (req, res) => {
     const userId = req.authUser?.id;
     const roster = Object.entries(shiftData).map(([id, info]) => ({
         userId: id,
@@ -996,7 +903,7 @@ app.get('/api/shifts', maintenanceGate, requireDiscordAuth, requireRole('staff')
     });
 });
 
-app.post('/api/shifts/toggle', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => {
+app.post('/api/shifts/toggle', maintenanceGate, requireAuth, (req, res) => {
     const userId = req.authUser?.id || 'master';
     const tag = req.authUser?.name || 'Staff User';
     
@@ -1029,9 +936,9 @@ app.get('/api/version', (req, res) => {
     res.json({ version: BUILD_VERSION });
 });
 
-app.get('/api/tickets', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => res.json(Array.from(archivedTickets.values())));
+app.get('/api/tickets', maintenanceGate, requireAuth, requireTabPermission('archive'), (req, res) => res.json(Array.from(archivedTickets.values())));
 
-app.post('/api/tickets/:id/tags', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => {
+app.post('/api/tickets/:id/tags', maintenanceGate, requireAuth, (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const ticket = archivedTickets.get(req.params.id);
@@ -1047,8 +954,8 @@ app.post('/api/tickets/:id/tags', maintenanceGate, requireDiscordAuth, requireRo
     res.json({ success: true, tags: tagIds });
 });
 
-app.get('/api/feedback', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => res.json(feedbackData));
-app.get('/api/audit-log', maintenanceGate, requireDiscordAuth, requireRole('admin'), (req, res) => res.json(auditLogs));
+app.get('/api/feedback', maintenanceGate, requireAuth, requireTabPermission('feedback'), (req, res) => res.json(feedbackData));
+app.get('/api/audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), (req, res) => res.json(auditLogs));
 
 function getTargetGuild() {
     if (GUILD_ID) {
@@ -1058,7 +965,7 @@ function getTargetGuild() {
     return client.guilds.cache.first() || null;
 }
 
-app.get('/api/guild', maintenanceGate, requireDiscordAuth, async (req, res) => {
+app.get('/api/guild', maintenanceGate, requireAuth, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
 
@@ -1111,7 +1018,7 @@ app.get('/api/guild', maintenanceGate, requireDiscordAuth, async (req, res) => {
     }
 });
 
-app.post('/api/guild/permissions', maintenanceGate, requireDiscordAuth, requireRole('admin'), (req, res) => {
+app.post('/api/guild/permissions', maintenanceGate, requireAuth, (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const guildConfig = getGuildConfig(guild.id);
@@ -1125,7 +1032,7 @@ app.post('/api/guild/permissions', maintenanceGate, requireDiscordAuth, requireR
     }
 
     const { allowedTabs, canModerate } = req.body || {};
-    const validTabs = ['archive', 'tickets', 'panels', 'tags', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'auditlog', 'settings', 'applications'];
+    const validTabs = ['archive', 'tickets', 'panels', 'tags', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'auditlog', 'settings'];
 
     guildConfig.staffPermissions = {
         allowedTabs: Array.isArray(allowedTabs) ? allowedTabs.filter(t => validTabs.includes(t)) : (guildConfig.staffPermissions?.allowedTabs || []),
@@ -1137,7 +1044,7 @@ app.post('/api/guild/permissions', maintenanceGate, requireDiscordAuth, requireR
     res.json({ success: true, staffPermissions: guildConfig.staffPermissions });
 });
 
-app.post('/api/guild/panels', maintenanceGate, requireDiscordAuth, requireRole('admin'), (req, res) => {
+app.post('/api/guild/panels', maintenanceGate, requireAuth, requireTabPermission('panels'), (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const guildConfig = getGuildConfig(guild.id);
@@ -1186,7 +1093,7 @@ app.post('/api/guild/panels', maintenanceGate, requireDiscordAuth, requireRole('
     res.json({ success: true });
 });
 
-app.post('/api/guild/panels/create', maintenanceGate, requireDiscordAuth, requireRole('admin'), (req, res) => {
+app.post('/api/guild/panels/create', maintenanceGate, requireAuth, requireTabPermission('panels'), (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const guildConfig = getGuildConfig(guild.id);
@@ -1214,7 +1121,7 @@ app.post('/api/guild/panels/create', maintenanceGate, requireDiscordAuth, requir
     res.json({ success: true, typeKey, panel: guildConfig.panels[typeKey] });
 });
 
-app.delete('/api/guild/panels/:typeKey', maintenanceGate, requireDiscordAuth, requireRole('admin'), (req, res) => {
+app.delete('/api/guild/panels/:typeKey', maintenanceGate, requireAuth, requireTabPermission('panels'), (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const guildConfig = getGuildConfig(guild.id);
@@ -1229,7 +1136,7 @@ app.delete('/api/guild/panels/:typeKey', maintenanceGate, requireDiscordAuth, re
     res.json({ success: true });
 });
 
-app.get('/api/open-tickets', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => {
+app.get('/api/open-tickets', maintenanceGate, requireAuth, requireTabPermission('tickets'), (req, res) => {
     const guild = getTargetGuild();
     const list = Array.from(openTickets.entries()).map(([channelId, t]) => ({
         channelId,
@@ -1247,7 +1154,7 @@ app.get('/api/open-tickets', maintenanceGate, requireDiscordAuth, requireRole('s
     res.json(list);
 });
 
-app.post('/api/open-tickets/:channelId/tags', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => {
+app.post('/api/open-tickets/:channelId/tags', maintenanceGate, requireAuth, requireTabPermission('tickets'), (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const ticket = openTickets.get(req.params.channelId);
@@ -1263,7 +1170,7 @@ app.post('/api/open-tickets/:channelId/tags', maintenanceGate, requireDiscordAut
     res.json({ success: true, tags: tagIds });
 });
 
-app.get('/api/open-tickets/:channelId/messages', maintenanceGate, requireDiscordAuth, requireRole('staff'), async (req, res) => {
+app.get('/api/open-tickets/:channelId/messages', maintenanceGate, requireAuth, requireTabPermission('tickets'), async (req, res) => {
     const ticket = openTickets.get(req.params.channelId);
     if (!ticket) return res.status(404).json({ error: 'This ticket is no longer open.' });
 
@@ -1301,7 +1208,7 @@ app.get('/api/open-tickets/:channelId/messages', maintenanceGate, requireDiscord
     }
 });
 
-app.post('/api/open-tickets/:channelId/messages', maintenanceGate, requireDiscordAuth, requireRole('staff'), async (req, res) => {
+app.post('/api/open-tickets/:channelId/messages', maintenanceGate, requireAuth, requireTabPermission('tickets'), async (req, res) => {
     const ticket = openTickets.get(req.params.channelId);
     if (!ticket) return res.status(404).json({ error: 'This ticket is no longer open.' });
 
@@ -1342,7 +1249,7 @@ app.post('/api/open-tickets/:channelId/messages', maintenanceGate, requireDiscor
     }
 });
 
-app.post('/api/open-tickets/:channelId/close', maintenanceGate, requireDiscordAuth, requireRole('staff'), async (req, res) => {
+app.post('/api/open-tickets/:channelId/close', maintenanceGate, requireAuth, requireTabPermission('tickets'), async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const ticket = openTickets.get(req.params.channelId);
@@ -1381,7 +1288,7 @@ app.post('/api/open-tickets/:channelId/close', maintenanceGate, requireDiscordAu
     }
 });
 
-app.post('/api/guild/tags', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => {
+app.post('/api/guild/tags', maintenanceGate, requireAuth, requireTabPermission('tags'), (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const guildConfig = getGuildConfig(guild.id);
@@ -1400,7 +1307,7 @@ app.post('/api/guild/tags', maintenanceGate, requireDiscordAuth, requireRole('st
     res.json({ success: true, tag });
 });
 
-app.delete('/api/guild/tags/:tagId', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => {
+app.delete('/api/guild/tags/:tagId', maintenanceGate, requireAuth, requireTabPermission('tags'), (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const guildConfig = getGuildConfig(guild.id);
@@ -1434,7 +1341,7 @@ app.delete('/api/guild/tags/:tagId', maintenanceGate, requireDiscordAuth, requir
     res.json({ success: true });
 });
 
-app.post('/api/guild/roles', maintenanceGate, requireDiscordAuth, requireRole('admin'), async (req, res) => {
+app.post('/api/guild/roles', maintenanceGate, requireAuth, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const { staffRoleIds, adminRoleIds } = req.body || {};
@@ -1450,7 +1357,7 @@ app.post('/api/guild/roles', maintenanceGate, requireDiscordAuth, requireRole('a
     res.json({ success: true });
 });
 
-app.post('/api/guild/categories', maintenanceGate, requireDiscordAuth, requireRole('admin'), async (req, res) => {
+app.post('/api/guild/categories', maintenanceGate, requireAuth, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const guildConfig = getGuildConfig(guild.id);
@@ -1467,7 +1374,7 @@ app.post('/api/guild/categories', maintenanceGate, requireDiscordAuth, requireRo
     res.json({ success: true });
 });
 
-app.get('/api/guild/members', maintenanceGate, requireDiscordAuth, requireRole('staff'), async (req, res) => {
+app.get('/api/guild/members', maintenanceGate, requireAuth, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const query = (req.query.query || '').toLowerCase().trim();
@@ -1483,7 +1390,7 @@ app.get('/api/guild/members', maintenanceGate, requireDiscordAuth, requireRole('
 // ---------------------------------------------------------------------------
 // ROBLOX & USER LOOKUP ROUTES
 // ---------------------------------------------------------------------------
-app.get('/api/roblox/lookup/:query', maintenanceGate, requireDiscordAuth, requireRole('staff'), async (req, res) => {
+app.get('/api/roblox/lookup/:query', maintenanceGate, requireAuth, async (req, res) => {
     const query = String(req.params.query || '').trim();
     if (!query) return res.status(400).json({ error: 'Query required' });
 
@@ -1531,7 +1438,7 @@ app.get('/api/roblox/lookup/:query', maintenanceGate, requireDiscordAuth, requir
     }
 });
 
-app.get('/api/lookup/:query', maintenanceGate, requireDiscordAuth, requireRole('staff'), async (req, res) => {
+app.get('/api/lookup/:query', maintenanceGate, requireAuth, requireTabPermission('lookup'), async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const query = String(req.params.query || '').trim().toLowerCase();
@@ -1588,7 +1495,7 @@ function serializeMember(guild, m, guildConfig) {
     };
 }
 
-app.get('/api/moderation/members', maintenanceGate, requireDiscordAuth, requireRole('staff'), async (req, res) => {
+app.get('/api/moderation/members', maintenanceGate, requireAuth, requireTabPermission('moderation'), async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const query = (req.query.query || '').trim();
@@ -1607,7 +1514,7 @@ app.get('/api/moderation/members', maintenanceGate, requireDiscordAuth, requireR
     }
 });
 
-app.get('/api/moderation/members/:userId', maintenanceGate, requireDiscordAuth, requireRole('staff'), async (req, res) => {
+app.get('/api/moderation/members/:userId', maintenanceGate, requireAuth, requireTabPermission('moderation'), async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     try {
@@ -1632,7 +1539,7 @@ app.get('/api/moderation/members/:userId', maintenanceGate, requireDiscordAuth, 
     }
 });
 
-app.post('/api/moderation/members/:userId/notes', maintenanceGate, requireDiscordAuth, requireRole('staff'), requireModerationCapability, async (req, res) => {
+app.post('/api/moderation/members/:userId/notes', maintenanceGate, requireAuth, requireTabPermission('moderation'), requireModerationCapability, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const actorIsAdmin = isCurrentActorAdmin(req, guild, getGuildConfig(guild.id));
@@ -1660,7 +1567,7 @@ app.post('/api/moderation/members/:userId/notes', maintenanceGate, requireDiscor
     res.json({ success: true, note });
 });
 
-app.delete('/api/moderation/members/:userId/notes/:noteId', maintenanceGate, requireDiscordAuth, requireRole('staff'), requireModerationCapability, (req, res) => {
+app.delete('/api/moderation/members/:userId/notes/:noteId', maintenanceGate, requireAuth, requireTabPermission('moderation'), requireModerationCapability, (req, res) => {
     const list = moderationNotes.get(req.params.userId) || [];
     const filtered = list.filter(n => n.id !== req.params.noteId);
     if (filtered.length === list.length) return res.status(404).json({ error: 'Note not found.' });
@@ -1671,7 +1578,7 @@ app.delete('/api/moderation/members/:userId/notes/:noteId', maintenanceGate, req
     res.json({ success: true });
 });
 
-app.post('/api/moderation/members/:userId/nickname', maintenanceGate, requireDiscordAuth, requireRole('staff'), requireModerationCapability, async (req, res) => {
+app.post('/api/moderation/members/:userId/nickname', maintenanceGate, requireAuth, requireTabPermission('moderation'), requireModerationCapability, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const nickname = String(req.body?.nickname || '').trim().slice(0, 32);
@@ -1694,7 +1601,7 @@ app.post('/api/moderation/members/:userId/nickname', maintenanceGate, requireDis
     }
 });
 
-app.post('/api/moderation/members/:userId/roles', maintenanceGate, requireDiscordAuth, requireRole('staff'), requireModerationCapability, async (req, res) => {
+app.post('/api/moderation/members/:userId/roles', maintenanceGate, requireAuth, requireTabPermission('moderation'), requireModerationCapability, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const guildConfig = getGuildConfig(guild.id);
@@ -1753,7 +1660,7 @@ app.post('/api/moderation/members/:userId/roles', maintenanceGate, requireDiscor
     }
 });
 
-app.post('/api/moderation/members/:userId/timeout', maintenanceGate, requireDiscordAuth, requireRole('staff'), requireModerationCapability, async (req, res) => {
+app.post('/api/moderation/members/:userId/timeout', maintenanceGate, requireAuth, requireTabPermission('moderation'), requireModerationCapability, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const guildConfig = getGuildConfig(guild.id);
@@ -1782,7 +1689,7 @@ app.post('/api/moderation/members/:userId/timeout', maintenanceGate, requireDisc
     }
 });
 
-app.post('/api/moderation/members/:userId/kick', maintenanceGate, requireDiscordAuth, requireRole('staff'), requireModerationCapability, async (req, res) => {
+app.post('/api/moderation/members/:userId/kick', maintenanceGate, requireAuth, requireTabPermission('moderation'), requireModerationCapability, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const guildConfig = getGuildConfig(guild.id);
@@ -1810,7 +1717,7 @@ app.post('/api/moderation/members/:userId/kick', maintenanceGate, requireDiscord
     }
 });
 
-app.post('/api/moderation/members/:userId/ban', maintenanceGate, requireDiscordAuth, requireRole('staff'), requireModerationCapability, async (req, res) => {
+app.post('/api/moderation/members/:userId/ban', maintenanceGate, requireAuth, requireTabPermission('moderation'), requireModerationCapability, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const guildConfig = getGuildConfig(guild.id);
@@ -1841,7 +1748,7 @@ app.post('/api/moderation/members/:userId/ban', maintenanceGate, requireDiscordA
     }
 });
 
-app.get('/api/moderation/bans', maintenanceGate, requireDiscordAuth, requireRole('staff'), async (req, res) => {
+app.get('/api/moderation/bans', maintenanceGate, requireAuth, requireTabPermission('moderation'), async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     try {
@@ -1853,7 +1760,7 @@ app.get('/api/moderation/bans', maintenanceGate, requireDiscordAuth, requireRole
     }
 });
 
-app.delete('/api/moderation/bans/:userId', maintenanceGate, requireDiscordAuth, requireRole('staff'), requireModerationCapability, async (req, res) => {
+app.delete('/api/moderation/bans/:userId', maintenanceGate, requireAuth, requireTabPermission('moderation'), requireModerationCapability, async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const reason = String(req.body?.reason || '').trim();
@@ -1869,14 +1776,14 @@ app.delete('/api/moderation/bans/:userId', maintenanceGate, requireDiscordAuth, 
     }
 });
 
-app.get('/api/moderation/log', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => {
+app.get('/api/moderation/log', maintenanceGate, requireAuth, requireTabPermission('moderation'), (req, res) => {
     res.json(moderationLog.slice(0, 100));
 });
 
 // ---------------------------------------------------------------------------
 // STAFF ACCESS RESTRICTIONS
 // ---------------------------------------------------------------------------
-app.post('/api/moderation/members/:userId/restrictions', maintenanceGate, requireDiscordAuth, requireRole('staff'), async (req, res) => {
+app.post('/api/moderation/members/:userId/restrictions', maintenanceGate, requireAuth, requireTabPermission('moderation'), async (req, res) => {
     try {
         const guild = getTargetGuild();
         if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
@@ -1943,7 +1850,7 @@ app.post('/api/moderation/members/:userId/restrictions', maintenanceGate, requir
     }
 });
 
-app.post('/api/guild/blacklist', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => {
+app.post('/api/guild/blacklist', maintenanceGate, requireAuth, requireTabPermission('blacklist'), (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const { userId, tag, reason } = req.body || {};
@@ -1955,7 +1862,7 @@ app.post('/api/guild/blacklist', maintenanceGate, requireDiscordAuth, requireRol
     res.json({ success: true });
 });
 
-app.delete('/api/guild/blacklist/:userId', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => {
+app.delete('/api/guild/blacklist/:userId', maintenanceGate, requireAuth, requireTabPermission('blacklist'), (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const guildConfig = getGuildConfig(guild.id);
