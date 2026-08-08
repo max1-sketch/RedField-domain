@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Coming Soon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --accent: {{ACCENT_COLOR}}; --bg: #0b0d12; --panel: #131720; --border: #222735; --ink: #e3e6ed; --muted: #8891a0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink); font-family: 'Inter', sans-serif; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 40px; max-width: 440px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+  .badge { display: inline-block; background: rgba(214, 154, 78, 0.12); color: var(--accent); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 16px; }
+  h1 { font-size: 24px; font-weight: 800; margin: 0 0 10px; }
+  p { font-size: 13.5px; color: var(--muted); line-height: 1.6; margin: 0 0 24px; }
+  .btn-back { display: inline-block; background: var(--border); color: var(--ink); text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; font-size: 13px; transition: background 0.15s; }
+  .btn-back:hover { background: #2f364a; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">Member Portal</div>
+    <h1>Member Login Coming Soon</h1>
+    <p>The member portal is currently under active development. Member tickets, applications, and account features will be unlocked in an upcoming update.</p>
+    <a href="/login" class="btn-back">← Return to Portal Login</a>
+  </div>
+</body>
+</html>
