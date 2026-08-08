@@ -58,6 +58,7 @@ const BLOCKLIST_FILE = path.join(DATA_DIR, 'blockedGuilds.json');
 const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
 const QUICKWORDS_FILE = path.join(DATA_DIR, 'quickWords.json');
 const AUDIT_LOG_FILE = path.join(DATA_DIR, 'auditLog.json');
+const APPLICATIONS_FILE = path.join(DATA_DIR, 'applications.json');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -104,6 +105,24 @@ async function saveFeedback() {
         fs.writeFileSync(FEEDBACK_FILE, JSON.stringify(feedbackData, null, 2));
     } catch (err) {
         console.error('Failed to save feedback:', err);
+    }
+}
+
+// Applications Persistence
+let applicationsData = [];
+try {
+    if (fs.existsSync(APPLICATIONS_FILE)) {
+        applicationsData = JSON.parse(fs.readFileSync(APPLICATIONS_FILE, 'utf8'));
+    }
+} catch (err) {
+    console.error('Could not load applications, starting fresh:', err);
+}
+async function saveApplications() {
+    try {
+        if (redis) await redis.set('applicationsData', JSON.stringify(applicationsData));
+        fs.writeFileSync(APPLICATIONS_FILE, JSON.stringify(applicationsData, null, 2));
+    } catch (err) {
+        console.error('Failed to save applications:', err);
     }
 }
 
@@ -436,6 +455,9 @@ async function loadAllFromRedis() {
         const savedFb = await redis.get('feedbackData');
         if (savedFb) feedbackData = typeof savedFb === 'string' ? JSON.parse(savedFb) : savedFb;
 
+        const savedApps = await redis.get('applicationsData');
+        if (savedApps) applicationsData = typeof savedApps === 'string' ? JSON.parse(savedApps) : savedApps;
+
         console.log('✅ All data successfully restored from Upstash Cloud Redis!');
     } catch (err) {
         console.error('Error loading data from Upstash Redis:', err);
@@ -497,7 +519,8 @@ function getViewerContext(req, guild, guildConfig) {
         };
     }
 
-    return { tier: 'member', allowedTabs: ['tickets', 'transcript'], canModerate: false };
+    // Normal members get strictly ZERO staff tabs
+    return { tier: 'member', allowedTabs: [], canModerate: false };
 }
 
 function requireRole(minRole) {
@@ -515,9 +538,9 @@ function requireRole(minRole) {
         }
 
         if (req.path.startsWith('/api/')) {
-            return res.status(403).json({ error: 'Access denied: Insufficient permissions.' });
+            return res.status(403).json({ error: 'Access denied: Staff permissions required.' });
         }
-        return res.redirect(userLevel >= 2 ? '/staff' : '/');
+        return res.redirect('/hub');
     };
 }
 
@@ -535,7 +558,7 @@ function requireTabPermission(tabName) {
             return res.status(403).json({ error: 'Access denied: Tab restricted by an Administrator.' });
         }
         
-        return res.redirect('/');
+        return res.redirect('/hub');
     };
 }
 
@@ -630,11 +653,6 @@ function requireDiscordAuth(req, res, next) {
         return res.redirect(`/auth/discord?returnTo=${encodeURIComponent(req.path)}`);
     }
 
-    // A staff member an Administrator has blocked or banned must be turned
-    // away here too, not just on the transcript route — otherwise a ban only
-    // stops them from viewing transcripts while everything else (the ticket
-    // dashboard, moderation tools, etc.) stays wide open on an existing
-    // session.
     if (session.id) {
         const guild = getTargetGuild();
         const guildConfig = guild ? getGuildConfig(guild.id) : null;
@@ -664,7 +682,6 @@ function maintenanceGate(req, res, next) {
 app.get('/auth/discord', (req, res) => {
     if (!DISCORD_LOGIN_CONFIGURED) return res.status(503).send('Discord login is not configured.');
 
-    // 1. Determine where to send the user after login
     let returnTo = req.query.returnTo;
     if (!returnTo && req.headers.referer) {
         try {
@@ -673,7 +690,6 @@ app.get('/auth/discord', (req, res) => {
         } catch (e) {}
     }
 
-    // 2. If coming from the home login page (/ or /login or /staff-login), default return path to /hub
     if (!returnTo || returnTo === '/' || returnTo === '/login' || returnTo === '/staff-login') {
         returnTo = '/hub';
     }
@@ -681,7 +697,6 @@ app.get('/auth/discord', (req, res) => {
     const safeReturnTo = (returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/hub';
     const state = crypto.randomBytes(16).toString('hex');
 
-    // 3. Set cookies with SameSite=Lax so modern browsers retain them across Discord's redirect
     res.setHeader('Set-Cookie', [
         `oauthState=${state}; HttpOnly; Path=/; Max-Age=300; SameSite=Lax`,
         `oauthReturnTo=${encodeURIComponent(safeReturnTo)}; HttpOnly; Path=/; Max-Age=300; SameSite=Lax`
@@ -698,13 +713,12 @@ app.get('/auth/discord', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// DISCORD OAUTH CALLBACK (ROUTES STAFF & MEMBERS AUTOMATICALLY)
+// DISCORD OAUTH CALLBACK
 // ---------------------------------------------------------------------------
 app.get('/auth/discord/callback', async (req, res) => {
     const cookies = parseCookies(req);
     const { code, state, error: oauthError } = req.query;
     
-    // Read stored return target from cookie
     const rawReturnTo = cookies.oauthReturnTo ? decodeURIComponent(cookies.oauthReturnTo) : '/hub';
     let returnTo = (rawReturnTo && rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')) ? rawReturnTo : '/hub';
 
@@ -737,7 +751,6 @@ app.get('/auth/discord/callback', async (req, res) => {
         const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
         const member = guild ? await guild.members.fetch(discordUser.id).catch(() => null) : null;
 
-        // Restriction check
         const restriction = getStaffRestriction(guildConfig, discordUser.id);
         if (isLoginBlocked(restriction)) {
             return res.redirect('/staff-login?error=access_suspended');
@@ -746,7 +759,6 @@ app.get('/auth/discord/callback', async (req, res) => {
         const expiresAt = Date.now() + SESSION_SECONDS * 1000;
         const session = signDiscordSession({ id: discordUser.id, tag: discordUser.username, exp: expiresAt });
 
-        // Set cookies with SameSite=Lax to prevent redirect loops across domains
         res.setHeader('Set-Cookie', [
             `discordAuth=${session}; HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
             `sessionExpires=${expiresAt}; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
@@ -756,7 +768,6 @@ app.get('/auth/discord/callback', async (req, res) => {
 
         logAudit('DISCORD_LOGIN', discordUser.username, `Logged in via Discord OAuth2`);
 
-        // Send staff to /staff and members to /hub
         if (member && isStaff(member, guildConfig) && (returnTo === '/hub' || returnTo === '/')) {
             return res.redirect('/staff');
         }
@@ -771,6 +782,7 @@ app.get('/auth/discord/callback', async (req, res) => {
         return res.redirect('/?error=server_error');
     }
 });
+
 function clearAuthCookies(res) {
     res.setHeader('Set-Cookie', [
         'discordAuth=; Path=/; Max-Age=0',
@@ -861,7 +873,7 @@ app.get('/login', (req, res) => res.redirect('/'));
 app.get('/member/tickets', maintenanceGate, requireDiscordAuth, requireRole('member'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'member-tickets.html')));
 app.get('/member/applications', maintenanceGate, requireDiscordAuth, requireRole('member'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'member-applications.html')));
 
-// Protected Staff Views
+// Protected Staff Views (Redirects Non-Staff Members to /hub)
 app.get('/staff', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'index.html')));
 app.get('/tickets', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'tickets.html')));
 app.get('/tickets/:channelId', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'live-ticket.html')));
@@ -891,6 +903,36 @@ app.get('/api/tickets/:id', maintenanceGate, requireDiscordOrTicketToken, (req, 
     const ticket = archivedTickets.get(req.params.id);
     if (!ticket) return res.status(404).json({ error: 'Transcript not found.' });
     res.json(ticket);
+});
+
+// Applications API Endpoints
+app.get('/api/applications', maintenanceGate, requireDiscordAuth, (req, res) => {
+    const userId = req.authUser.id;
+    const myApps = applicationsData.filter(a => a.userId === userId);
+    res.json(myApps);
+});
+
+app.post('/api/applications', maintenanceGate, requireDiscordAuth, async (req, res) => {
+    const userId = req.authUser.id;
+    const userTag = req.authUser.tag;
+    const { position, answers } = req.body || {};
+
+    if (!position || !answers) return res.status(400).json({ error: 'Position and answers are required.' });
+
+    const newApp = {
+        id: crypto.randomBytes(6).toString('hex'),
+        userId,
+        userTag,
+        position,
+        answers,
+        status: 'pending',
+        submittedAt: new Date().toISOString()
+    };
+
+    applicationsData.unshift(newApp);
+    await saveApplications();
+    logAudit('SUBMIT_APPLICATION', userTag, `Submitted application for ${position}`);
+    res.json({ success: true, application: newApp });
 });
 
 // Member Tickets API Endpoint

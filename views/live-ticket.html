@@ -3,435 +3,323 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{SITE_TITLE}} — Live Ticket</title>
+<title>{{SITE_TITLE}} — Live Ticket Chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  :root {
+    --accent: {{ACCENT_COLOR}};
+    --bg: #0b0d12;
+    --panel: #131720;
+    --panel-2: #1a1e2b;
+    --border: #222735;
+    --ink: #e3e6ed;
+    --muted: #8891a0;
+    --green: #22c55e;
+    --red: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    height: 100vh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
 
-:root {
-  --accent: {{ACCENT_COLOR}};
-  --bg-0: #0a0c11;
-  --sidebar-bg: #0d0f16;
-  --panel: #141722;
-  --panel-2: #1a1e2b;
-  --border: #262b3a;
-  --ink: #e7e9ee;
-  --muted: #9199a8;
-  --faint: #5b6272;
-  --red: #ef4444;
-  --green: #22c55e;
-}
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
-body { min-height: 100vh; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
-a { color: inherit; text-decoration: none; }
-.mono { font-family: 'IBM Plex Mono', monospace; }
-.site-banner { background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .btn-back { color: var(--muted); text-decoration: none; font-weight: 600; font-size: 13px; }
+  .btn-back:hover { color: var(--ink); }
+  .ticket-title { font-size: 16px; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 8px; }
 
-.app-shell { display: flex; min-height: 100vh; }
-.sidebar { width: 250px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
-.sidebar-brand { display: flex; align-items: center; gap: 10px; background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px; margin-bottom: 18px; line-height: 1.25; }
-.sidebar-brand .dot { width: 8px; height: 8px; border-radius: 50%; background: #0a0c11; flex-shrink: 0; opacity: .55; }
-nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
-.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); font-size: 13.5px; font-weight: 500; }
-.nav-item:hover { background: var(--panel-2); color: var(--ink); }
-.nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
-.nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
-.nav-item .ic svg { width: 100%; height: 100%; }
-.nav-item.active .ic { opacity: 1; }
-.badge-beta { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b44; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: auto; text-transform: uppercase; }
+  .ticket-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .status-pill.open { background: rgba(34, 197, 94, 0.12); color: var(--green); }
+  .status-pill.closed { background: rgba(239, 68, 68, 0.12); color: var(--red); }
 
-.sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
-.session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
-.session-line.warn { color: var(--red); }
+  .btn-group { display: flex; align-items: center; gap: 8px; }
+  .btn {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .btn:hover { border-color: #3b4256; }
+  .btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--red); border-color: rgba(239, 68, 68, 0.3); }
+  .btn-danger:hover { background: rgba(239, 68, 68, 0.25); }
 
-.content-area { flex: 1; min-width: 0; padding: 26px 30px 40px; max-width: 860px; display: flex; flex-direction: column; height: 100vh; }
+  /* Live Chat Workspace */
+  .chat-layout { flex: 1; display: flex; overflow: hidden; }
+  
+  .chat-main { flex: 1; display: flex; flex-direction: column; background: var(--bg); }
+  .chat-messages {
+    flex: 1;
+    padding: 20px 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
 
-.back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); margin-bottom: 14px; flex-shrink: 0; }
-.back-link:hover { color: var(--accent); }
+  .msg-row { display: flex; gap: 12px; align-items: flex-start; }
+  .msg-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--panel-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .msg-content { flex: 1; }
+  .msg-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .msg-author { font-weight: 700; color: var(--ink); }
+  .msg-time { font-size: 11px; color: var(--muted); }
+  .msg-body { color: #d1d7e0; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
 
-.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 14px; flex-shrink: 0; }
-.header-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
-.type-badge { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; padding: 3px 9px; border-radius: 5px; text-transform: uppercase; margin-bottom: 8px; }
-.status-badge { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 5px; margin-left: 8px; vertical-align: middle; }
-.status-badge.open { background: #22c55e22; color: var(--green); }
-.status-badge.closing { background: #ef444422; color: var(--red); }
-.case-title { font-size: 17px; font-weight: 800; color: var(--ink); margin: 0; }
-.meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px 16px; font-size: 11.5px; color: var(--faint); margin-top: 12px; }
-.meta-grid span b { display: block; color: var(--muted); font-weight: 600; margin-bottom: 2px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; }
-.reason { font-size: 12.5px; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 12px; white-space: pre-wrap; }
+  /* Input Box */
+  .chat-footer {
+    padding: 16px 24px;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .input-row { display: flex; gap: 10px; }
+  .chat-input {
+    flex: 1;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13.5px;
+    outline: none;
+  }
+  .chat-input:focus { border-color: var(--accent); }
+  .btn-send { background: var(--accent); color: #000; font-weight: 700; padding: 0 18px; border: none; border-radius: 6px; cursor: pointer; }
 
-.tag-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
-.tag-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 99px; }
-.tag-x { background: none; border: none; color: inherit; opacity: .6; cursor: pointer; font-size: 12px; line-height: 1; padding: 0; }
-.tag-x:hover { opacity: 1; }
-#tagAdder { background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); font-size: 11px; padding: 4px 8px; border-radius: 99px; font-family: inherit; }
-
-.header-actions { display: flex; gap: 8px; flex-shrink: 0; }
-.btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 8px 14px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
-.btn-ghost { background: var(--panel-2); color: var(--ink); border: 1px solid var(--border); }
-.btn-ghost:hover { border-color: var(--accent); }
-.btn-danger { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
-.btn-danger:hover { background: rgba(239,68,68,0.2); }
-.btn-accent { background: var(--accent); color: #0a0c11; }
-.btn-accent:hover { opacity: .9; }
-.btn:disabled { opacity: .5; cursor: not-allowed; }
-
-.log-card { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-.log-scroll { flex: 1; overflow-y: auto; padding-right: 4px; }
-.log { display: flex; flex-direction: column; gap: 2px; }
-.msg { display: flex; gap: 10px; padding: 8px; border-radius: 8px; }
-.msg:hover { background: rgba(255,255,255,0.02); }
-.msg.from-bot .avatar { background: var(--faint); }
-.avatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; color: #0a0c11; font-weight: 700; font-size: 11px; margin-top: 2px; }
-.msg .body { flex: 1; min-width: 0; }
-.line1 { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.author { color: var(--ink); font-weight: 700; font-size: 12.5px; }
-.time { color: var(--faint); font-size: 10px; font-family: 'IBM Plex Mono', monospace; }
-.content { color: var(--ink); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; margin-top: 2px; }
-.attachments { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
-.attachments img { max-width: 240px; max-height: 200px; border-radius: 6px; border: 1px solid var(--border); display: block; }
-.attachments a.filelink { display: inline-block; font-size: 11px; border: 1px solid var(--border); padding: 6px 10px; border-radius: 5px; }
-
-.compose { flex-shrink: 0; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 8px; }
-.compose-row { display: flex; gap: 8px; align-items: flex-end; }
-.compose textarea {
-  flex: 1; resize: none; background: var(--panel-2); border: 1px solid var(--border); color: var(--ink);
-  padding: 10px 12px; border-radius: 8px; font-family: inherit; font-size: 13px; min-height: 42px; max-height: 120px;
-}
-.compose textarea:focus { outline: none; border-color: var(--accent); }
-.compose-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
-.name-input { background: transparent; border: none; color: var(--faint); font-size: 11px; font-family: inherit; width: 160px; }
-.name-input:focus { outline: none; color: var(--ink); }
-.quickword-picker {
-  width: 220px;
-  min-width: 180px;
-  border: 1px solid var(--border);
-  background: var(--panel-2);
-  color: var(--ink);
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-family: inherit;
-  font-size: 13px;
-}
-.send-note { font-size: 10.5px; color: var(--faint); }
-
-.empty-state, .error-state { text-align: center; padding: 40px 20px; color: var(--faint); }
-.error-state h2 { font-size: 14px; color: var(--muted); margin: 0 0 4px; font-weight: 700; }
-.error-state p { font-size: 12px; margin: 0; }
-
-@media (max-width: 860px) {
-  .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
-  .sidebar.open { transform: translateX(0); }
-  .content-area { padding: 16px 14px 20px; height: auto; min-height: 100vh; }
-  .log-card { min-height: 400px; }
-}
+  /* Side Info Drawer */
+  .chat-sidebar {
+    width: 280px;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    padding: 20px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .side-section { margin-bottom: 20px; }
+  .side-label { font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .side-val { font-size: 13px; font-weight: 600; color: var(--ink); word-break: break-all; }
 </style>
 </head>
 <body>
 
-{{BANNER_HTML}}
-
-<div class="app-shell">
-  <aside class="sidebar">
-    <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
-    <nav class="sidebar-nav" id="navTabs"></nav>
-    <div class="sidebar-footer">
-      <span class="session-line mono" id="sessionClock">session --:--</span>
-      <a href="/logout" class="nav-item"><span class="ic" id="logoutIcon"></span> Log out</a>
+  <header>
+    <div class="header-left">
+      <a href="/tickets" class="btn-back">← Back to Open Tickets</a>
+      <h1 class="ticket-title" id="ticketHeader">Live Ticket Channel</h1>
     </div>
-  </aside>
-
-  <main class="content-area">
-    <a href="/tickets" class="back-link">← Back to open tickets</a>
-    <div id="content">
-      <div class="empty-state">Loading…</div>
+    <div class="btn-group" id="headerActions">
+      <button class="btn" id="claimBtn" onclick="toggleClaim()">Claim Ticket</button>
+      <button class="btn btn-danger" onclick="closeTicket()">Close Ticket</button>
     </div>
-    {{FOOTER_NOTE_HTML}}
-  </main>
-</div>
+  </header>
 
-<script src="/theme.js"></script>
-<script>
-RF.startSessionClock(document.getElementById('sessionClock'));
+  <div class="chat-layout">
+    <div class="chat-main">
+      <div class="chat-messages" id="messageLog">
+        <div style="text-align:center; color: var(--muted); padding: 40px;">Connecting to real-time chat server...</div>
+      </div>
 
-const channelId = window.location.pathname.split('/').pop();
-let allTags = [];
-let quickWords = [];
-let lastTicket = {};
-let pollTimer = null;
+      <div class="chat-footer" id="chatFooterContainer">
+        <form class="input-row" id="sendForm">
+          <input type="text" class="chat-input" id="messageInput" placeholder="Type a message to send to Discord..." autocomplete="off">
+          <button type="submit" class="btn-send">Send</button>
+        </form>
+      </div>
+    </div>
 
-async function initNav() {
-  try {
-    const res = await fetch('/api/guild');
-    if (res.ok) {
-      const g = await res.json();
-      const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions?.allowedTabs : null;
-      document.getElementById('navTabs').innerHTML = RF.renderNav('/tickets', allowedTabs);
-    } else {
-      document.getElementById('navTabs').innerHTML = RF.renderNav('/tickets', null);
+    <div class="chat-sidebar">
+      <div class="side-section">
+        <div class="side-label">Opener</div>
+        <div class="side-val" id="sideOpener">—</div>
+      </div>
+      <div class="side-section">
+        <div class="side-label">Category / Type</div>
+        <div class="side-val" id="sideType">—</div>
+      </div>
+      <div class="side-section">
+        <div class="side-label">Claimed By</div>
+        <div class="side-val" id="sideClaimed">—</div>
+      </div>
+      <div class="side-section">
+        <div class="side-label">Reason Provided</div>
+        <div class="side-val" id="sideReason" style="font-weight: 400; color: var(--muted);">—</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/theme.js"></script>
+  <script>
+    const channelId = window.location.pathname.split('/').pop();
+    let socket = null;
+    let isClaimed = false;
+
+    async function initLiveChat() {
+      try {
+        // 1. Verify User Staff Role
+        const meRes = await fetch('/api/me');
+        if (!meRes.ok) return window.location.href = '/login';
+        const user = await meRes.json();
+
+        if (!user.isStaff) {
+          // Lock message sending for non-staff members
+          document.getElementById('chatFooterContainer').innerHTML = `
+            <div style="text-align: center; color: var(--muted); font-size: 13px;">
+              💬 To reply to this live ticket, please send messages directly inside your <strong>Discord server channel</strong>.
+            </div>
+          `;
+          document.getElementById('headerActions').style.display = 'none';
+        }
+
+        // 2. Fetch Ticket Messages & Metadata
+        const res = await fetch(`/api/open-tickets/${channelId}/messages`);
+        if (!res.ok) throw new Error('Ticket is no longer open or accessible.');
+        const data = await res.json();
+
+        renderTicketMeta(data.ticket);
+        renderMessages(data.messages);
+
+        // 3. Connect Real-time Socket Engine
+        socket = io();
+        socket.emit('join_ticket', channelId);
+        socket.on('ticket_message', (msg) => appendMessage(msg));
+
+      } catch (err) {
+        document.getElementById('messageLog').innerHTML = `<div style="text-align:center; color: var(--red); padding: 40px;">${RF.esc(err.message)}</div>`;
+      }
     }
-  } catch {
-    document.getElementById('navTabs').innerHTML = RF.renderNav('/tickets', null);
-  }
-  const logoutIconEl = document.getElementById('logoutIcon');
-  if (logoutIconEl && RF.ICONS?.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
-}
 
-function isImage(url, contentType) {
-  if (contentType && contentType.startsWith('image/')) return true;
-  return /\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(url || '');
-}
-
-async function loadTagDefs() {
-  try {
-    const res = await fetch('/api/guild');
-    if (res.ok) { const data = await res.json(); allTags = data.tags || []; }
-  } catch { /* ignore tag load failures */ }
-}
-
-async function loadQuickWords() {
-  try {
-    const res = await fetch(`/api/open-tickets/${encodeURIComponent(channelId)}/quickwords`);
-    if (!res.ok) { quickWords = []; return; }
-    const data = await res.json();
-    quickWords = [
-      ...(Array.isArray(data.global) ? data.global.map(w => ({ ...w, type: 'Global' })) : []),
-      ...(Array.isArray(data.personal) ? data.personal.map(w => ({ ...w, type: 'Personal' })) : [])
-    ];
-  } catch {
-    quickWords = [];
-  }
-}
-
-function renderQuickwordPicker() {
-  const select = document.getElementById('quickwordPicker');
-  if (!select) return;
-  if (!quickWords.length) {
-    select.style.display = 'none';
-    return;
-  }
-  select.style.display = 'block';
-  select.innerHTML = `<option value="">Quick Words…</option>` + quickWords.map((q, idx) => `<option value="${idx}">${RF.esc(q.label)} (${RF.esc(q.type)})</option>`).join('');
-}
-
-async function doQuickwordSend() {
-  const select = document.getElementById('quickwordPicker');
-  if (!select || !select.value) return;
-  const selected = quickWords[Number(select.value)];
-  if (!selected) return;
-  const asName = document.getElementById('composeName').value.trim();
-  const content = selected.text || '';
-  select.disabled = true;
-  try {
-    const res = await fetch(`/api/open-tickets/${encodeURIComponent(channelId)}/messages`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, asName })
-    });
-    if (res.ok) {
-      select.value = '';
-      await load();
-    } else {
-      const err = await res.json().catch(() => ({}));
-      alert(err.error || 'Could not send Quick Word.');
-      select.disabled = false;
+    function renderTicketMeta(ticket) {
+      document.getElementById('ticketHeader').textContent = `#${ticket.userTag || channelId}`;
+      document.getElementById('sideOpener').textContent = `@${ticket.userTag || 'Unknown'}`;
+      document.getElementById('sideType').textContent = ticket.type || 'SUPPORT';
+      document.getElementById('sideReason').textContent = ticket.reason || 'No reason provided';
+      
+      isClaimed = Boolean(ticket.claimedBy);
+      document.getElementById('sideClaimed').textContent = ticket.claimedBy || 'Unclaimed';
+      document.getElementById('claimBtn').textContent = isClaimed ? 'Unclaim Ticket' : 'Claim Ticket';
     }
-  } catch {
-    alert('Could not send Quick Word.');
-    select.disabled = false;
-  }
-}
 
-async function load(isPoll) {
-  try {
-    const res = await fetch(`/api/open-tickets/${encodeURIComponent(channelId)}/messages`);
-    if (res.status === 401) { window.location.reload(); return; }
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      document.getElementById('content').innerHTML = `<div class="card error-state"><h2>Can't load this ticket</h2><p>${RF.esc(err.error || 'It may have just been closed.')}</p></div>`;
-      if (pollTimer) clearInterval(pollTimer);
-      return;
+    function renderMessages(messages) {
+      const container = document.getElementById('messageLog');
+      if (!messages.length) {
+        container.innerHTML = `<div style="text-align:center; color: var(--muted); padding: 40px;">No messages sent in this channel yet.</div>`;
+        return;
+      }
+
+      container.innerHTML = messages.map(m => createMsgHtml(m)).join('');
+      scrollToBottom();
     }
-    const data = await res.json();
-    render(data.ticket, data.messages, isPoll);
-  } catch (err) {
-    if (!isPoll) document.getElementById('content').innerHTML = `<div class="card error-state"><h2>Couldn't reach the server</h2><p>Refresh and try again.</p></div>`;
-  }
-}
 
-function renderTagSection(currentTagIds) {
-  const current = Array.isArray(currentTagIds) ? currentTagIds : [];
-  const chips = current.map(tagId => {
-    const tag = allTags.find(t => t.id === tagId);
-    if (!tag) return '';
-    return `<span class="tag-chip" style="background:${tag.color}22; color:${tag.color};">${RF.esc(tag.name)}<button class="tag-x" onclick="removeTag('${tag.id}')">×</button></span>`;
-  }).join('');
-  const available = allTags.filter(t => !current.includes(t.id));
-  const picker = available.length
-    ? `<select id="tagAdder" onchange="addTag(this.value); this.value='';">
-        <option value="">+ Add tag…</option>
-        ${available.map(t => `<option value="${t.id}">${RF.esc(t.name)}</option>`).join('')}
-      </select>`
-    : '';
-  return `<div class="tag-row">${chips}${picker}</div>`;
-}
-
-async function saveTags(newTagIds) {
-  try {
-    const res = await fetch(`/api/open-tickets/${encodeURIComponent(channelId)}/tags`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tagIds: newTagIds })
-    });
-    if (!res.ok) { alert('Could not update tags — try again.'); return; }
-    lastTicket.tags = newTagIds;
-    document.getElementById('tagSection').innerHTML = renderTagSection(newTagIds);
-  } catch { alert('Could not update tags — check your connection.'); }
-}
-function addTag(tagId) {
-  if (!tagId) return;
-  const current = Array.isArray(lastTicket.tags) ? lastTicket.tags : [];
-  if (current.includes(tagId)) return;
-  saveTags([...current, tagId]);
-}
-function removeTag(tagId) {
-  const current = Array.isArray(lastTicket.tags) ? lastTicket.tags : [];
-  saveTags(current.filter(id => id !== tagId));
-}
-
-function render(t, messages, isPoll) {
-  lastTicket = t;
-  const color = RF.typeColor(t.type);
-  const wasAtBottom = isPoll ? isScrolledToBottom() : true;
-
-  const logHtml = messages.length
-    ? messages.map(m => {
-        const attachmentsHtml = (m.attachments || []).map(a =>
-          isImage(a.url, a.contentType)
-            ? `<a href="${RF.esc(a.url)}" target="_blank" rel="noopener"><img src="${RF.esc(a.url)}" loading="lazy" alt="attachment"></a>`
-            : `<a class="filelink" href="${RF.esc(a.url)}" target="_blank" rel="noopener">📎 Attachment</a>`
-        ).join('');
-        const embedImagesHtml = (m.embedImages || []).map(url =>
-          `<a href="${RF.esc(url)}" target="_blank" rel="noopener"><img src="${RF.esc(url)}" loading="lazy" alt="embed image"></a>`
-        ).join('');
-        return `
-        <div class="msg${m.isBot ? ' from-bot' : ''}">
-          <div class="avatar" style="background:${m.isBot ? 'var(--faint)' : color};">${RF.esc(m.author ? m.author.slice(0,2).toUpperCase() : '?')}</div>
-          <div class="body">
-            <div class="line1"><span class="author">${RF.esc(m.author || 'Unknown')}</span><span class="time">${RF.esc(m.timestamp)}</span></div>
-            ${m.content ? `<div class="content">${RF.esc(m.content)}</div>` : ''}
-            ${(attachmentsHtml || embedImagesHtml) ? `<div class="attachments">${attachmentsHtml}${embedImagesHtml}</div>` : ''}
+    function createMsgHtml(m) {
+      const initial = (m.author || 'U').charAt(0).toUpperCase();
+      const timeStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      
+      return `
+        <div class="msg-row">
+          <div class="msg-avatar">${initial}</div>
+          <div class="msg-content">
+            <div class="msg-header">
+              <span class="msg-author">${RF.esc(m.author)}</span>
+              <span class="msg-time">${timeStr}</span>
+            </div>
+            <div class="msg-body">${RF.esc(m.content)}</div>
           </div>
-        </div>`;
-      }).join('')
-    : `<div class="empty-state">No messages yet.</div>`;
-
-  document.getElementById('content').innerHTML = `
-    <div class="card">
-      <div class="header-top">
-        <div>
-          <span class="type-badge" style="background:${color}22; color:${color};">${RF.esc(t.type || 'TICKET')}</span>
-          <span class="status-badge ${t.closing ? 'closing' : 'open'}">${t.closing ? 'Closing…' : 'Open'}</span>
-          <h2 class="case-title">${RF.esc(t.userTag || 'Unknown')}${t.robloxUsername ? ` <span style="color:var(--faint);font-weight:400;font-size:13px;">(Roblox: ${RF.esc(t.robloxUsername)})</span>` : ''}</h2>
         </div>
-        <div class="header-actions">
-          <a class="btn btn-ghost" href="https://discord.com/channels/${lastTicket.guildId || ''}/${channelId}" target="_blank" rel="noopener">Open in Discord</a>
-          <button class="btn btn-danger" id="closeBtn" ${t.closing ? 'disabled' : ''}>${t.closing ? 'Closing…' : 'Close ticket'}</button>
-        </div>
-      </div>
-      <div class="meta-grid">
-        <span><b>Claimed by</b>${RF.esc(t.claimedBy || '—')}</span>
-        <span><b>Opened</b>${RF.esc(t.openedAt || 'Recently')}</span>
-      </div>
-      <div id="tagSection">${renderTagSection(t.tags)}</div>
-      <div class="reason">${RF.esc(t.reason || 'No reason provided')}</div>
-    </div>
-
-    <div class="card log-card">
-      <div class="log-scroll" id="logScroll"><div class="log">${logHtml}</div></div>
-
-      <div class="compose">
-        <div class="compose-row">
-          <textarea id="composeText" placeholder="Message this ticket…" rows="1"></textarea>
-          <select id="quickwordPicker" class="quickword-picker" style="display:none;"></select>
-          <button class="btn btn-accent" id="sendBtn">Send</button>
-        </div>
-        <div class="compose-meta">
-          <input type="text" id="composeName" class="name-input" placeholder="Send as (your name)" maxlength="40">
-          <span class="send-note">Posts to Discord labeled "via Website"</span>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.getElementById('composeName').value = RF.getCookie('websiteSenderName') || '';
-  document.getElementById('composeName').addEventListener('change', (e) => RF.setCookie('websiteSenderName', e.target.value.trim(), 90));
-  document.getElementById('closeBtn').addEventListener('click', doClose);
-  document.getElementById('sendBtn').addEventListener('click', doSend);
-  const quickwordSelect = document.getElementById('quickwordPicker');
-  if (quickwordSelect) {
-    quickwordSelect.addEventListener('change', doQuickwordSend);
-  }
-  renderQuickwordPicker();
-
-  document.getElementById('composeText').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
-  });
-
-  if (wasAtBottom) scrollToBottom();
-}
-
-function isScrolledToBottom() {
-  const el = document.getElementById('logScroll');
-  if (!el) return true;
-  return el.scrollHeight - el.scrollTop - el.clientHeight < 60;
-}
-function scrollToBottom() {
-  const el = document.getElementById('logScroll');
-  if (el) el.scrollTop = el.scrollHeight;
-}
-
-async function doSend() {
-  const textEl = document.getElementById('composeText');
-  const content = textEl.value.trim();
-  if (!content) return;
-  const asName = document.getElementById('composeName').value.trim();
-  const btn = document.getElementById('sendBtn');
-  btn.disabled = true;
-  try {
-    const res = await fetch(`/api/open-tickets/${encodeURIComponent(channelId)}/messages`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, asName })
-    });
-    if (res.ok) { textEl.value = ''; load(); }
-    else { const err = await res.json().catch(() => ({})); alert(err.error || 'Could not send — try again.'); }
-  } catch { alert('Could not send — check your connection.'); }
-  btn.disabled = false;
-}
-
-async function doClose() {
-  if (!confirm('Close this ticket?')) return;
-  const asName = document.getElementById('composeName').value.trim();
-  const btn = document.getElementById('closeBtn');
-  btn.disabled = true;
-  btn.textContent = 'Closing…';
-  try {
-    const res = await fetch(`/api/open-tickets/${encodeURIComponent(channelId)}/close`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ asName })
-    });
-    if (res.ok) {
-      if (pollTimer) clearInterval(pollTimer);
-      document.getElementById('content').innerHTML = `<div class="card empty-state">✅ Closed — archiving now. <a href="/tickets" style="color:var(--accent)">Back to open tickets</a></div>`;
-    } else {
-      const err = await res.json().catch(() => ({}));
-      alert(err.error || 'Could not close — try again.');
-      btn.disabled = false; btn.textContent = 'Close ticket';
+      `;
     }
-  } catch { alert('Could not close — check your connection.'); btn.disabled = false; btn.textContent = 'Close ticket'; }
-}
 
-(async function init() {
-  initNav();
-  await loadTagDefs();
-  await loadQuickWords();
-  await load(false);
-  pollTimer = setInterval(() => load(true), 6000);
-})();
-</script>
+    function appendMessage(msg) {
+      const container = document.getElementById('messageLog');
+      const msgDiv = document.createElement('div');
+      msgDiv.innerHTML = createMsgHtml(msg);
+      container.appendChild(msgDiv.firstElementChild);
+      scrollToBottom();
+    }
+
+    function scrollToBottom() {
+      const container = document.getElementById('messageLog');
+      container.scrollTop = container.scrollHeight;
+    }
+
+    document.getElementById('sendForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('messageInput');
+      const content = input.value.trim();
+      if (!content) return;
+
+      input.value = '';
+      try {
+        await fetch(`/api/open-tickets/${channelId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content })
+        });
+      } catch (err) {
+        RF.toast('Failed to send message: ' + err.message, false);
+      }
+    });
+
+    async function closeTicket() {
+      if (!confirm('Are you sure you want to close and archive this ticket?')) return;
+      try {
+        const res = await fetch(`/api/open-tickets/${channelId}/close`, { method: 'POST' });
+        if (res.ok) window.location.href = '/tickets';
+      } catch (err) {
+        RF.toast('Could not close ticket: ' + err.message, false);
+      }
+    }
+
+    initLiveChat();
+  </script>
 </body>
 </html>
