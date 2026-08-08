@@ -337,7 +337,7 @@ function defaultConfig() {
         logChannelId: null,
         tags: [],
         staffPermissions: {
-            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster'],
+            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'applications'],
             canModerate: true
         }
     };
@@ -498,7 +498,7 @@ async function sendModerationDM(member, subject, message) {
 // PERMISSION CHECK MIDDLEWARE
 // ---------------------------------------------------------------------------
 function getViewerContext(req, guild, guildConfig) {
-    const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'settings'];
+    const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'settings', 'applications'];
     const authUser = req.authUser;
     
     if (!authUser) return { tier: 'none', allowedTabs: [], canModerate: false };
@@ -511,7 +511,7 @@ function getViewerContext(req, guild, guildConfig) {
     }
 
     if (isStaff(member, guildConfig)) {
-        const allowed = guildConfig.staffPermissions?.allowedTabs || ['archive', 'tickets', 'panels', 'tags', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster'];
+        const allowed = guildConfig.staffPermissions?.allowedTabs || ['archive', 'tickets', 'panels', 'tags', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'applications'];
         return { 
             tier: 'staff', 
             allowedTabs: allowed, 
@@ -872,6 +872,7 @@ app.get('/login', (req, res) => res.redirect('/'));
 
 app.get('/member/tickets', maintenanceGate, requireDiscordAuth, requireRole('member'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'member-tickets.html')));
 app.get('/member/applications', maintenanceGate, requireDiscordAuth, requireRole('member'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'member-applications.html')));
+app.get('/account', maintenanceGate, requireDiscordAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'account.html')));
 
 // Protected Staff Views (Redirects Non-Staff Members to /hub)
 app.get('/staff', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'index.html')));
@@ -894,6 +895,7 @@ app.get('/moderation/:userId', maintenanceGate, requireDiscordAuth, requireRole(
 app.get('/blacklist', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'blacklist.html')));
 app.get('/lookup', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'lookup.html')));
 app.get('/shift-roster', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'shift-roster.html')));
+app.get('/staff/applications', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'staff-applications.html')));
 
 app.get('/audit-log', maintenanceGate, requireDiscordAuth, requireRole('admin'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'audit-log.html')));
 app.get('/settings', maintenanceGate, requireDiscordAuth, requireRole('admin'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'settings.html')));
@@ -905,7 +907,7 @@ app.get('/api/tickets/:id', maintenanceGate, requireDiscordOrTicketToken, (req, 
     res.json(ticket);
 });
 
-// Applications API Endpoints
+// Member Applications API
 app.get('/api/applications', maintenanceGate, requireDiscordAuth, (req, res) => {
     const userId = req.authUser.id;
     const myApps = applicationsData.filter(a => a.userId === userId);
@@ -933,6 +935,25 @@ app.post('/api/applications', maintenanceGate, requireDiscordAuth, async (req, r
     await saveApplications();
     logAudit('SUBMIT_APPLICATION', userTag, `Submitted application for ${position}`);
     res.json({ success: true, application: newApp });
+});
+
+// Staff Applications Manager API
+app.get('/api/staff/applications', maintenanceGate, requireDiscordAuth, requireRole('staff'), (req, res) => {
+    res.json(applicationsData);
+});
+
+app.post('/api/staff/applications/:id/status', maintenanceGate, requireDiscordAuth, requireRole('staff'), async (req, res) => {
+    const { status } = req.body || {};
+    const appItem = applicationsData.find(a => a.id === req.params.id);
+    if (!appItem) return res.status(404).json({ error: 'Application not found.' });
+
+    appItem.status = status;
+    appItem.reviewedBy = req.authUser.tag;
+    appItem.reviewedAt = new Date().toISOString();
+
+    await saveApplications();
+    logAudit('REVIEW_APPLICATION', req.authUser.tag, `Set application ${appItem.id} status to ${status}`);
+    res.json({ success: true, application: appItem });
 });
 
 // Member Tickets API Endpoint
@@ -1104,7 +1125,7 @@ app.post('/api/guild/permissions', maintenanceGate, requireDiscordAuth, requireR
     }
 
     const { allowedTabs, canModerate } = req.body || {};
-    const validTabs = ['archive', 'tickets', 'panels', 'tags', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'auditlog', 'settings'];
+    const validTabs = ['archive', 'tickets', 'panels', 'tags', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'auditlog', 'settings', 'applications'];
 
     guildConfig.staffPermissions = {
         allowedTabs: Array.isArray(allowedTabs) ? allowedTabs.filter(t => validTabs.includes(t)) : (guildConfig.staffPermissions?.allowedTabs || []),

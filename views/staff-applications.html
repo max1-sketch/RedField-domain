@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Staff Applications Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: {{ACCENT_COLOR}};
+    --bg: #0b0d12;
+    --panel: #131720;
+    --border: #222735;
+    --ink: #e3e6ed;
+    --muted: #8891a0;
+    --green: #22c55e;
+    --red: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 13.5px; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  .brand { font-size: 16px; font-weight: 800; text-decoration: none; color: inherit; }
+
+  .container { max-width: 1000px; margin: 30px auto; padding: 0 20px; }
+  h1 { font-size: 22px; font-weight: 800; margin-bottom: 20px; }
+
+  table.dense-table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  table.dense-table th { text-align: left; padding: 12px 16px; color: var(--muted); font-size: 11px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+  table.dense-table td { padding: 14px 16px; border-bottom: 1px solid var(--border); color: var(--ink); }
+
+  .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+  .status-badge.pending { background: rgba(214, 154, 78, 0.15); color: var(--accent); }
+  .status-badge.approved { background: rgba(34, 197, 94, 0.15); color: var(--green); }
+  .status-badge.rejected { background: rgba(239, 68, 68, 0.15); color: var(--red); }
+
+  .btn-act { background: var(--border); border: none; color: var(--ink); padding: 4px 10px; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 12px; margin-right: 4px; }
+  .btn-act.approve:hover { background: var(--green); color: #000; }
+  .btn-act.reject:hover { background: var(--red); color: #fff; }
+</style>
+</head>
+<body>
+
+  <header>
+    <a href="/staff" class="brand">← Staff Dashboard</a>
+    <div style="color: var(--muted); font-weight: 600;">Applications Queue</div>
+  </header>
+
+  <div class="container">
+    <h1>Community Submissions</h1>
+
+    <table class="dense-table">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Position</th>
+          <th>Status</th>
+          <th>Submitted</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="appRows">
+        <tr><td colspan="5" style="text-align:center; color: var(--muted);">Loading submissions...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script src="/theme.js"></script>
+  <script>
+    async function loadApps() {
+      try {
+        const res = await fetch('/api/staff/applications');
+        if (!res.ok) throw new Error('Failed to load applications.');
+        const apps = await res.json();
+
+        const tbody = document.getElementById('appRows');
+        if (!apps.length) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--muted); padding: 30px;">No application submissions found.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = apps.map(a => `
+          <tr>
+            <td><strong>@${RF.esc(a.userTag)}</strong></td>
+            <td>${RF.esc(a.position)}</td>
+            <td><span class="status-badge ${a.status}">${RF.esc(a.status)}</span></td>
+            <td>${new Date(a.submittedAt).toLocaleDateString()}</td>
+            <td>
+              ${a.status === 'pending' ? `
+                <button class="btn-act approve" onclick="updateStatus('${a.id}', 'approved')">Approve</button>
+                <button class="btn-act reject" onclick="updateStatus('${a.id}', 'rejected')">Reject</button>
+              ` : `<span style="color:var(--muted); font-size:12px;">Reviewed by ${RF.esc(a.reviewedBy || 'Staff')}</span>`}
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        document.getElementById('appRows').innerHTML = `<tr><td colspan="5" style="text-align:center; color: #ef4444;">${RF.esc(err.message)}</td></tr>`;
+      }
+    }
+
+    async function updateStatus(id, status) {
+      try {
+        await fetch(`/api/staff/applications/${id}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        loadApps();
+      } catch (e) {
+        alert('Could not update status.');
+      }
+    }
+
+    loadApps();
+  </script>
+</body>
+</html>

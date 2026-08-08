@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — My Account</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --accent: {{ACCENT_COLOR}};
+    --bg: #0b0d12;
+    --panel: #131720;
+    --border: #222735;
+    --ink: #e3e6ed;
+    --muted: #8891a0;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 5%; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  .brand { font-size: 16px; font-weight: 800; text-decoration: none; color: inherit; }
+
+  .container { max-width: 800px; margin: 40px auto; padding: 0 20px; }
+  .account-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 28px; }
+  .profile-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+  .avatar-placeholder { width: 52px; height: 52px; border-radius: 50%; background: #222735; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: var(--accent); }
+  .username { font-size: 20px; font-weight: 800; margin: 0 0 4px; }
+  .user-id { font-size: 12px; color: var(--muted); font-family: monospace; }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 20px; }
+  .stat-box { background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .stat-label { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+  .stat-value { font-size: 18px; font-weight: 800; color: var(--ink); }
+</style>
+</head>
+<body>
+
+  <header>
+    <a href="/hub" class="brand">← Back to {{SITE_TITLE}} Hub</a>
+    <a href="/logout" style="color: var(--muted); text-decoration: none; font-size: 13px;">Log Out</a>
+  </header>
+
+  <div class="container">
+    <div class="account-card">
+      <div class="profile-header">
+        <div class="avatar-placeholder" id="userAvatar">@</div>
+        <div>
+          <div class="username" id="accUsername">Loading...</div>
+          <div class="user-id" id="accUserId">ID: —</div>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="stat-label">Total Archived Tickets</div>
+          <div class="stat-value" id="statTickets">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Applications Submitted</div>
+          <div class="stat-value" id="statApps">0</div>
+        </div>
+      </div>
+    </div>
+
+    {{FOOTER_NOTE_HTML}}
+  </div>
+
+  <script src="/theme.js"></script>
+  <script>
+    async function loadAccount() {
+      try {
+        const meRes = await fetch('/api/me');
+        if (!meRes.ok) return window.location.href = '/login';
+        const user = await meRes.json();
+
+        document.getElementById('accUsername').textContent = `@${user.tag}`;
+        document.getElementById('accUserId').textContent = `ID: ${user.id}`;
+        document.getElementById('userAvatar').textContent = user.tag.charAt(0).toUpperCase();
+
+        const ticketsRes = await fetch('/api/user/tickets');
+        if (ticketsRes.ok) {
+          const tickets = await ticketsRes.json();
+          document.getElementById('statTickets').textContent = tickets.length;
+        }
+
+        const appsRes = await fetch('/api/applications');
+        if (appsRes.ok) {
+          const apps = await appsRes.json();
+          document.getElementById('statApps').textContent = apps.length;
+        }
+      } catch (e) {
+        window.location.href = '/login';
+      }
+    }
+    loadAccount();
+  </script>
+</body>
+</html>
