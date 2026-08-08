@@ -2,19 +2,19 @@
     window.RF = window.RF || {};
 
     // ---------------------------------------------------------------------------
-    // CLEAN, DENSE DASHBOARD STYLES (Reduced Gold Accent & Improved Hierarchy)
+    // CLEAN DASHBOARD STYLES & HIGHLIGHTS
     // ---------------------------------------------------------------------------
     if (!document.getElementById('rf-clean-theme-styles')) {
         const style = document.createElement('style');
         style.id = 'rf-clean-theme-styles';
         style.textContent = `
-            /* Reduced Gold Accent Palette & Dark Neutral Base */
             :root {
                 --sidebar-bg: #0c0e14;
                 --panel-bg: #131720;
                 --border-color: #222735;
                 --text-main: #e3e6ed;
                 --text-muted: #8891a0;
+                --accent: #d69a4e;
             }
 
             body {
@@ -22,14 +22,12 @@
                 color: var(--text-main) !important;
             }
 
-            /* Clean Glass Panels (Without Neon Gold Glows) */
-            .card, .login-card, .art-hero-container {
+            .card, .login-card {
                 background: var(--panel-bg) !important;
                 border: 1px solid var(--border-color) !important;
                 box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3) !important;
             }
 
-            /* Categorized Sidebar Navigation */
             .sidebar {
                 background: var(--sidebar-bg) !important;
                 border-right: 1px solid var(--border-color) !important;
@@ -73,92 +71,11 @@
                 color: var(--accent) !important;
             }
 
-            /* High-Density Functional Tables */
-            table.dense-table {
-                width: 100%;
-                border-collapse: collapse;
-                font-size: 13px;
-                background: var(--panel-bg);
-                border: 1px solid var(--border-color);
-                border-radius: 8px;
-                overflow: hidden;
-            }
-
-            table.dense-table th {
-                text-align: left;
-                padding: 12px 14px;
-                color: var(--text-muted);
-                font-size: 11px;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-                border-bottom: 1px solid var(--border-color);
-                background: rgba(255, 255, 255, 0.02);
-            }
-
-            table.dense-table td {
-                padding: 12px 14px;
-                border-bottom: 1px solid var(--border-color);
-                color: var(--text-main);
-            }
-
-            table.dense-table tr:last-child td {
-                border-bottom: none;
-            }
-
             /* Custom Minimal Scrollbar */
             ::-webkit-scrollbar { width: 6px; height: 6px; }
             ::-webkit-scrollbar-track { background: #0b0d12; }
             ::-webkit-scrollbar-thumb { background: #222735; border-radius: 4px; }
             ::-webkit-scrollbar-thumb:hover { background: #3b4256; }
-
-            /* Bouncing Dot Loader */
-            .dot-loader {
-                display: inline-flex;
-                gap: 4px;
-                align-items: center;
-                justify-content: center;
-            }
-            .dot-loader span {
-                width: 5px;
-                height: 5px;
-                border-radius: 50%;
-                background: currentColor;
-                animation: dotbounce 1s infinite ease-in-out;
-            }
-            .dot-loader span:nth-child(2) { animation-delay: 0.15s; }
-            .dot-loader span:nth-child(3) { animation-delay: 0.30s; }
-            @keyframes dotbounce {
-                0%, 80%, 100% { transform: scale(0.4); opacity: 0.3; }
-                40% { transform: scale(1.2); opacity: 1; }
-            }
-
-            /* Toast Stack & Floating Alerts */
-            #toastStack {
-                position: fixed;
-                top: 18px;
-                right: 18px;
-                z-index: 9999;
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-                max-width: 340px;
-            }
-            .toast {
-                background: #141722;
-                border: 1px solid #262b3a;
-                border-left: 4px solid #22c55e;
-                border-radius: 8px;
-                padding: 12px 16px;
-                font-size: 13px;
-                color: #e7e9ee;
-                box-shadow: 0 12px 34px rgba(0,0,0,0.5);
-                animation: toastin 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            }
-            .toast.error { border-left-color: #ef4444; }
-            .toast .toast-title { font-weight: 800; margin-bottom: 2px; }
-            .toast.fading { animation: toastout 0.25s forwards; }
-            @keyframes toastin { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
-            @keyframes toastout { to { opacity: 0; transform: translateX(30px); } }
         `;
         document.head.appendChild(style);
     }
@@ -177,71 +94,6 @@
             .replace(/'/g, '&#039;');
     };
 
-    RF.getCookie = function (name) {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift());
-        return null;
-    };
-
-    RF.setCookie = function (name, value, days = 30) {
-        const expires = new Date(Date.now() + days * 864e5).toUTCString();
-        document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`;
-    };
-
-    RF.apiCall = async function (endpoint, options = {}) {
-        options.headers = options.headers || {};
-        if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
-            options.headers['Content-Type'] = 'application/json';
-            options.body = JSON.stringify(options.body);
-        }
-        const res = await fetch(endpoint, options);
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-        return data;
-    };
-
-    RF.toast = function (message, isSuccess = true) {
-        let stack = document.getElementById('toastStack');
-        if (!stack) {
-            stack = document.createElement('div');
-            stack.id = 'toastStack';
-            document.body.appendChild(stack);
-        }
-
-        const toast = document.createElement('div');
-        toast.className = `toast ${isSuccess ? 'success' : 'error'}`;
-        toast.innerHTML = `<div class="toast-title">${isSuccess ? '✅ Success' : '⚠️ Error'}</div><div>${RF.esc(message)}</div>`;
-
-        stack.appendChild(toast);
-
-        setTimeout(() => {
-            toast.classList.add('fading');
-            setTimeout(() => toast.remove(), 250);
-        }, 3500);
-    };
-
-    RF.withLoading = async function (buttonElement, actionPromise, options = {}) {
-        if (!buttonElement) return await actionPromise();
-
-        const originalHtml = buttonElement.innerHTML;
-        buttonElement.disabled = true;
-        buttonElement.innerHTML = `<span class="dot-loader"><span></span><span></span><span></span></span>`;
-
-        try {
-            const result = await actionPromise();
-            if (options.okMessage) RF.toast(options.okMessage, true);
-            return result;
-        } catch (err) {
-            const errMsg = options.failMessage ? `${options.failMessage}: ${err.message}` : err.message;
-            RF.toast(errMsg, false);
-            throw err;
-        } finally {
-            buttonElement.disabled = false;
-            buttonElement.innerHTML = originalHtml;
-        }
-    };
-
     RF.typeColor = function (type) {
         if (!type) return '#5865f2';
         const t = String(type).toUpperCase();
@@ -251,24 +103,8 @@
         return '#d69a4e';
     };
 
-    RF.playChime = function () {
-        try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-            gain.gain.setValueAtTime(0.08, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.3);
-        } catch (e) {}
-    };
-
     // ---------------------------------------------------------------------------
-    // SIDEBAR CATEGORIZATION & RENDERING
+    // SIDEBAR CATEGORIZATION & RENDERING (FULL TABS RESTORED)
     // ---------------------------------------------------------------------------
 
     RF.ICONS = {
@@ -289,7 +125,7 @@
         {
             title: 'WORKSPACE',
             items: [
-                { path: '/staff', label: 'Dashboard', key: 'archive' },
+                { path: '/', label: 'Dashboard', key: 'archive' },
                 { path: '/tickets', label: 'Open Tickets', key: 'tickets' },
                 { path: '/panels', label: 'Panel Settings', key: 'panels' }
             ]
@@ -325,7 +161,7 @@
             if (!visibleItems.length) return '';
 
             const itemsHtml = visibleItems.map(item => {
-                const isActive = currentPath === item.path || (item.path !== '/staff' && currentPath.startsWith(item.path));
+                const isActive = currentPath === item.path || (item.path !== '/' && currentPath.startsWith(item.path));
                 const iconSvg = RF.ICONS[item.key] || '';
                 
                 return `
@@ -341,35 +177,5 @@
                 ${itemsHtml}
             `;
         }).join('');
-    };
-
-    RF.startSessionClock = function (element) {
-        if (!element) return;
-
-        function update() {
-            let expiresAt = null;
-            const cookies = document.cookie.split(';');
-            for (let c of cookies) {
-                const [k, v] = c.trim().split('=');
-                if (k === 'sessionExpires') { expiresAt = parseInt(v, 10); break; }
-            }
-
-            if (!expiresAt || isNaN(expiresAt)) {
-                element.textContent = 'session --:--';
-                return;
-            }
-
-            const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
-            const mins = Math.floor(remaining / 60);
-            const secs = remaining % 60;
-            element.textContent = `session ${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-
-            if (remaining === 0) {
-                window.location.href = '/login';
-            }
-        }
-
-        update();
-        setInterval(update, 1000);
     };
 })();

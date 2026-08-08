@@ -342,7 +342,7 @@ function defaultConfig() {
         logChannelId: null,
         tags: [],
         staffPermissions: {
-            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'applications'],
+            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'settings'],
             canModerate: true
         }
     };
