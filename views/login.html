@@ -203,9 +203,7 @@
     box-shadow: 0 12px 28px rgba(88, 101, 242, 0.45);
   }
   .discord-login-btn:active { transform: translateY(0); }
-  .discord-login-btn.loading {
-    opacity: 0.8; pointer-events: none;
-  }
+  .discord-login-btn.loading { opacity: 0.8; pointer-events: none; }
 
   .spinner {
     width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3);
@@ -230,6 +228,22 @@
   button[type=submit]:hover { border-color: var(--accent); color: var(--accent); }
 
   .footer-sub { font-size: 11px; color: var(--faint); text-align: center; margin-top: 16px; }
+
+  .bug-notice {
+    font-size: 11.5px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    line-height: 1.5;
+  }
+  .copyright-notice {
+    font-size: 11px;
+    color: var(--faint);
+    text-align: center;
+    margin-top: 6px;
+  }
 
   @media (max-width: 900px) {
     .hero-container { flex-direction: column; text-align: center; }
@@ -319,6 +333,10 @@
         </form>
 
         <div class="footer-sub">Sessions automatically expire after 10 minutes.</div>
+
+        <!-- Bug Contact & Copyright Notices -->
+        <div class="bug-notice">If there are any bugs with the bot/website, be sure to reach out to <strong style="color: var(--accent);">golddoggo9866</strong>.</div>
+        <div class="copyright-notice">© 2026 Izzyan Studios LLC. All Rights Reserved.</div>
       </div>
     </div>
   </div>

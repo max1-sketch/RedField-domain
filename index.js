@@ -194,7 +194,14 @@ function renderTemplate(filePath) {
     let html = fs.readFileSync(filePath, 'utf8');
     const validAccent = /^#[0-9A-Fa-f]{6}$/.test(siteConfig.accentColor) ? siteConfig.accentColor : '#d69a4e';
     const bannerHtml = siteConfig.bannerText ? `<div class="site-banner">📢 ${escapeHtml(siteConfig.bannerText)}</div>` : '';
-    const footerHtml = siteConfig.footerNote ? `<div class="footer-note">${escapeHtml(siteConfig.footerNote)}</div>` : '';
+    
+    // Global Footer with Copyright and Bug Contact Notice
+    const footerHtml = `
+      <div class="footer-note" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border, #262b3a); text-align: center; font-size: 12px; color: var(--muted, #9199a8); line-height: 1.6;">
+        <p style="margin: 0 0 6px 0;">If you encounter any bugs with the bot or website, please be sure to reach out to <strong style="color: var(--accent, #d69a4e);">golddoggo9866</strong>.</p>
+        <p style="margin: 0; opacity: 0.8;">© 2026 Izzyan Studios LLC. All Rights Reserved.</p>
+      </div>
+    `;
     
     // Inject version tracking scripts
     const versionScript = `<script>window.APP_BUILD_VERSION = "${BUILD_VERSION}";</script><script src="/version-check.js"></script>`;
