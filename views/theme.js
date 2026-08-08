@@ -1,7 +1,7 @@
 (function () {
     window.RF = window.RF || {};
 
-    // Inject Global Badge CSS to prevent unstyled flash on page navigation
+    // Inject Global Badge & Status Styles
     if (!document.getElementById('rf-badge-styles')) {
         const style = document.createElement('style');
         style.id = 'rf-badge-styles';
@@ -31,6 +31,36 @@
                 box-shadow: 0 0 6px #f59e0b !important;
                 animation: betaPulse 1.8s infinite ease-in-out !important;
             }
+
+            .badge-coming-soon {
+                display: inline-flex !important;
+                align-items: center !important;
+                gap: 5px !important;
+                background: rgba(239, 68, 68, 0.15) !important;
+                color: #f87171 !important;
+                border: 1px solid rgba(239, 68, 68, 0.3) !important;
+                font-size: 9.5px !important;
+                font-weight: 800 !important;
+                padding: 2px 8px !important;
+                border-radius: 20px !important;
+                margin-left: auto !important;
+                text-transform: uppercase !important;
+                letter-spacing: 0.05em !important;
+            }
+
+            /* Disabled Nav Tab */
+            .nav-item.disabled-tab {
+                opacity: 0.45 !important;
+                cursor: not-allowed !important;
+                user-select: none !important;
+                text-decoration: line-through !important;
+                text-decoration-color: rgba(239, 68, 68, 0.6) !important;
+            }
+            .nav-item.disabled-tab:hover {
+                background: transparent !important;
+                color: var(--muted) !important;
+            }
+
             @keyframes betaPulse {
                 0%, 100% { opacity: 0.4; transform: scale(0.85); }
                 50% { opacity: 1; transform: scale(1.2); }
@@ -39,7 +69,6 @@
         document.head.appendChild(style);
     }
 
-    // HTML Escaping Utility
     RF.esc = function (str) {
         if (str === null || str === undefined) return '';
         return String(str)
@@ -50,7 +79,15 @@
             .replace(/'/g, '&#039;');
     };
 
-    // Sidebar Icons
+    RF.typeColor = function (type) {
+        if (!type) return '#5865f2';
+        const t = String(type).toUpperCase();
+        if (t.includes('BUG')) return '#f1c40f';
+        if (t.includes('MANAGEMENT')) return '#5865f2';
+        if (t.includes('REDFIELD') || t.includes('SUPPORT')) return '#2ecc71';
+        return '#d69a4e';
+    };
+
     RF.ICONS = {
         archive: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8M1 3h20v5H1zM10 12h4"/></svg>`,
         tickets: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5v2m0 4v2m0 4v2M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V7a2 2 0 0 1 2-2z"/></svg>`,
@@ -67,23 +104,21 @@
         logout: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`
     };
 
-    // Nav Item List
     const ALL_NAV_ITEMS = [
         { path: '/', label: 'Archive', key: 'archive' },
         { path: '/tickets', label: 'Open Tickets', key: 'tickets' },
         { path: '/panels', label: 'Panels', key: 'panels' },
         { path: '/tags', label: 'Tags', key: 'tags' },
-        { path: '/quickwords', label: 'Quick Words', key: 'quickwords' },
+        { path: '#', label: 'Quick Words', key: 'quickwords', badge: 'disabled', disabled: true },
         { path: '/feedback', label: 'Feedback', key: 'feedback' },
         { path: '/moderation', label: 'Moderation', key: 'moderation' },
-        { path: '/lookup', label: 'User Lookup', key: 'lookup' },
+        { path: '/lookup', label: 'User Lookup', key: 'lookup', badge: 'beta' },
         { path: '/blacklist', label: 'Blacklist', key: 'blacklist' },
-        { path: '/shift-roster', label: 'Shift Roster', key: 'shiftroster' },
+        { path: '/shift-roster', label: 'Shift Roster', key: 'shiftroster', badge: 'beta' },
         { path: '/audit-log', label: 'Audit Log', key: 'auditlog' },
         { path: '/settings', label: 'Server Configs', key: 'settings' }
     ];
 
-    // Render Navigation Items (Safe Fallback Version)
     RF.renderNav = function (currentPath, allowedTabs) {
         return ALL_NAV_ITEMS.map(item => {
             if (Array.isArray(allowedTabs) && !allowedTabs.includes(item.key)) {
@@ -91,20 +126,34 @@
             }
             const isActive = currentPath === item.path || (item.path !== '/' && currentPath.startsWith(item.path));
             const iconSvg = RF.ICONS[item.key] || '';
-            const isBetaTab = ['lookup', 'quickwords', 'shiftroster'].includes(item.key);
-            const betaBadgeHtml = isBetaTab ? `<span class="badge-beta">Beta</span>` : '';
+            
+            let badgeHtml = '';
+            if (item.badge === 'disabled') {
+                badgeHtml = `<span class="badge-coming-soon">Soon</span>`;
+            } else if (item.badge === 'beta') {
+                badgeHtml = `<span class="badge-beta">Beta</span>`;
+            }
+
+            if (item.disabled) {
+                return `
+                    <a href="javascript:void(0);" onclick="alert('Coming soon, sorry! This feature is under development.');" class="nav-item disabled-tab">
+                        <span class="ic">${iconSvg}</span>
+                        <span>${RF.esc(item.label)}</span>
+                        ${badgeHtml}
+                    </a>
+                `;
+            }
 
             return `
                 <a href="${item.path}" class="nav-item ${isActive ? 'active' : ''}">
                     <span class="ic">${iconSvg}</span>
                     <span>${RF.esc(item.label)}</span>
-                    ${betaBadgeHtml}
+                    ${badgeHtml}
                 </a>
             `;
         }).join('');
     };
 
-    // Session Timeout Countdown Timer
     RF.startSessionClock = function (element) {
         if (!element) return;
 

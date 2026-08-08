@@ -315,7 +315,7 @@ function defaultConfig() {
         logChannelId: null,
         tags: [],
         staffPermissions: {
-            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster'],
+            allowedTabs: ['archive', 'tickets', 'panels', 'tags', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster'],
             canModerate: true
         }
     };
@@ -473,23 +473,20 @@ async function sendModerationDM(member, subject, message) {
 // PERMISSION CHECK MIDDLEWARE
 // ---------------------------------------------------------------------------
 function getViewerContext(req, guild, guildConfig) {
-    const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'settings'];
+    const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'settings'];
     const authUser = req.authUser;
     
-    // Master access code or no auth user
     if (!authUser) return { tier: 'none', allowedTabs: [], canModerate: false };
     if (!authUser.id) return { tier: 'master', allowedTabs: ALL_TABS, canModerate: true };
 
     const member = guild.members.cache.get(authUser.id);
     
-    // Server Owner or Admin Role
     if (isAdmin(member, guildConfig)) {
         return { tier: 'admin', allowedTabs: ALL_TABS, canModerate: true };
     }
 
-    // Staff Role: strictly use the allowedTabs configured by Administrators
     if (isStaff(member, guildConfig)) {
-        const allowed = guildConfig.staffPermissions?.allowedTabs || ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster'];
+        const allowed = guildConfig.staffPermissions?.allowedTabs || ['archive', 'tickets', 'panels', 'tags', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster'];
         return { 
             tier: 'staff', 
             allowedTabs: allowed, 
@@ -681,8 +678,6 @@ function requireAuth(req, res, next) {
     const authUser = isRequestAuthed(req);
     if (authUser) { req.authUser = authUser; return next(); }
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
-    
-    // Redirect unauthenticated users straight to the new landing page
     return res.redirect('/login');
 }
 
@@ -852,7 +847,6 @@ app.use((req, res, next) => {
     next();
 });
 
-// Explicit static JS routes to prevent 404 / MIME type fallbacks
 app.get('/theme.js', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'theme.js'));
 });
@@ -906,7 +900,16 @@ app.get('/tickets', maintenanceGate, requireAuth, requireTabPermission('tickets'
 app.get('/tickets/:channelId', maintenanceGate, requireAuth, requireTabPermission('tickets'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'live-ticket.html')));
 app.get('/panels', maintenanceGate, requireAuth, requireTabPermission('panels'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'panels.html')));
 app.get('/tags', maintenanceGate, requireAuth, requireTabPermission('tags'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'tags.html')));
-app.get('/quickwords', maintenanceGate, requireAuth, requireTabPermission('quickwords'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'quickwords.html')));
+
+// Disabled Quick Words Views & Endpoints
+app.get('/quickwords', maintenanceGate, requireAuth, (req, res) => {
+    res.status(403).send('<h2 style="font-family:sans-serif;color:#ef4444;padding:40px;">Quick Words feature is coming soon! Check back later.</h2>');
+});
+
+app.get('/api/quickwords', maintenanceGate, requireAuth, (req, res) => {
+    res.status(403).json({ error: 'Quick Words feature is currently under maintenance.' });
+});
+
 app.get('/feedback', maintenanceGate, requireAuth, requireTabPermission('feedback'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'feedback.html')));
 app.get('/moderation', maintenanceGate, requireAuth, requireTabPermission('moderation'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'moderation.html')));
 app.get('/moderation/:userId', maintenanceGate, requireAuth, requireTabPermission('moderation'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'member-detail.html')));
@@ -994,78 +997,6 @@ app.post('/api/tickets/:id/tags', maintenanceGate, requireAuth, (req, res) => {
 app.get('/api/feedback', maintenanceGate, requireAuth, requireTabPermission('feedback'), (req, res) => res.json(feedbackData));
 app.get('/api/audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), (req, res) => res.json(auditLogs));
 
-app.get('/api/quickwords', maintenanceGate, requireAuth, requireTabPermission('quickwords'), (req, res) => {
-    const userId = req.authUser?.id;
-    const myPersonal = (userId && quickWordsData.personal[userId]) ? quickWordsData.personal[userId] : [];
-    return res.json({
-        global: quickWordsData.global || [],
-        personal: myPersonal,
-        myPersonal
-    });
-});
-
-app.post('/api/quickwords', maintenanceGate, requireAuth, requireTabPermission('quickwords'), (req, res) => {
-    const { label, text, isGlobal } = req.body || {};
-    if (!label || !text) return res.status(400).json({ error: 'Label and text are required.' });
-
-    const guild = getTargetGuild();
-    const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
-    const ctx = getViewerContext(req, guild, guildConfig);
-
-    if (isGlobal && ctx.tier === 'staff') {
-        return res.status(403).json({ error: 'Only Administrators can create Global Quick Words.' });
-    }
-
-    const userId = req.authUser?.id;
-    if (!isGlobal && !userId) {
-        return res.status(400).json({ error: 'You must log in using "Sign in with Discord" to save Personal Quick Words.' });
-    }
-
-    const entry = { id: crypto.randomBytes(4).toString('hex'), label: label.trim(), text: text.trim() };
-    const actor = resolveActorName(req);
-
-    if (isGlobal) {
-        quickWordsData.global.push(entry);
-        logAudit('CREATE_QUICKWORD_GLOBAL', actor, `Created Global Quick Word: "${label}"`);
-    } else {
-        if (!quickWordsData.personal[userId]) quickWordsData.personal[userId] = [];
-        quickWordsData.personal[userId].push(entry);
-        logAudit('CREATE_QUICKWORD_PERSONAL', actor, `Created Personal Quick Word: "${label}"`);
-    }
-    saveQuickWords();
-    res.json({ success: true, entry });
-});
-
-app.delete('/api/quickwords/:id', maintenanceGate, requireAuth, requireTabPermission('quickwords'), (req, res) => {
-    const { id } = req.params;
-    const guild = getTargetGuild();
-    const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
-    const ctx = getViewerContext(req, guild, guildConfig);
-    const actor = resolveActorName(req);
-
-    const isGlobalWord = quickWordsData.global.some(q => q.id === id);
-    if (isGlobalWord && ctx.tier === 'staff') {
-        return res.status(403).json({ error: 'Only Administrators can delete Global Quick Words.' });
-    }
-
-    let removed = false;
-    if (isGlobalWord) {
-        quickWordsData.global = quickWordsData.global.filter(q => q.id !== id);
-        removed = true;
-        logAudit('DELETE_QUICKWORD_GLOBAL', actor, `Deleted Global Quick Word ID ${id}`);
-    } else {
-        const userId = req.authUser?.id;
-        if (userId && quickWordsData.personal[userId]) {
-            quickWordsData.personal[userId] = quickWordsData.personal[userId].filter(q => q.id !== id);
-            removed = true;
-            logAudit('DELETE_QUICKWORD_PERSONAL', actor, `Deleted Personal Quick Word ID ${id}`);
-        }
-    }
-
-    saveQuickWords();
-    res.json({ success: removed });
-});
-
 function getTargetGuild() {
     if (GUILD_ID) {
         const g = client.guilds.cache.get(GUILD_ID);
@@ -1141,7 +1072,7 @@ app.post('/api/guild/permissions', maintenanceGate, requireAuth, (req, res) => {
     }
 
     const { allowedTabs, canModerate } = req.body || {};
-    const validTabs = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'auditlog', 'settings'];
+    const validTabs = ['archive', 'tickets', 'panels', 'tags', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'auditlog', 'settings'];
 
     guildConfig.staffPermissions = {
         allowedTabs: Array.isArray(allowedTabs) ? allowedTabs.filter(t => validTabs.includes(t)) : (guildConfig.staffPermissions?.allowedTabs || []),
@@ -1315,14 +1246,6 @@ app.get('/api/open-tickets/:channelId/messages', maintenanceGate, requireAuth, r
         console.error('[open-ticket messages] failed:', err);
         res.status(500).json({ error: 'Could not fetch messages from Discord.' });
     }
-});
-
-app.get('/api/open-tickets/:channelId/quickwords', maintenanceGate, requireAuth, requireTabPermission('tickets'), (req, res) => {
-    const userId = req.authUser?.id;
-    return res.json({
-        global: quickWordsData.global || [],
-        personal: userId ? (quickWordsData.personal[userId] || []) : []
-    });
 });
 
 app.post('/api/open-tickets/:channelId/messages', maintenanceGate, requireAuth, requireTabPermission('tickets'), async (req, res) => {
@@ -1504,7 +1427,6 @@ app.get('/api/roblox/lookup/:query', maintenanceGate, requireAuth, async (req, r
         };
 
         if (isNaN(query)) {
-            // 1. Try Exact Username Lookup
             const exactRes = await fetch('https://users.roblox.com/v1/usernames/users', {
                 method: 'POST',
                 headers,
@@ -1516,7 +1438,6 @@ app.get('/api/roblox/lookup/:query', maintenanceGate, requireAuth, async (req, r
                 userId = exactData.data[0].id;
                 username = exactData.data[0].name;
             } else {
-                // 2. Search Fallback
                 const searchRes = await fetch(`https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(query)}&limit=1`, { headers });
                 const searchData = await searchRes.json();
                 if (!searchData.data || !searchData.data.length) return res.status(404).json({ error: 'Roblox user not found' });
@@ -1524,14 +1445,12 @@ app.get('/api/roblox/lookup/:query', maintenanceGate, requireAuth, async (req, r
                 username = searchData.data[0].name;
             }
         } else {
-            // Numeric User ID Lookup
             const userRes = await fetch(`https://users.roblox.com/v1/users/${userId}`, { headers });
             if (!userRes.ok) return res.status(404).json({ error: 'Roblox user not found' });
             const userData = await userRes.json();
             username = userData.name;
         }
 
-        // Fetch Avatar Thumbnail
         const thumbRes = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png&isCircular=false`, { headers });
         const thumbData = await thumbRes.json();
         const avatarUrl = thumbData.data?.[0]?.imageUrl || '';
@@ -2227,8 +2146,7 @@ function recoverTicketFromTopic(channel) {
 function buildTicketButtons(claimed) {
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('ticket_close').setLabel('Close').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
-        new ButtonBuilder().setCustomId('ticket_close_with_reason').setLabel('Close With Reason').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
-        new ButtonBuilder().setCustomId('ticket_quickwords').setLabel('Quick Words').setStyle(ButtonStyle.Secondary).setEmoji('⚡')
+        new ButtonBuilder().setCustomId('ticket_close_with_reason').setLabel('Close With Reason').setStyle(ButtonStyle.Danger).setEmoji('🔒')
     );
     if (claimed) {
         row.addComponents(new ButtonBuilder().setCustomId('unclaim_ticket').setLabel('Unclaim').setStyle(ButtonStyle.Secondary).setEmoji('↩️'));
@@ -2636,22 +2554,6 @@ client.on('interactionCreate', async (interaction) => {
                 return interaction.reply({ content: `⭐ Thank you for rating your support experience **${rating}/5 stars**!`, ephemeral: true });
             }
 
-            if (customId === 'ticket_quickwords') {
-                if (isSuspendedFromTickets(guildConfig, user.id)) return interaction.reply({ content: '❌ An Administrator has suspended you from working on tickets.', ephemeral: true });
-                const globalWords = quickWordsData.global || [];
-                const personalWords = quickWordsData.personal[user.id] || [];
-                const combined = [...globalWords.map(w => ({ ...w, type: 'Global' })), ...personalWords.map(w => ({ ...w, type: 'Personal' }))];
-
-                if (!combined.length) return interaction.reply({ content: '❌ No Quick Words configured yet! Add them on the web dashboard.', ephemeral: true });
-
-                const select = new StringSelectMenuBuilder()
-                    .setCustomId('quickword_select')
-                    .setPlaceholder('Choose a Quick Word response...')
-                    .addOptions(combined.slice(0, 25).map((q, idx) => ({ label: `${q.label} (${q.type})`, value: String(idx), description: q.text.slice(0, 50) })));
-
-                return interaction.reply({ content: '⚡ Select a pre-set response to post instantly:', components: [new ActionRowBuilder().addComponents(select)], ephemeral: true });
-            }
-
             if (customId === 'claim_ticket') {
                 if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can claim tickets.', ephemeral: true });
                 if (isSuspendedFromTickets(guildConfig, user.id)) return interaction.reply({ content: '❌ An Administrator has suspended you from working on tickets.', ephemeral: true });
@@ -2773,53 +2675,7 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        if (interaction.isStringSelectMenu() && interaction.customId === 'quickword_select') {
-            if (isSuspendedFromTickets(guildConfig, interaction.user.id)) {
-                return interaction.update({ content: '❌ An Administrator has suspended you from working on tickets.', components: [] });
-            }
-
-            const idx = Number(interaction.values[0]);
-            const globalWords = quickWordsData.global || [];
-            const personalWords = quickWordsData.personal[interaction.user.id] || [];
-            const combined = [...globalWords, ...personalWords];
-            const selected = combined[idx];
-
-            if (!selected) {
-                return interaction.update({ content: '❌ That Quick Word is no longer available.', components: [] });
-            }
-
-            // Show a modal text box pre-filled with the Quick Word text so the staff member sends it directly
-            const modal = new ModalBuilder()
-                .setCustomId('quickword_send_modal')
-                .setTitle(`Quick Word: ${clamp(selected.label, 20)}`);
-
-            const textInput = new TextInputBuilder()
-                .setCustomId('quickword_text')
-                .setLabel('Edit or confirm your message:')
-                .setStyle(TextInputStyle.Paragraph)
-                .setValue(selected.text)
-                .setRequired(true);
-
-            modal.addComponents(new ActionRowBuilder().addComponents(textInput));
-
-            // Show modal to the staff member
-            return await interaction.showModal(modal);
-        }
-
         if (interaction.isModalSubmit()) {
-            if (interaction.customId === 'quickword_send_modal') {
-                const textToSend = interaction.fields.getTextInputValue('quickword_text');
-                const ticket = openTickets.get(interaction.channel.id) || recoverTicketFromTopic(interaction.channel);
-
-                // Get the staff member's display name or claimed tag
-                const senderName = ticket?.claimedBy?.tag || interaction.user.tag;
-
-                // Send using your existing webhook helper so it displays as the claimed staff member
-                await sendTicketMessage(interaction.channel, textToSend, senderName, interaction.user.displayAvatarURL());
-
-                return interaction.reply({ content: '✅ Quick Word message sent!', ephemeral: true });
-            }
-
             if (interaction.customId.startsWith('ticket_modal_')) {
                 const typeKey = interaction.customId.replace('ticket_modal_', '');
                 const reason = interaction.fields.getTextInputValue('reason');
