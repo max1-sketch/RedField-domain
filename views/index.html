@@ -3,154 +3,153 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{SITE_TITLE}} — Dashboard Overview</title>
+<title>{{SITE_TITLE}} — Ticket Archive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  :root {
+    --accent: {{ACCENT_COLOR}};
+    --bg-0: #0a0c11;
+    --sidebar-bg: #0d0f16;
+    --panel: #141722;
+    --panel-2: #1a1e2b;
+    --border: #262b3a;
+    --ink: #e7e9ee;
+    --muted: #9199a8;
+    --faint: #5b6272;
+    --red: #ef4444;
+    --green: #22c55e;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { min-height: 100vh; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  
+  .site-banner { background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; }
 
-:root {
-  --accent: {{ACCENT_COLOR}};
-  --accent-dim: color-mix(in srgb, {{ACCENT_COLOR}} 55%, #000000);
-  --bg-0: #0a0c11;
-  --sidebar-bg: #0d0f16;
-  --panel: #141722;
-  --panel-2: #1a1e2b;
-  --border: #262b3a;
-  --ink: #e7e9ee;
-  --muted: #9199a8;
-  --faint: #5b6272;
-  --red: #ef4444;
-  --green: #22c55e;
-}
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
-body {
-  min-height: 100vh; background: var(--bg-0); color: var(--ink);
-  font-family: 'Inter', sans-serif; font-size: 14px;
-}
-a { color: inherit; text-decoration: none; }
-.mono { font-family: 'IBM Plex Mono', monospace; }
+  .app-shell { display: flex; min-height: 100vh; }
+  .sidebar { width: 250px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  .sidebar-brand { display: flex; align-items: center; gap: 10px; background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px; margin-bottom: 18px; line-height: 1.25; }
+  .sidebar-brand .dot { width: 8px; height: 8px; border-radius: 50%; background: #0a0c11; flex-shrink: 0; opacity: .55; }
+  nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); font-size: 13.5px; font-weight: 500; transition: background .15s, color .15s; }
+  .nav-item:hover { background: var(--panel-2); color: var(--ink); }
+  .nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
+  .nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
+  .nav-item .ic svg { width: 100%; height: 100%; }
 
-.site-banner { background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; }
+  .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+  .session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
 
-/* ---------- shell ---------- */
-.app-shell { display: flex; min-height: 100vh; }
+  .content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 1200px; }
 
-.sidebar {
-  width: 250px; flex-shrink: 0; background: var(--sidebar-bg);
-  border-right: 1px solid var(--border);
-  padding: 18px 14px; display: flex; flex-direction: column;
-  position: sticky; top: 0; height: 100vh; overflow-y: auto;
-}
-.sidebar-brand {
-  display: flex; align-items: center; gap: 10px;
-  background: var(--accent); color: #0a0c11;
-  padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px;
-  margin-bottom: 18px; line-height: 1.25;
-}
-.sidebar-brand .dot { width: 8px; height: 8px; border-radius: 50%; background: #0a0c11; flex-shrink: 0; opacity: .55; }
+  /* 3D Animated Hero Section */
+  .art-hero-container {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px 30px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  }
 
-nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
-.nav-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 13px; border-radius: 8px;
-  color: var(--muted); font-size: 13.5px; font-weight: 500;
-}
-.nav-item:hover { background: var(--panel-2); color: var(--ink); }
-.nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
-.nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
-.nav-item .ic svg { width: 100%; height: 100%; }
-.nav-item.active .ic { opacity: 1; }
+  .art-hero-container::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at center, rgba(214, 154, 78, 0.12), transparent 60%);
+    pointer-events: none;
+  }
 
-.badge-beta { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b44; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: auto; text-transform: uppercase; }
+  .art-canvas-wrap {
+    width: 80px;
+    height: 80px;
+    perspective: 600px;
+    flex-shrink: 0;
+  }
 
-.sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
-.session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
-.session-line.warn { color: var(--red); }
+  .cube-3d {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    animation: rotate3dCube 8s infinite linear;
+  }
 
-.content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 1400px; }
+  .cube-face {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    border: 2px solid var(--accent);
+    background: rgba(214, 154, 78, 0.08);
+    box-shadow: 0 0 15px rgba(214, 154, 78, 0.2) inset;
+    border-radius: 12px;
+  }
 
-.page-title { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0 0 20px; }
+  .cube-face.front  { transform: rotateY(0deg) translateZ(40px); }
+  .cube-face.back   { transform: rotateY(180deg) translateZ(40px); }
+  .cube-face.right  { transform: rotateY(90deg) translateZ(40px); }
+  .cube-face.left   { transform: rotateY(-90deg) translateZ(40px); }
+  .cube-face.top    { transform: rotateX(90deg) translateZ(40px); }
+  .cube-face.bottom { transform: rotateX(-90deg) translateZ(40px); }
 
-/* ---------- card ---------- */
-.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 16px; }
-.card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
-.card-header h2 { font-size: 15.5px; font-weight: 700; color: var(--ink); margin: 0; }
-.card-sub { font-size: 12.5px; color: var(--muted); margin: -10px 0 16px; }
+  @keyframes rotate3dCube {
+    0%   { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+    100% { transform: rotateX(360deg) rotateY(360deg) rotateZ(360deg); }
+  }
 
-/* ---------- buttons ---------- */
-.btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 9px 15px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
-.btn-accent { background: var(--accent); color: #0a0c11; }
-.btn-accent:hover { opacity: .9; }
-.btn-ghost { background: var(--panel-2); color: var(--ink); border: 1px solid var(--border); }
-.btn-ghost:hover { border-color: var(--accent); }
-.btn-danger { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
-.btn-danger:hover { background: rgba(239,68,68,0.2); }
-.btn:disabled { opacity: .5; cursor: not-allowed; }
+  .hero-text-wrap { z-index: 1; }
 
-/* ---------- inputs ---------- */
-input[type=text], select {
-  background: var(--panel-2); border: 1px solid var(--border); color: var(--ink);
-  padding: 9px 12px; border-radius: 7px; font-family: inherit; font-size: 13px;
-}
-input[type=text]:focus, select:focus { outline: none; border-color: var(--accent); }
+  .bot-3d-title {
+    font-size: 28px;
+    font-weight: 900;
+    margin: 0 0 6px;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
 
-/* ---------- filters row ---------- */
-.filters-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 4px; }
-.search-wrap { position: relative; flex: 1 1 260px; min-width: 200px; }
-.search-wrap input { width: 100%; padding-left: 32px; }
-.search-wrap::before { content: "⌕"; position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--faint); font-size: 15px; }
-.count-pill { font-size: 12px; color: var(--faint); white-space: nowrap; margin-left: auto; }
-.count-pill b { color: var(--accent); font-weight: 700; }
+  .bot-credits {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0;
+    font-weight: 500;
+  }
 
-.stats-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-.stat-chip { font-size: 12px; color: var(--muted); background: var(--panel); border: 1px solid var(--border); padding: 7px 13px; border-radius: 8px; }
-.stat-chip b { color: var(--ink); font-weight: 700; margin-left: 4px; }
-.stat-chip.total { border-color: var(--accent); color: var(--accent); }
+  .creator-tag {
+    color: var(--accent);
+    font-weight: 700;
+    background: rgba(214, 154, 78, 0.12);
+    border: 1px solid rgba(214, 154, 78, 0.3);
+    padding: 3px 10px;
+    border-radius: 20px;
+    display: inline-block;
+    margin-left: 4px;
+  }
 
-/* ---------- table ---------- */
-table { width: 100%; border-collapse: collapse; }
-thead th {
-  text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
-  color: var(--faint); font-weight: 600; padding: 10px 10px; border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-tbody td { padding: 13px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 13px; }
-tbody tr:last-child td { border-bottom: none; }
-tbody tr:hover { background: rgba(255,255,255,0.02); }
-.cell-main { color: var(--ink); font-weight: 600; }
-.cell-sub { color: var(--faint); font-size: 11.5px; margin-top: 2px; }
-.cell-muted { color: var(--muted); }
+  /* Table & Controls */
+  .controls-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .search-input { flex: 1; min-width: 200px; background: var(--panel); border: 1px solid var(--border); color: var(--ink); padding: 10px 14px; border-radius: 8px; font-family: inherit; font-size: 13.5px; }
+  .search-input:focus { outline: none; border-color: var(--accent); }
 
-.type-badge {
-  display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .03em;
-  padding: 3px 9px; border-radius: 5px; text-transform: uppercase;
-}
-.tag-chip-row { display: flex; flex-wrap: wrap; gap: 5px; max-width: 220px; }
-.tag-chip { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: 99px; white-space: nowrap; }
-.actions-cell { display: flex; gap: 8px; justify-content: flex-end; }
-
-.empty-row td { text-align: center; padding: 50px 20px; color: var(--faint); }
-.empty-row .icon { font-size: 22px; margin-bottom: 8px; display: block; }
-.empty-row h3 { font-size: 14px; color: var(--muted); margin: 0 0 4px; font-weight: 600; }
-.empty-row p { font-size: 12.5px; margin: 0; }
-
-.skeleton-row td { color: var(--faint); opacity: .4; animation: pulse 1.3s ease-in-out infinite; }
-@keyframes pulse { 0%,100% { opacity: .25; } 50% { opacity: .5; } }
-
-/* ---------- modal ---------- */
-.modal-overlay { position: fixed; inset: 0; background: rgba(5,6,9,.75); display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
-.modal-overlay.show { display: flex; }
-.modal { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 24px; width: 340px; max-width: 100%; }
-.modal h3 { font-size: 15px; font-weight: 700; color: var(--ink); margin: 0 0 8px; }
-.modal p { font-size: 12.5px; color: var(--muted); margin: 0 0 18px; line-height: 1.6; }
-.modal-actions { display: flex; gap: 10px; }
-.modal-actions .btn { flex: 1; justify-content: center; }
-
-@media (max-width: 860px) {
-  .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
-  .sidebar.open { transform: translateX(0); }
-  .content-area { padding: 18px 16px 50px; }
-}
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); font-weight: 600; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--panel-2); }
+  tbody td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  tbody tr:last-child td { border-bottom: none; }
+  
+  .btn-view { background: var(--panel-2); border: 1px solid var(--border); color: var(--ink); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+  .btn-view:hover { border-color: var(--accent); color: var(--accent); }
 </style>
 </head>
 <body>
@@ -168,40 +167,45 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
   </aside>
 
   <main class="content-area">
-    <h1 class="page-title">Dashboard Overview</h1>
-
-    <div class="stats-row" id="statsRow" style="display:none;"></div>
-
-    <div class="card">
-      <div class="filters-row">
-        <div class="search-wrap">
-          <input id="search" type="text" placeholder="Search opener, claimer, reason…" autocomplete="off">
+    <!-- Live 3D Hero Art Banner -->
+    <div class="art-hero-container">
+      <div class="art-canvas-wrap">
+        <div class="cube-3d">
+          <div class="cube-face front"></div>
+          <div class="cube-face back"></div>
+          <div class="cube-face right"></div>
+          <div class="cube-face left"></div>
+          <div class="cube-face top"></div>
+          <div class="cube-face bottom"></div>
         </div>
-        <select id="typeFilter"><option value="">All types</option></select>
-        <select id="tagFilter"><option value="">All tags</option></select>
-        <select id="sortOrder">
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-        </select>
-        <span class="count-pill" id="countPill">loading…</span>
+      </div>
+      
+      <div class="hero-text-wrap">
+        <h1 class="bot-3d-title">{{SITE_TITLE}}</h1>
+        <p class="bot-credits">Engineered &amp; Developed by <span class="creator-tag">Max-Golddoggo9866</span></p>
       </div>
     </div>
 
-    <div class="card" style="padding:0; overflow-x:auto;">
+    <!-- Search Bar -->
+    <div class="controls-row">
+      <input type="text" id="searchInput" class="search-input" placeholder="Search transcripts by username, reason, or ticket ID..." oninput="filterTickets()">
+    </div>
+
+    <!-- Tickets Table -->
+    <div class="card">
       <table>
         <thead>
           <tr>
+            <th>Ticket ID</th>
+            <th>Opened By</th>
             <th>Type</th>
-            <th>Ticket</th>
-            <th>Opened by</th>
-            <th>Claimed by</th>
-            <th>Closed</th>
-            <th>Tags</th>
-            <th style="text-align:right;">Actions</th>
+            <th>Closed By</th>
+            <th>Closed Date</th>
+            <th style="text-align:right;">Action</th>
           </tr>
         </thead>
-        <tbody id="tbody">
-          <tr class="skeleton-row"><td colspan="7">Loading archive…</td></tr>
+        <tbody id="ticketTbody">
+          <tr><td colspan="6" style="text-align:center; color:var(--faint); padding:24px;">Loading archived transcripts...</td></tr>
         </tbody>
       </table>
     </div>
@@ -210,189 +214,72 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
   </main>
 </div>
 
-<div class="modal-overlay" id="deleteOverlay">
-  <div class="modal">
-    <h3>Delete this record?</h3>
-    <p>This permanently removes the archived transcript from the site. Can't be undone.</p>
-    <div class="modal-actions">
-      <button class="btn btn-danger" id="confirmDelete">Delete it</button>
-      <button class="btn btn-ghost" id="cancelDelete">Never mind</button>
-    </div>
-  </div>
-</div>
-
 <script src="/theme.js"></script>
 <script>
 RF.startSessionClock(document.getElementById('sessionClock'));
 
 let allTickets = [];
-let allTags = [];
-let pendingDeleteId = null;
-
-async function loadTags() {
-  try {
-    const res = await fetch('/api/guild');
-    if (res.ok) {
-      const data = await res.json();
-      allTags = data.tags || [];
-      const sel = document.getElementById('tagFilter');
-      for (const t of allTags) {
-        const opt = document.createElement('option');
-        opt.value = t.id; opt.textContent = t.name;
-        sel.appendChild(opt);
-      }
-    }
-  } catch { /* tag filter stays empty if failed */ }
-}
-
-function tagById(id) { return allTags.find(t => t.id === id); }
-
-async function loadTickets() {
-  try {
-    const res = await fetch('/api/tickets');
-    if (res.status === 401) {
-      document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="7"><span class="icon">🔒</span><h3>Session expired</h3><p><a href="/" style="color:var(--accent)">Log in again</a></p></td></tr>`;
-      return;
-    }
-    if (!res.ok) {
-      let bodyText = '';
-      try { bodyText = await res.text(); } catch {}
-      document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="7"><span class="icon">⚠</span><h3>Server error</h3><p>HTTP ${res.status}${bodyText ? ' — ' + RF.esc(bodyText.slice(0, 200)) : ''}</p></td></tr>`;
-      document.getElementById('countPill').textContent = `error ${res.status}`;
-      return;
-    }
-    allTickets = await res.json();
-    if (!Array.isArray(allTickets)) throw new Error('Unexpected response shape');
-    populateTypeFilter();
-    render();
-  } catch (err) {
-    document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="7"><span class="icon">⚠</span><h3>Couldn't load the archive</h3><p>${RF.esc(err.message || 'Unknown error')}</p></td></tr>`;
-    document.getElementById('countPill').textContent = 'failed to load';
-  }
-}
-
-function populateTypeFilter() {
-  const types = [...new Set(allTickets.map(t => t.type).filter(Boolean))].sort();
-  const sel = document.getElementById('typeFilter');
-  for (const t of types) {
-    const opt = document.createElement('option');
-    opt.value = t; opt.textContent = t;
-    sel.appendChild(opt);
-  }
-}
-
-function renderStats(list) {
-  const row = document.getElementById('statsRow');
-  if (!list.length) { row.style.display = 'none'; return; }
-  row.style.display = 'flex';
-  const byType = {};
-  for (const t of list) byType[t.type || 'OTHER'] = (byType[t.type || 'OTHER'] || 0) + 1;
-  const chips = Object.entries(byType).sort((a, b) => b[1] - a[1])
-    .map(([type, count]) => `<span class="stat-chip" style="border-color:${RF.typeColor(type)}55">${count} <b>${RF.esc(type)}</b></span>`).join('');
-  row.innerHTML = `<span class="stat-chip total">${list.length} <b>shown</b></span>${chips}`;
-}
-
-function render() {
-  const q = document.getElementById('search').value.trim().toLowerCase();
-  const typeFilter = document.getElementById('typeFilter').value;
-  const tagFilter = document.getElementById('tagFilter').value;
-  const sort = document.getElementById('sortOrder').value;
-
-  let filtered = allTickets.filter(t => {
-    if (typeFilter && t.type !== typeFilter) return false;
-    if (tagFilter && !(Array.isArray(t.tags) && t.tags.includes(tagFilter))) return false;
-    if (!q) return true;
-    const haystack = [t.openedBy, t.claimedBy, t.closedBy, t.reason, t.robloxUsername, t.channelName].join(' ').toLowerCase();
-    return haystack.includes(q);
-  });
-  filtered.sort((a, b) => {
-    const da = new Date(a.closedAt || 0).getTime();
-    const db = new Date(b.closedAt || 0).getTime();
-    return sort === 'oldest' ? da - db : db - da;
-  });
-
-  document.getElementById('countPill').innerHTML = `<b>${filtered.length}</b> of ${allTickets.length} filed`;
-  renderStats(filtered);
-
-  const tbody = document.getElementById('tbody');
-  if (!filtered.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="7"><span class="icon">🗄️</span><h3>${allTickets.length ? 'No matches' : 'Nothing filed yet'}</h3><p>${allTickets.length ? 'Try a different search or type filter.' : 'Closed tickets will show up here once staff archive them.'}</p></td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = filtered.map(t => {
-    const color = RF.typeColor(t.type);
-    const tagChips = (Array.isArray(t.tags) ? t.tags : []).map(tagId => {
-      const tag = tagById(tagId);
-      if (!tag) return '';
-      return `<span class="tag-chip" style="background:${tag.color}22; color:${tag.color};">${RF.esc(tag.name)}</span>`;
-    }).join('');
-    return `
-    <tr>
-      <td><span class="type-badge" style="background:${color}22; color:${color};">${RF.esc(t.type || 'TICKET')}</span></td>
-      <td>
-        <div class="cell-main">${RF.esc(t.channelName || 'unnamed-ticket')}</div>
-        <div class="cell-sub mono">#${RF.esc((t.id || '').slice(-6))}</div>
-      </td>
-      <td class="cell-muted">${RF.esc(t.openedBy || 'Unknown')}</td>
-      <td class="cell-muted">${RF.esc(t.claimedBy || '—')}</td>
-      <td class="cell-muted">${RF.esc(t.closedAt || 'Recently')}</td>
-      <td><div class="tag-chip-row">${tagChips || '<span class="cell-muted" style="font-size:11.5px;">—</span>'}</div></td>
-      <td>
-        <div class="actions-cell">
-          <a class="btn btn-accent" href="/transcript/${encodeURIComponent(t.id)}">Open</a>
-          <button class="btn btn-danger" data-id="${RF.esc(t.id)}" onclick="askDelete(this)">Delete</button>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-}
-
-function askDelete(btn) {
-  pendingDeleteId = btn.getAttribute('data-id');
-  document.getElementById('deleteOverlay').classList.add('show');
-}
-document.getElementById('cancelDelete').addEventListener('click', () => {
-  pendingDeleteId = null;
-  document.getElementById('deleteOverlay').classList.remove('show');
-});
-document.getElementById('confirmDelete').addEventListener('click', async () => {
-  if (!pendingDeleteId) return;
-  const id = pendingDeleteId;
-  document.getElementById('deleteOverlay').classList.remove('show');
-  try {
-    const res = await fetch(`/api/tickets/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    if (res.ok) { allTickets = allTickets.filter(t => t.id !== id); render(); }
-    else alert('Could not delete — try refreshing the page.');
-  } catch { alert('Could not delete — check your connection.'); }
-  pendingDeleteId = null;
-});
 
 async function initNav() {
   try {
     const res = await fetch('/api/guild');
-    if (res.ok) {
-      const g = await res.json();
-      const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions?.allowedTabs : null;
-      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, allowedTabs);
-    } else {
-      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
-    }
+    const g = res.ok ? await res.json() : {};
+    const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions?.allowedTabs : null;
+    document.getElementById('navTabs').innerHTML = RF.renderNav('/', allowedTabs);
   } catch {
-    document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
+    document.getElementById('navTabs').innerHTML = RF.renderNav('/', null);
   }
-
   const logoutIconEl = document.getElementById('logoutIcon');
   if (logoutIconEl && RF.ICONS?.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
 }
 
-document.getElementById('search').addEventListener('input', render);
-document.getElementById('typeFilter').addEventListener('change', render);
-document.getElementById('tagFilter').addEventListener('change', render);
-document.getElementById('sortOrder').addEventListener('change', render);
+async function loadTickets() {
+  try {
+    const res = await fetch('/api/tickets');
+    if (!res.ok) return;
+    allTickets = await res.json();
+    renderTickets(allTickets);
+  } catch (err) {
+    console.error('Failed to load tickets:', err);
+  }
+}
+
+function renderTickets(list) {
+  const tbody = document.getElementById('ticketTbody');
+  if (!list || !list.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--faint); padding:24px;">No archived tickets found.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(t => `
+    <tr>
+      <td class="mono" style="font-weight:600;">#${RF.esc(t.id.slice(-6))}</td>
+      <td><strong>${RF.esc(t.openedBy)}</strong></td>
+      <td><span style="color:var(--accent); font-weight:600;">${RF.esc(t.type)}</span></td>
+      <td>${RF.esc(t.closedBy || 'System')}</td>
+      <td style="color:var(--muted);">${t.closedAt ? new Date(t.closedAt).toLocaleDateString() : '—'}</td>
+      <td style="text-align:right;">
+        <a href="/transcript/${t.id}${t.accessToken ? '?token=' + t.accessToken : ''}" class="btn-view">View Transcript</a>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function filterTickets() {
+  const query = document.getElementById('searchInput').value.toLowerCase().trim();
+  if (!query) return renderTickets(allTickets);
+
+  const filtered = allTickets.filter(t => 
+    (t.id && t.id.toLowerCase().includes(query)) ||
+    (t.openedBy && t.openedBy.toLowerCase().includes(query)) ||
+    (t.reason && t.reason.toLowerCase().includes(query)) ||
+    (t.type && t.type.toLowerCase().includes(query))
+  );
+  renderTickets(filtered);
+}
 
 initNav();
-loadTags().then(loadTickets);
+loadTickets();
 </script>
 </body>
 </html>

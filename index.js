@@ -480,18 +480,15 @@ function getViewerContext(req, guild, guildConfig) {
     const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'settings'];
     const authUser = req.authUser;
     
-    // Master access code or no auth user
     if (!authUser) return { tier: 'none', allowedTabs: [], canModerate: false };
     if (!authUser.id) return { tier: 'master', allowedTabs: ALL_TABS, canModerate: true };
 
     const member = guild.members.cache.get(authUser.id);
     
-    // Server Owner or Admin Role
     if (isAdmin(member, guildConfig)) {
         return { tier: 'admin', allowedTabs: ALL_TABS, canModerate: true };
     }
 
-    // Staff Role: strictly use the allowedTabs configured by Administrators
     if (isStaff(member, guildConfig)) {
         const allowed = guildConfig.staffPermissions?.allowedTabs || ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster'];
         return { 
@@ -1145,7 +1142,7 @@ app.post('/api/guild/permissions', maintenanceGate, requireAuth, (req, res) => {
     }
 
     const { allowedTabs, canModerate } = req.body || {};
-    const validTabs = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster'];
+    const validTabs = ['archive', 'tickets', 'panels', 'tags', 'quickwords', 'feedback', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'auditlog', 'settings'];
 
     guildConfig.staffPermissions = {
         allowedTabs: Array.isArray(allowedTabs) ? allowedTabs.filter(t => validTabs.includes(t)) : guildConfig.staffPermissions.allowedTabs,
@@ -2781,23 +2778,49 @@ client.on('interactionCreate', async (interaction) => {
             if (isSuspendedFromTickets(guildConfig, interaction.user.id)) {
                 return interaction.update({ content: '❌ An Administrator has suspended you from working on tickets.', components: [] });
             }
+
             const idx = Number(interaction.values[0]);
             const globalWords = quickWordsData.global || [];
             const personalWords = quickWordsData.personal[interaction.user.id] || [];
-            const combined = [...globalWords.map(w => ({ ...w, type: 'Global' })), ...personalWords.map(w => ({ ...w, type: 'Personal' }))];
+            const combined = [...globalWords, ...personalWords];
             const selected = combined[idx];
+
             if (!selected) {
                 return interaction.update({ content: '❌ That Quick Word is no longer available.', components: [] });
             }
 
-            const ticket = openTickets.get(interaction.channel.id) || recoverTicketFromTopic(interaction.channel);
-            const senderName = ticket?.claimedBy?.tag || interaction.user.tag;
-            await sendTicketMessage(interaction.channel, selected.text, senderName);
+            // Show a modal text box pre-filled with the Quick Word text so the staff member sends it directly
+            const modal = new ModalBuilder()
+                .setCustomId('quickword_send_modal')
+                .setTitle(`Quick Word: ${clamp(selected.label, 20)}`);
 
-            return interaction.update({ content: '✅ Quick Word sent to channel.', components: [] });
+            const textInput = new TextInputBuilder()
+                .setCustomId('quickword_text')
+                .setLabel('Edit or confirm your message:')
+                .setStyle(TextInputStyle.Paragraph)
+                .setValue(selected.text)
+                .setRequired(true);
+
+            modal.addComponents(new ActionRowBuilder().addComponents(textInput));
+
+            // Show modal to the staff member
+            return await interaction.showModal(modal);
         }
 
         if (interaction.isModalSubmit()) {
+            if (interaction.customId === 'quickword_send_modal') {
+                const textToSend = interaction.fields.getTextInputValue('quickword_text');
+                const ticket = openTickets.get(interaction.channel.id) || recoverTicketFromTopic(interaction.channel);
+
+                // Get the staff member's display name or claimed tag
+                const senderName = ticket?.claimedBy?.tag || interaction.user.tag;
+
+                // Send using your existing webhook helper so it displays as the claimed staff member
+                await sendTicketMessage(interaction.channel, textToSend, senderName, interaction.user.displayAvatarURL());
+
+                return interaction.reply({ content: '✅ Quick Word message sent!', ephemeral: true });
+            }
+
             if (interaction.customId.startsWith('ticket_modal_')) {
                 const typeKey = interaction.customId.replace('ticket_modal_', '');
                 const reason = interaction.fields.getTextInputValue('reason');
