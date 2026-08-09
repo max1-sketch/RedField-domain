@@ -738,6 +738,8 @@ app.get('/auth/discord', (req, res) => {
 app.get('/auth/discord/callback', async (req, res) => {
     const cookies = parseCookies(req);
     const { code, state, error: oauthError } = req.query;
+    const rawReturnTo = cookies.oauthReturnTo ? decodeURIComponent(cookies.oauthReturnTo) : '/';
+    const returnTo = (rawReturnTo && rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')) ? rawReturnTo : '/';
 
     if (oauthError) return res.redirect('/login?error=discord_denied');
     if (!DISCORD_LOGIN_CONFIGURED) return res.status(503).send('Discord login is not configured.');
@@ -766,22 +768,35 @@ app.get('/auth/discord/callback', async (req, res) => {
         const guild = getTargetGuild();
         const member = guild ? await guild.members.fetch(discordUser.id).catch(() => null) : null;
         const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
+        const staff = Boolean(member && isStaff(member, guildConfig));
 
-        // Non-staff visits route to coming-soon
-        if (!member || !isStaff(member, guildConfig)) {
-            return res.redirect('/coming-soon');
-        }
-
+        // Always issue a session, staff or not — the routes that actually need
+        // to be staff-only (dashboard tabs via requireTabPermission) already
+        // enforce that correctly on their own, and requireDiscordOrTicketToken
+        // already has its own opener-or-staff check for transcripts. Bouncing
+        // every non-staff login to /coming-soon here, before any of that ever
+        // ran, was breaking transcript access for ticket openers — they aren't
+        // staff, but they ARE allowed to see their own transcript.
         const expiresAt = Date.now() + SESSION_SECONDS * 1000;
-        const session = signDiscordSession({ id: discordUser.id, tag: member.user.tag, exp: expiresAt });
+        const session = signDiscordSession({ id: discordUser.id, tag: member ? member.user.tag : discordUser.username, exp: expiresAt });
         res.setHeader('Set-Cookie', [
             `discordAuth=${session}; HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
             `sessionExpires=${expiresAt}; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
             'oauthState=; Path=/; Max-Age=0',
             'oauthReturnTo=; Path=/; Max-Age=0'
         ]);
-        logAudit('DISCORD_LOGIN', member.user.tag, `Logged in via Discord OAuth2`);
-        res.redirect('/');
+        logAudit('DISCORD_LOGIN', discordUser.username, `Logged in via Discord OAuth2`);
+
+        // A generic sign-in with nowhere specific to go (no transcript, no
+        // particular page) from someone who isn't staff has no dashboard page
+        // they can actually see — send them to coming-soon instead of a page
+        // they'd immediately get turned away from. Anyone headed somewhere
+        // specific (a transcript link, etc.) goes there and lets that route's
+        // own permission check decide.
+        if (!staff && returnTo === '/') {
+            return res.redirect('/coming-soon');
+        }
+        res.redirect(returnTo);
     } catch (err) {
         console.error('[discord oauth] failed:', err);
         res.redirect('/login?error=discord_failed');
@@ -1291,6 +1306,7 @@ app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requir
 
     const channelId = String(req.body?.channelId || '').trim();
     if (!channelId) return res.status(400).json({ error: 'Choose a channel first.' });
+    const messageText = String(req.body?.message || '').trim().slice(0, 1900);
 
     const panelEntries = Object.entries(guildConfig.panels);
     if (!panelEntries.length) return res.status(400).json({ error: 'No panels configured yet.' });
@@ -1311,7 +1327,7 @@ app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requir
                 return opt;
             }));
 
-        await channel.send({ components: [new ActionRowBuilder().addComponents(select)] });
+        await channel.send({ content: messageText || undefined, components: [new ActionRowBuilder().addComponents(select)] });
 
         logAudit('POST_PANEL_DROPDOWN', resolveActorName(req), `Posted combined panel dropdown (${panelEntries.length} panels) to #${channel.name}`);
         res.json({ success: true });
@@ -2798,10 +2814,13 @@ client.on('interactionCreate', async (interaction) => {
                     new ButtonBuilder().setCustomId('closerequest_accept').setLabel('Accept & Close').setStyle(ButtonStyle.Success).setEmoji('✅'),
                     new ButtonBuilder().setCustomId('closerequest_deny').setLabel('Deny & Keep Open').setStyle(ButtonStyle.Danger).setEmoji('❌')
                 );
+                // It's staff asking the opener whether they're OK with closing —
+                // the wording previously had this backwards, saying the opener
+                // themselves had requested it.
                 const closeRequestEmbed = new EmbedBuilder()
                     .setColor(0x5865f2)
                     .setTitle('Close Request')
-                    .setDescription(`<@${ticket.userId}> has requested to close this ticket. Reason:\n\`\`\`${reason}\`\`\``);
+                    .setDescription(`**${user.tag}** has requested to close this ticket. Reason:\n\`\`\`${reason}\`\`\`\n<@${ticket.userId}>, click **Accept & Close** below if that's okay, or **Deny & Keep Open** if you still need help.`);
 
                 if (closeDelayHours) scheduleCloseRequestAutoClose(channel, guild, guildConfig, closeDelayHours, user.tag);
 
@@ -2973,15 +2992,29 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             if (customId === 'closerequest_accept') {
-                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can accept a close request.', ephemeral: true });
-                if (isSuspendedFromTickets(guildConfig, user.id)) return interaction.reply({ content: '❌ An Administrator has suspended you from working on tickets.', ephemeral: true });
+                const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
+                const isOpener = Boolean(ticket && ticket.userId === user.id);
+                // The whole point of this button is for the OPENER to respond —
+                // staff-only here meant the person being asked could never
+                // actually answer their own close request. Staff can still act
+                // on it too (e.g. following up if the opener goes quiet).
+                if (!isOpener && !isStaff(member, guildConfig)) {
+                    return interaction.reply({ content: '❌ Only the ticket opener or staff can respond to this close request.', ephemeral: true });
+                }
+                if (isStaff(member, guildConfig) && isSuspendedFromTickets(guildConfig, user.id)) {
+                    return interaction.reply({ content: '❌ An Administrator has suspended you from working on tickets.', ephemeral: true });
+                }
                 await interaction.update({ content: `🔒 **${user.tag}** accepted the close request — closing ticket...`, components: [] });
                 await finalizeTicketClose(channel, interaction.guild, guildConfig, user.tag);
                 return;
             }
 
             if (customId === 'closerequest_deny') {
-                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can deny a close request.', ephemeral: true });
+                const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
+                const isOpener = Boolean(ticket && ticket.userId === user.id);
+                if (!isOpener && !isStaff(member, guildConfig)) {
+                    return interaction.reply({ content: '❌ Only the ticket opener or staff can respond to this close request.', ephemeral: true });
+                }
                 clearCloseRequestTimer(channel.id);
                 return interaction.update({ content: `❌ **${user.tag}** denied the close request — ticket stays open.`, components: [] });
             }

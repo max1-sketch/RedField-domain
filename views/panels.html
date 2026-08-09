@@ -350,6 +350,10 @@ function renderPage(highlightTypeKey) {
     <div class="card">
       <div class="card-header"><h2>Post all panels as one dropdown<span class="badge-new">NEW</span></h2></div>
       <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.6;">Instead of a separate embed and button for every panel, post a single message with an "Open A Ticket" dropdown listing all of them — players pick a type from the list rather than scrolling past several messages. This uses each panel's button text, description, and emoji as the option shown in the list.</p>
+      <div class="field">
+        <label>Message text <span class="hint">(optional — shown above the dropdown)</span></label>
+        <textarea id="dropdownMessage" maxlength="1900" placeholder="e.g. Select the type of ticket you'd like to open below:"></textarea>
+      </div>
       <div class="post-row">
         <div class="field">
           <select id="dropdownChannel"></select>
@@ -538,7 +542,7 @@ function wireDropdownPost() {
     try {
       const res = await fetch('/api/guild/panels/post-dropdown', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelId })
+        body: JSON.stringify({ channelId, message: document.getElementById('dropdownMessage').value.trim() })
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
