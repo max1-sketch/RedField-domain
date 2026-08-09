@@ -93,6 +93,14 @@ input[type=color] { width: 44px; height: 34px; padding: 2px; border-radius: 7px;
 .post-status.ok { color: var(--green); }
 .post-status.err { color: var(--red); }
 
+.create-banner { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35); color: var(--green); border-radius: 8px; padding: 12px 16px; font-size: 13px; margin: 4px 0 16px; font-weight: 600; }
+.create-banner.err { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.35); color: var(--red); }
+@keyframes cardFlash {
+  0% { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+  100% { border-color: var(--border); box-shadow: none; }
+}
+.card.just-created { animation: cardFlash 2.2s ease-out; }
+
 .save-bar { position: sticky; bottom: 0; background: var(--bg-0); padding: 16px 0 4px; margin-top: 4px; display: flex; align-items: center; gap: 14px; border-top: 1px solid var(--border); }
 .save-status { font-size: 12px; color: var(--green); opacity: 0; transition: opacity .2s; font-weight: 600; }
 .save-status.show { opacity: 1; }
@@ -204,7 +212,7 @@ async function initNav() {
   if (logoutIconEl && RF.ICONS?.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
 }
 
-async function load() {
+async function load(highlightTypeKey) {
   try {
     const res = await fetch('/api/guild');
     if (res.status === 401) { window.location.reload(); return; }
@@ -217,13 +225,13 @@ async function load() {
     panels = data.panels || {};
     roles = data.roles || [];
     channels = data.channels || [];
-    renderPage();
+    renderPage(highlightTypeKey);
   } catch (err) {
-    document.getElementById('main').innerHTML = `<h1 class="page-title">Panel Configs</h1><div class="card"><p style="margin:0;color:var(--muted);font-size:12.5px;">Couldn't reach the server. Refresh and try again.</p></div>`;
+    document.getElementById('main').innerHTML = `<h1 class="page-title">Panel Configs</h1><div class="card"><p style="margin:0;color:var(--red);font-size:12.5px;">Something went wrong loading this page (${esc(err.message || 'unknown error')}). Try reloading.</p></div>`;
   }
 }
 
-function renderPage() {
+function renderPage(highlightTypeKey) {
   const cards = Object.entries(panels).map(([typeKey, p]) => {
     const color = typeColor(typeKey);
     const teamSet = new Set(p.teamRoleIds || []);
@@ -316,10 +324,11 @@ function renderPage() {
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
       <div>
         <h1 class="page-title">Panel Configs</h1>
-        <p class="page-sub">Edit what each panel says, its button, its color, which roles get pinged, and where it posts. Posting again replaces nothing automatically — it sends a new message, so delete the old one in Discord if you're reposting to the same channel.</p>
+        <p class="page-sub">A panel is the message with a button that players click to open a ticket. Getting one live takes three steps: <b>1)</b> "+ New panel" gives it a name and blank defaults — nothing is posted to Discord yet. <b>2)</b> Fill in its Title, Description, Button text, etc. below and click "Save all panels". <b>3)</b> Pick a channel under "Where to post this panel" and click "Post to Discord" — that's the step that actually sends it. Posting again always sends a new message, it never edits or replaces the old one — delete that manually in Discord first if you're reposting to the same channel.</p>
       </div>
       <button class="btn btn-accent" id="newPanelBtn" style="flex-shrink:0;">+ New panel</button>
     </div>
+    <div id="createBanner"></div>
     ${cards}
     <div class="save-bar">
       <button class="btn btn-accent" id="saveBtn">Save all panels</button>
@@ -333,6 +342,18 @@ function renderPage() {
   wireSave();
   wirePostButtons();
   document.getElementById('newPanelBtn').addEventListener('click', openCreateModal);
+
+  if (highlightTypeKey) {
+    const newCard = document.querySelector(`.card[data-type="${CSS.escape(highlightTypeKey)}"]`);
+    const bannerHost = document.getElementById('createBanner');
+    if (newCard) {
+      if (bannerHost) bannerHost.innerHTML = `<div class="create-banner">✅ Panel created — edit the fields below, click "Save all panels", then pick a channel and hit "Post to Discord" to publish it.</div>`;
+      newCard.classList.add('just-created');
+      newCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else if (bannerHost) {
+      bannerHost.innerHTML = `<div class="create-banner err">The panel was created, but it isn't showing in the list below — refresh the page. If it still doesn't appear, something's wrong and worth telling me the exact error from your browser console (F12 → Console tab).</div>`;
+    }
+  }
 }
 
 function openCreateModal() {
@@ -477,11 +498,18 @@ document.getElementById('confirmCreatePanel').addEventListener('click', async ()
   if (!name) { errEl.textContent = 'Give it a name first.'; return; }
 
   const btn = document.getElementById('confirmCreatePanel');
+  const originalLabel = btn.textContent;
   btn.disabled = true;
+  btn.textContent = 'Creating…';
   try {
     const res = await fetch('/api/guild/panels/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
     const data = await res.json().catch(() => ({}));
-    if (res.ok) {
+    if (res.ok && data.typeKey) {
+      document.getElementById('createPanelOverlay').classList.remove('show');
+      await load(data.typeKey);
+    } else if (res.ok) {
+      // Created, but the response didn't include the new key — still refresh
+      // so the panel shows up, just without the scroll/highlight.
       document.getElementById('createPanelOverlay').classList.remove('show');
       await load();
     } else {
@@ -491,6 +519,7 @@ document.getElementById('confirmCreatePanel').addEventListener('click', async ()
     errEl.textContent = 'Could not reach the server.';
   }
   btn.disabled = false;
+  btn.textContent = originalLabel;
 });
 
 document.getElementById('cancelDeletePanel').addEventListener('click', () => {

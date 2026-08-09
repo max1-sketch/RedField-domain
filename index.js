@@ -2639,9 +2639,14 @@ client.on('interactionCreate', async (interaction) => {
                 ticket.priority = priority;
                 openTickets.set(channel.id, ticket);
                 saveOpenTickets();
-                await syncTicketChannelName(channel, ticket);
-                await updateTicketPriorityEmbed(channel, ticket, priority);
-                return interaction.reply(`🚩 Priority set to **${PRIORITY_EMOJI[priority]} ${PRIORITY_LABEL[priority]}** by **${user.tag}**.`);
+                // Acknowledge the command first — renaming the channel and editing the
+                // pinned embed are each slow/rate-limited Discord calls that can blow
+                // past the 3-second interaction window, which is what was causing
+                // "the application did not respond" even though the priority did save.
+                await interaction.reply(`🚩 Priority set to **${PRIORITY_EMOJI[priority]} ${PRIORITY_LABEL[priority]}** by **${user.tag}**.`);
+                syncTicketChannelName(channel, ticket).catch(err => console.error('[priority] rename failed:', err.message));
+                updateTicketPriorityEmbed(channel, ticket, priority).catch(err => console.error('[priority] embed update failed:', err.message));
+                return;
             }
 
             if (commandName === 'tag') {
@@ -2671,8 +2676,9 @@ client.on('interactionCreate', async (interaction) => {
                 if (ticket.claimedBy) return interaction.reply({ content: `❌ Already claimed by **${ticket.claimedBy.tag}**.`, ephemeral: true });
                 ticket.claimedBy = { id: user.id, tag: user.tag };
                 saveOpenTickets();
-                await syncTicketChannelName(channel, ticket);
-                return interaction.reply(`🙋 **${user.tag}** is handling this ticket now.`);
+                await interaction.reply(`🙋 **${user.tag}** is handling this ticket now.`);
+                syncTicketChannelName(channel, ticket).catch(err => console.error('[claim] rename failed:', err.message));
+                return;
             }
 
             if (commandName === 'unclaim') {
@@ -2683,8 +2689,9 @@ client.on('interactionCreate', async (interaction) => {
                 if (!ticket.claimedBy) return interaction.reply({ content: '⚠️ This ticket is not currently claimed.', ephemeral: true });
                 ticket.claimedBy = null;
                 saveOpenTickets();
-                await syncTicketChannelName(channel, ticket);
-                return interaction.reply(`↩️ **${user.tag}** unclaimed this ticket.`);
+                await interaction.reply(`↩️ **${user.tag}** unclaimed this ticket.`);
+                syncTicketChannelName(channel, ticket).catch(err => console.error('[unclaim] rename failed:', err.message));
+                return;
             }
 
             if (commandName === 'close') {
@@ -2736,13 +2743,15 @@ client.on('interactionCreate', async (interaction) => {
                 const targetUser = interaction.options.getUser('user');
                 await interaction.deferReply();
                 const targetMember = await guild.members.fetch(targetUser.id).catch(() => null);
+                if (!targetMember) return interaction.editReply('⚠️ Could not find that member in this server.');
 
                 ticket.claimedBy = { id: targetMember.id, tag: targetMember.user.tag };
                 openTickets.set(channel.id, ticket);
                 saveOpenTickets();
-                await syncTicketChannelName(channel, ticket);
 
-                return interaction.editReply(`🔁 Transferred to **${targetMember.user.tag}** by **${user.tag}**.`);
+                await interaction.editReply(`🔁 Transferred to **${targetMember.user.tag}** by **${user.tag}**.`);
+                syncTicketChannelName(channel, ticket).catch(err => console.error('[transfer] rename failed:', err.message));
+                return;
             }
 
             if (commandName === 'blacklist') {
@@ -2807,14 +2816,18 @@ client.on('interactionCreate', async (interaction) => {
                 ticket.claimedBy = { id: user.id, tag: user.tag };
                 openTickets.set(channel.id, ticket);
                 saveOpenTickets();
-                await syncTicketChannelName(channel, ticket);
 
                 const oldEmbed = interaction.message.embeds[0];
                 const updatedEmbed = EmbedBuilder.from(oldEmbed).setFields(
                     oldEmbed.fields.map(f => f.name === 'Status' ? { name: 'Status', value: `🟡 Claimed by ${user.tag}`, inline: true } : f)
                 );
+                // Acknowledge the click (this IS the button/embed swap) before the
+                // channel rename — renaming is a separate, slower Discord call that
+                // must not sit in front of the response or the click times out.
                 await interaction.update({ embeds: [updatedEmbed], components: buildTicketButtons(true) });
-                return channel.send(`🙋 **${user.tag}** is handling this ticket now.`);
+                await channel.send(`🙋 **${user.tag}** is handling this ticket now.`);
+                syncTicketChannelName(channel, ticket).catch(err => console.error('[claim] rename failed:', err.message));
+                return;
             }
 
             if (customId === 'unclaim_ticket') {
@@ -2831,14 +2844,15 @@ client.on('interactionCreate', async (interaction) => {
                 ticket.claimedBy = null;
                 openTickets.set(channel.id, ticket);
                 saveOpenTickets();
-                await syncTicketChannelName(channel, ticket);
 
                 const oldEmbed = interaction.message.embeds[0];
                 const updatedEmbed = EmbedBuilder.from(oldEmbed).setFields(
                     oldEmbed.fields.map(f => f.name === 'Status' ? { name: 'Status', value: '🟢 Open', inline: true } : f)
                 );
                 await interaction.update({ embeds: [updatedEmbed], components: buildTicketButtons(false) });
-                return channel.send(`↩️ **${user.tag}** unclaimed this ticket.`);
+                await channel.send(`↩️ **${user.tag}** unclaimed this ticket.`);
+                syncTicketChannelName(channel, ticket).catch(err => console.error('[unclaim] rename failed:', err.message));
+                return;
             }
 
             if (customId === 'ticket_close') {
@@ -2926,10 +2940,16 @@ client.on('interactionCreate', async (interaction) => {
             ticket.priority = priority;
             openTickets.set(interaction.channel.id, ticket);
             saveOpenTickets();
-            await syncTicketChannelName(interaction.channel, ticket);
-            await updateTicketPriorityEmbed(interaction.channel, ticket, priority);
+
+            // Acknowledge the select first — this was the exact cause of the
+            // "didn't respond in time" error: the channel rename and embed edit
+            // below are separate, slower Discord calls and must never sit in
+            // front of the interaction response.
             await interaction.update({ content: `✅ Priority set to ${PRIORITY_EMOJI[priority]} ${PRIORITY_LABEL[priority]}.`, components: [] });
-            return interaction.channel.send(`🚩 **${interaction.user.tag}** set this ticket's priority to **${PRIORITY_EMOJI[priority]} ${PRIORITY_LABEL[priority]}**.`);
+            await interaction.channel.send(`🚩 **${interaction.user.tag}** set this ticket's priority to **${PRIORITY_EMOJI[priority]} ${PRIORITY_LABEL[priority]}**.`);
+            syncTicketChannelName(interaction.channel, ticket).catch(err => console.error('[priority] rename failed:', err.message));
+            updateTicketPriorityEmbed(interaction.channel, ticket, priority).catch(err => console.error('[priority] embed update failed:', err.message));
+            return;
         }
 
         if (interaction.isModalSubmit()) {
