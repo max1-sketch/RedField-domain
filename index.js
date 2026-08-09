@@ -355,12 +355,23 @@ function getGuildConfig(guildId) {
     const saved = guildConfigs[guildId] || {};
     const def = defaultConfig();
     const merged = { ...def, ...saved };
+    const savedPanels = saved.panels || {};
 
     merged.panels = {};
+    // Built-in panels: merge each with whatever's been saved for it.
     for (const key of Object.keys(def.panels)) {
-        merged.panels[key] = { ...def.panels[key], ...((saved.panels && saved.panels[key]) || {}) };
+        merged.panels[key] = { ...def.panels[key], ...(savedPanels[key] || {}) };
         if (!Array.isArray(merged.panels[key].teamRoleIds)) merged.panels[key].teamRoleIds = [];
     }
+    // Custom panels created via the website aren't in def.panels, so the loop
+    // above never touches them — without this they were being dropped and
+    // re-saved without them on literally every request after creation.
+    for (const key of Object.keys(savedPanels)) {
+        if (merged.panels[key]) continue;
+        merged.panels[key] = { ...savedPanels[key] };
+        if (!Array.isArray(merged.panels[key].teamRoleIds)) merged.panels[key].teamRoleIds = [];
+    }
+
     merged.staffRoleIds = Array.isArray(saved.staffRoleIds) ? saved.staffRoleIds : def.staffRoleIds;
     merged.adminRoleIds = Array.isArray(saved.adminRoleIds) ? saved.adminRoleIds : def.adminRoleIds;
     merged.tags = Array.isArray(saved.tags) ? saved.tags : def.tags;
