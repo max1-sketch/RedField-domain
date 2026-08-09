@@ -3,341 +3,340 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{SITE_TITLE}} — Live Ticket Chat</title>
+<title>{{SITE_TITLE}} — Live Ticket Console</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/socket.io/socket.io.js"></script>
 <style>
   :root {
     --accent: {{ACCENT_COLOR}};
-    --bg: #0b0d12;
-    --panel: #131720;
+    --bg-0: #0a0c11;
+    --sidebar-bg: #0d0f16;
+    --panel: #141722;
     --panel-2: #1a1e2b;
-    --border: #222735;
-    --ink: #e3e6ed;
-    --muted: #8891a0;
-    --green: #22c55e;
+    --border: #262b3a;
+    --ink: #e7e9ee;
+    --muted: #9199a8;
+    --faint: #5b6272;
     --red: #ef4444;
+    --green: #22c55e;
+    --yellow: #f1c40f;
   }
   * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    height: 100vh;
-    background: var(--bg);
-    color: var(--ink);
-    font-family: 'Inter', sans-serif;
-    font-size: 13.5px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
+  html, body { margin: 0; padding: 0; }
+  body { min-height: 100vh; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
 
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 24px;
-    background: var(--panel);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .header-left { display: flex; align-items: center; gap: 16px; }
-  .btn-back { color: var(--muted); text-decoration: none; font-weight: 600; font-size: 13px; }
-  .btn-back:hover { color: var(--ink); }
-  .ticket-title { font-size: 16px; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 8px; }
+  .site-banner { background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; }
 
-  .ticket-meta {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 12px;
-    color: var(--muted);
-  }
-  .status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-  }
-  .status-pill.open { background: rgba(34, 197, 94, 0.12); color: var(--green); }
-  .status-pill.closed { background: rgba(239, 68, 68, 0.12); color: var(--red); }
+  .app-shell { display: flex; min-height: 100vh; }
+  .sidebar { width: 250px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  .sidebar-brand { display: flex; align-items: center; gap: 10px; background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px; margin-bottom: 18px; line-height: 1.25; }
+  .sidebar-brand .dot { width: 8px; height: 8px; border-radius: 50%; background: #0a0c11; flex-shrink: 0; opacity: .55; }
+  nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); font-size: 13.5px; font-weight: 500; transition: background .15s, color .15s; }
+  .nav-item:hover { background: var(--panel-2); color: var(--ink); }
+  .nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
+  .nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
+  .nav-item .ic svg { width: 100%; height: 100%; }
 
-  .btn-group { display: flex; align-items: center; gap: 8px; }
-  .btn {
-    background: var(--panel-2);
-    border: 1px solid var(--border);
-    color: var(--ink);
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 12px;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-  }
-  .btn:hover { border-color: #3b4256; }
-  .btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--red); border-color: rgba(239, 68, 68, 0.3); }
-  .btn-danger:hover { background: rgba(239, 68, 68, 0.25); }
+  .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+  .session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
 
-  /* Live Chat Workspace */
-  .chat-layout { flex: 1; display: flex; overflow: hidden; }
+  .content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 1100px; display: flex; flex-direction: column; gap: 20px; }
 
-  .chat-main { flex: 1; display: flex; flex-direction: column; background: var(--bg); }
-  .chat-messages {
-    flex: 1;
-    padding: 20px 24px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+  /* Ticket Meta Header */
+  .ticket-meta-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
   }
+  .meta-title-group h1 { font-size: 20px; font-weight: 800; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; }
+  .meta-badges { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .badge { background: var(--panel-2); border: 1px solid var(--border); padding: 3px 10px; border-radius: 20px; font-weight: 600; font-size: 11.5px; }
+  .badge.claimed { background: rgba(241, 196, 15, 0.12); color: var(--yellow); border-color: rgba(241, 196, 15, 0.3); }
+  .badge.open { background: rgba(34, 197, 94, 0.12); color: var(--green); border-color: rgba(34, 197, 94, 0.3); }
 
-  .msg-row { display: flex; gap: 12px; align-items: flex-start; }
-  .msg-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: var(--panel-2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    color: var(--accent);
-    flex-shrink: 0;
-  }
-  .msg-content { flex: 1; }
-  .msg-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-  .msg-author { font-weight: 700; color: var(--ink); }
-  .msg-time { font-size: 11px; color: var(--muted); }
-  .msg-body { color: #d1d7e0; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  .action-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .btn { background: var(--panel-2); border: 1px solid var(--border); color: var(--ink); padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color .15s, color .15s; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.danger { background: rgba(239, 68, 68, 0.12); color: var(--red); border-color: rgba(239, 68, 68, 0.3); }
+  .btn.danger:hover { background: var(--red); color: #fff; }
+  .btn.success { background: rgba(34, 197, 94, 0.12); color: var(--green); border-color: rgba(34, 197, 94, 0.3); }
+  .btn.success:hover { background: var(--green); color: #000; }
 
-  /* Input Box */
-  .chat-footer {
-    padding: 16px 24px;
-    background: var(--panel);
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .input-row { display: flex; gap: 10px; }
-  .chat-input {
-    flex: 1;
-    background: var(--panel-2);
-    border: 1px solid var(--border);
-    color: var(--ink);
-    padding: 10px 14px;
-    border-radius: 6px;
-    font-family: inherit;
-    font-size: 13.5px;
-    outline: none;
-  }
-  .chat-input:focus { border-color: var(--accent); }
-  .btn-send { background: var(--accent); color: #000; font-weight: 700; padding: 0 18px; border: none; border-radius: 6px; cursor: pointer; }
+  /* Reason Card */
+  .reason-card { background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 14px 18px; font-size: 13px; color: var(--muted); }
+  .reason-card strong { color: var(--ink); display: block; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
 
-  /* Side Info Drawer */
-  .chat-sidebar {
-    width: 280px;
-    background: var(--panel);
-    border-left: 1px solid var(--border);
-    padding: 20px;
-    overflow-y: auto;
-    flex-shrink: 0;
-  }
-  .side-section { margin-bottom: 20px; }
-  .side-label { font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
-  .side-val { font-size: 13px; font-weight: 600; color: var(--ink); word-break: break-all; }
+  /* Live Chat Window */
+  .chat-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; display: flex; flex-direction: column; height: 550px; overflow: hidden; }
+  .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+  
+  .message-row { display: flex; gap: 12px; max-width: 85%; }
+  .message-row.bot { opacity: 0.9; }
+  .avatar-box { width: 36px; height: 36px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: var(--accent); flex-shrink: 0; }
+  .message-content-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .message-author { font-size: 12px; font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 6px; }
+  .message-author .time { font-weight: 400; color: var(--faint); font-size: 10.5px; }
+  .message-author .bot-tag { background: var(--accent); color: #0a0c11; font-size: 9.5px; font-weight: 800; padding: 1px 5px; border-radius: 4px; text-transform: uppercase; }
+  
+  .message-bubble { background: var(--panel-2); border: 1px solid var(--border); padding: 10px 14px; border-radius: 8px; font-size: 13.5px; line-height: 1.5; color: var(--ink); word-break: break-word; white-space: pre-wrap; }
+  .message-attachment { margin-top: 6px; max-width: 300px; border-radius: 6px; border: 1px solid var(--border); }
+
+  /* Reply Form */
+  .reply-area { padding: 16px; border-top: 1px solid var(--border); background: var(--sidebar-bg); display: flex; gap: 12px; }
+  .reply-textarea { flex: 1; background: var(--panel); border: 1px solid var(--border); color: var(--ink); padding: 12px 14px; border-radius: 8px; font-family: inherit; font-size: 13px; resize: none; height: 48px; outline: none; }
+  .reply-textarea:focus { border-color: var(--accent); }
+  .btn-send { background: var(--accent); color: #0a0c11; border: none; font-weight: 700; padding: 0 20px; border-radius: 8px; cursor: pointer; transition: opacity .15s; }
+  .btn-send:hover { opacity: 0.9; }
 </style>
 </head>
 <body>
 
-  <header>
-    <div class="header-left">
-      <a href="/tickets" class="btn-back">← Back to Open Tickets</a>
-      <h1 class="ticket-title" id="ticketHeader">Live Ticket Channel</h1>
-    </div>
-    <div class="btn-group" id="headerActions">
-      <button class="btn" id="claimBtn" onclick="toggleClaim(this)">Claim Ticket</button>
-      <button class="btn btn-danger" onclick="closeTicket(this)">Close Ticket</button>
-    </div>
-  </header>
+{{BANNER_HTML}}
 
-  <div class="chat-layout">
-    <div class="chat-main">
-      <div class="chat-messages" id="messageLog">
-        <div style="text-align:center; color: var(--muted); padding: 40px;">Connecting to real-time chat server...</div>
-      </div>
-
-      <div class="chat-footer" id="chatFooterContainer">
-        <form class="input-row" id="sendForm">
-          <input type="text" class="chat-input" id="messageInput" placeholder="Type a message to send to Discord..." autocomplete="off">
-          <button type="submit" class="btn-send">Send</button>
-        </form>
-      </div>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
+    <nav class="sidebar-nav" id="navTabs"></nav>
+    <div class="sidebar-footer">
+      <span class="session-line mono" id="sessionClock">session --:--</span>
+      <a href="/logout" class="nav-item"><span class="ic" id="logoutIcon"></span> Log out</a>
     </div>
+  </aside>
 
-    <div class="chat-sidebar">
-      <div class="side-section">
-        <div class="side-label">Opener</div>
-        <div class="side-val" id="sideOpener">—</div>
+  <main class="content-area">
+    <!-- Header Meta -->
+    <div class="ticket-meta-card">
+      <div class="meta-title-group">
+        <h1>
+          <span id="ticketTypeTitle">Ticket</span>
+          <span class="mono" style="color:var(--muted); font-size:16px;" id="ticketIdLabel">#------</span>
+        </h1>
+        <div class="meta-badges">
+          <span>Opened by <strong id="ticketOpenerTag">...</strong></span>
+          <span>•</span>
+          <span id="robloxUserWrap" style="display:none;">Roblox: <strong id="robloxUsername">...</strong> •</span>
+          <span class="badge open" id="statusBadge">Open</span>
+        </div>
       </div>
-      <div class="side-section">
-        <div class="side-label">Category / Type</div>
-        <div class="side-val" id="sideType">—</div>
-      </div>
-      <div class="side-section">
-        <div class="side-label">Claimed By</div>
-        <div class="side-val" id="sideClaimed">—</div>
-      </div>
-      <div class="side-section">
-        <div class="side-label">Reason Provided</div>
-        <div class="side-val" id="sideReason" style="font-weight: 400; color: var(--muted);">—</div>
+
+      <div class="action-bar">
+        <button class="btn success" id="claimBtn" onclick="toggleClaim()">🎫 Claim Ticket</button>
+        <button class="btn danger" id="closeBtn" onclick="closeTicket(false)">🔒 Close</button>
+        <button class="btn danger" onclick="closeTicket(true)">🔒 Close With Reason</button>
       </div>
     </div>
-  </div>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="/theme.js"></script>
-  <script>
-    const channelId = window.location.pathname.split('/').pop();
-    let socket = null;
-    let isClaimed = false;
+    <!-- Reason Given -->
+    <div class="reason-card">
+      <strong>Original Issue Description</strong>
+      <div id="ticketReasonText">Loading ticket details...</div>
+    </div>
 
-    async function initLiveChat() {
-      try {
-        // 1. Verify User Staff Role
-        const meRes = await fetch('/api/me');
-        if (!meRes.ok) return window.location.href = '/login';
-        const user = await meRes.json();
+    <!-- Chat Console -->
+    <div class="chat-card">
+      <div class="chat-messages" id="chatContainer">
+        <div style="text-align:center; color:var(--faint); margin:auto;">Loading message history...</div>
+      </div>
 
-        if (!user.isStaff) {
-          // Lock message sending for non-staff members
-          document.getElementById('chatFooterContainer').innerHTML = `
-            <div style="text-align: center; color: var(--muted); font-size: 13px;">
-              💬 To reply to this live ticket, please send messages directly inside your <strong>Discord server channel</strong>.
-            </div>
-          `;
-          document.getElementById('headerActions').style.display = 'none';
+      <div class="reply-area">
+        <textarea id="replyInput" class="reply-textarea" placeholder="Type staff response..." onkeydown="handleKey(event)"></textarea>
+        <button class="btn-send" id="sendBtn" onclick="sendReply()">Send</button>
+      </div>
+    </div>
+
+    {{FOOTER_NOTE_HTML}}
+  </main>
+</div>
+
+<script src="/theme.js"></script>
+<script>
+if (typeof RF !== 'undefined' && typeof RF.startSessionClock === 'function') {
+  RF.startSessionClock(document.getElementById('sessionClock'));
+}
+
+const channelId = window.location.pathname.split('/').pop();
+let ticketData = null;
+let socket = null;
+
+async function initNav() {
+  try {
+    const res = await fetch('/api/guild');
+    const g = res.ok ? await res.json() : {};
+    let allowedTabs = null;
+    if (g.viewerTier === 'staff' && g.staffPermissions && Array.isArray(g.staffPermissions.allowedTabs)) {
+      allowedTabs = g.staffPermissions.allowedTabs;
+    }
+    if (typeof RF !== 'undefined' && typeof RF.renderNav === 'function') {
+      document.getElementById('navTabs').innerHTML = RF.renderNav('/tickets', allowedTabs);
+    }
+  } catch {
+    if (typeof RF !== 'undefined' && typeof RF.renderNav === 'function') {
+      document.getElementById('navTabs').innerHTML = RF.renderNav('/tickets', null);
+    }
+  }
+}
+
+async function loadTicket() {
+  try {
+    const data = await RF.apiCall(`/api/open-tickets/${channelId}/messages`);
+    ticketData = data.ticket;
+    renderHeader(data.ticket);
+    renderMessages(data.messages);
+  } catch (err) {
+    document.getElementById('chatContainer').innerHTML = `<div style="text-align:center; color:var(--red); margin:auto;">${RF.esc(err.message || 'Could not load ticket.')}</div>`;
+  }
+}
+
+function renderHeader(t) {
+  document.getElementById('ticketTypeTitle').textContent = t.type || 'Ticket';
+  document.getElementById('ticketIdLabel').textContent = `#${channelId.slice(-6)}`;
+  document.getElementById('ticketOpenerTag').textContent = t.userTag || 'Unknown';
+  document.getElementById('ticketReasonText').textContent = t.reason || 'No reason provided.';
+
+  if (t.robloxUsername) {
+    document.getElementById('robloxUserWrap').style.display = 'inline';
+    document.getElementById('robloxUsername').textContent = t.robloxUsername;
+  }
+
+  const claimBtn = document.getElementById('claimBtn');
+  const statusBadge = document.getElementById('statusBadge');
+
+  if (t.claimedBy) {
+    statusBadge.className = 'badge claimed';
+    statusBadge.textContent = `Claimed by ${t.claimedBy}`;
+    claimBtn.textContent = '↩️ Unclaim';
+    claimBtn.className = 'btn';
+  } else {
+    statusBadge.className = 'badge open';
+    statusBadge.textContent = 'Open';
+    claimBtn.textContent = '🎫 Claim Ticket';
+    claimBtn.className = 'btn success';
+  }
+}
+
+function renderMessages(messages) {
+  const container = document.getElementById('chatContainer');
+  if (!messages || !messages.length) {
+    container.innerHTML = `<div style="text-align:center; color:var(--faint); margin:auto;">No messages yet.</div>`;
+    return;
+  }
+
+  const isAtBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 50;
+
+  container.innerHTML = messages.map(m => {
+    const initial = (m.author || 'U').charAt(0).toUpperCase();
+    const timeStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    
+    let attachmentsHtml = '';
+    if (m.attachments && m.attachments.length) {
+      attachmentsHtml = m.attachments.map(a => {
+        if (a.contentType && a.contentType.startsWith('image/')) {
+          return `<br><img src="${RF.esc(a.url)}" class="message-attachment" alt="attachment" />`;
         }
-
-        // 2. Fetch Ticket Messages & Metadata
-        const res = await fetch(`/api/open-tickets/${channelId}/messages`);
-        if (!res.ok) throw new Error('Ticket is no longer open or accessible.');
-        const data = await res.json();
-
-        renderTicketMeta(data.ticket);
-        renderMessages(data.messages);
-
-        // 3. Connect Real-time Socket Engine
-        socket = io();
-        socket.emit('join_ticket', channelId);
-        socket.on('ticket_message', (msg) => appendMessage(msg));
-
-      } catch (err) {
-        document.getElementById('messageLog').innerHTML = `<div style="text-align:center; color: var(--red); padding: 40px;">${RF.esc(err.message)}</div>`;
-      }
+        return `<br><a href="${RF.esc(a.url)}" target="_blank" style="color:var(--accent); font-size:12px; text-decoration:underline;">📁 View Attachment</a>`;
+      }).join('');
     }
 
-    function renderTicketMeta(ticket) {
-      document.getElementById('ticketHeader').textContent = `#${ticket.userTag || channelId}`;
-      document.getElementById('sideOpener').textContent = `@${ticket.userTag || 'Unknown'}`;
-      document.getElementById('sideType').textContent = ticket.type || 'SUPPORT';
-      document.getElementById('sideReason').textContent = ticket.reason || 'No reason provided';
-
-      isClaimed = Boolean(ticket.claimedBy);
-      document.getElementById('sideClaimed').textContent = ticket.claimedBy || 'Unclaimed';
-      document.getElementById('claimBtn').textContent = isClaimed ? 'Unclaim Ticket' : 'Claim Ticket';
-    }
-
-    function renderMessages(messages) {
-      const container = document.getElementById('messageLog');
-      if (!messages.length) {
-        container.innerHTML = `<div style="text-align:center; color: var(--muted); padding: 40px;">No messages sent in this channel yet.</div>`;
-        return;
-      }
-
-      container.innerHTML = messages.map(m => createMsgHtml(m)).join('');
-      scrollToBottom();
-    }
-
-    function createMsgHtml(m) {
-      const initial = (m.author || 'U').charAt(0).toUpperCase();
-      const timeStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-
-      return `
-        <div class="msg-row">
-          <div class="msg-avatar">${initial}</div>
-          <div class="msg-content">
-            <div class="msg-header">
-              <span class="msg-author">${RF.esc(m.author)}</span>
-              <span class="msg-time">${timeStr}</span>
-            </div>
-            <div class="msg-body">${RF.esc(m.content)}</div>
+    return `
+      <div class="message-row ${m.isBot ? 'bot' : ''}">
+        <div class="avatar-box">${initial}</div>
+        <div class="message-content-wrap">
+          <div class="message-author">
+            ${RF.esc(m.author)}
+            ${m.isBot ? '<span class="bot-tag">BOT</span>' : ''}
+            <span class="time">${timeStr}</span>
+          </div>
+          <div class="message-bubble">
+            ${RF.esc(m.content)}
+            ${attachmentsHtml}
           </div>
         </div>
-      `;
-    }
+      </div>
+    `;
+  }).join('');
 
-    function appendMessage(msg) {
-      const container = document.getElementById('messageLog');
-      const msgDiv = document.createElement('div');
-      msgDiv.innerHTML = createMsgHtml(msg);
-      container.appendChild(msgDiv.firstElementChild);
-      scrollToBottom();
-    }
+  if (isAtBottom) {
+    container.scrollTop = container.scrollHeight;
+  }
+}
 
-    function scrollToBottom() {
-      const container = document.getElementById('messageLog');
-      container.scrollTop = container.scrollHeight;
-    }
+async function sendReply() {
+  const input = document.getElementById('replyInput');
+  const content = input.value.trim();
+  if (!content) return;
 
-    document.getElementById('sendForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const input = document.getElementById('messageInput');
-      const content = input.value.trim();
-      if (!content) return;
-
-      input.value = '';
-      try {
-        await fetch(`/api/open-tickets/${channelId}/messages`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content })
-        });
-      } catch (err) {
-        RF.toast('Failed to send message: ' + err.message, false);
-      }
+  const sendBtn = document.getElementById('sendBtn');
+  await RF.withLoader(sendBtn, async () => {
+    await RF.apiCall(`/api/open-tickets/${channelId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content })
     });
+    input.value = '';
+    await loadTicket();
+  }, null);
+}
 
-    async function toggleClaim(btn) {
-      const targetBtn = btn || document.getElementById('claimBtn');
-      await RF.withLoader(targetBtn, async () => {
-        const endpoint = isClaimed ? `/api/open-tickets/${channelId}/unclaim` : `/api/open-tickets/${channelId}/claim`;
-        const res = await fetch(endpoint, { method: 'POST' });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || 'Failed to update claim status');
-        }
-        const data = await res.json();
-        isClaimed = !isClaimed;
-        document.getElementById('sideClaimed').textContent = isClaimed ? (data.claimedBy || 'Staff') : 'Unclaimed';
-        document.getElementById('claimBtn').textContent = isClaimed ? 'Unclaim Ticket' : 'Claim Ticket';
-      }, isClaimed ? 'Ticket unclaimed' : 'Ticket claimed!');
-    }
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendReply();
+  }
+}
 
-    async function closeTicket(btn) {
-      const targetBtn = btn || document.querySelector('.btn-danger');
-      await RF.withLoader(targetBtn, async () => {
-        const res = await fetch(`/api/open-tickets/${channelId}/close`, { method: 'POST' });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || 'Could not close ticket');
-        }
-        window.location.href = '/tickets';
-      }, 'Ticket closed');
-    }
+async function toggleClaim() {
+  const isClaimed = Boolean(ticketData && ticketData.claimedBy);
+  const endpoint = isClaimed ? 'unclaim' : 'claim';
+  const btn = document.getElementById('claimBtn');
 
-    initLiveChat();
-  </script>
+  await RF.withLoader(btn, async () => {
+    await RF.apiCall(`/api/open-tickets/${channelId}/${endpoint}`, { method: 'POST' });
+    await loadTicket();
+  }, isClaimed ? 'Ticket unclaimed.' : 'Ticket claimed successfully!');
+}
+
+async function closeTicket(withReason) {
+  let reason = '';
+  if (withReason) {
+    reason = await RF.promptModal({
+      title: 'Close Ticket',
+      placeholder: 'Enter closing reason...',
+      confirmText: 'Close Ticket'
+    });
+    if (!reason) return;
+  }
+
+  const btn = document.getElementById('closeBtn');
+  await RF.withLoader(btn, async () => {
+    await RF.apiCall(`/api/open-tickets/${channelId}/close`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
+    });
+    RF.showToast('Ticket closed and archived.', 'success');
+    setTimeout(() => window.location.href = '/tickets', 1000);
+  }, null);
+}
+
+function initSocket() {
+  if (typeof io !== 'undefined') {
+    try {
+      socket = io();
+      socket.emit('join_ticket', channelId);
+      socket.on('ticket_message', () => {
+        loadTicket();
+      });
+    } catch (e) {}
+  }
+}
+
+initNav();
+loadTicket();
+initSocket();
+
+// Fallback polling every 5 seconds
+setInterval(loadTicket, 5000);
+</script>
 </body>
 </html>
