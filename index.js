@@ -955,6 +955,7 @@ app.get('/shift-roster', maintenanceGate, requireAuth, requireTabPermission('shi
 
 app.get('/audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'audit-log.html')));
 app.get('/settings', maintenanceGate, requireAuth, requireTabPermission('settings'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'settings.html')));
+app.get('/account', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'account.html')));
 app.get('/transcript/:id', maintenanceGate, requireDiscordOrTicketToken, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'transcript.html')));
 
 app.get('/api/tickets/:id', maintenanceGate, requireDiscordOrTicketToken, (req, res) => {
@@ -963,21 +964,42 @@ app.get('/api/tickets/:id', maintenanceGate, requireDiscordOrTicketToken, (req, 
     res.json(ticket);
 });
 
-// User Context API
+// User Context API — used by the sidebar nav on every page, and by the
+// account page. Previously only handled a Discord session; a shared
+// access-code ("master") login just got a bare 401 with no way for the
+// account page to show anything sensible for that case.
 app.get('/api/me', (req, res) => {
     const cookies = parseCookies(req);
+
+    if (cookies.ticketAuth === computeAuthToken(siteConfig.password)) {
+        return res.json({
+            master: true,
+            tag: 'Staff (access code)',
+            displayName: 'Staff (access code)',
+            avatarURL: null,
+            tier: 'master',
+            isStaff: true,
+            isAdmin: true
+        });
+    }
+
     const session = verifyDiscordSession(cookies.discordAuth);
     if (!session) return res.status(401).json({ error: 'Not authenticated' });
 
     const guild = getTargetGuild();
     const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
     const member = guild ? guild.members.cache.get(session.id) : null;
+    const admin = Boolean(member && isAdmin(member, guildConfig));
+    const staff = Boolean(member && isStaff(member, guildConfig));
 
     res.json({
         id: session.id,
         tag: session.tag,
-        isStaff: Boolean(member && isStaff(member, guildConfig)),
-        isAdmin: Boolean(member && isAdmin(member, guildConfig))
+        displayName: member ? member.displayName : session.tag,
+        avatarURL: member ? member.displayAvatarURL({ size: 64 }) : null,
+        isStaff: staff,
+        isAdmin: admin,
+        tier: admin ? 'admin' : (staff ? 'staff' : 'member')
     });
 });
 

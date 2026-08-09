@@ -9,13 +9,7 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
     :root {
-      --accent: {
-          {
-          ACCENT_COLOR
-        }
-      }
-
-      ;
+      --accent: {{ACCENT_COLOR}};
       --bg-0: #0a0c11;
       --sidebar-bg: #0d0f16;
       --panel: #141722;
@@ -371,6 +365,7 @@
       <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
       <nav class="sidebar-nav" id="navTabs"></nav>
       <div class="sidebar-footer">
+        <a href="/account" class="nav-item">👤 My Account</a>
         <span class="session-line mono" id="sessionClock">session --:--</span>
         <a href="/logout" class="nav-item"><span class="ic" id="logoutIcon"></span> Log out</a>
       </div>
@@ -408,7 +403,24 @@
 
   <script src="/theme.js"></script>
   <script>
-    RF.startSessionClock(document.getElementById('sessionClock'));
+    // Local helpers, kept independent of theme.js — same reasoning as
+    // audit-log.html: if esc/fmtDateTime aren't actually defined in theme.js,
+    // any row with real data throws inside renderTable() and this page shows
+    // "Couldn't reach the server" even though the fetch worked fine.
+    function esc(str) {
+      return (str === undefined || str === null ? '' : String(str))
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function fmtDateTime(iso) {
+      if (!iso) return 'Unknown';
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return 'Unknown';
+      return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    if (typeof RF !== 'undefined' && RF.startSessionClock) {
+      RF.startSessionClock(document.getElementById('sessionClock'));
+    }
 
     function starString(rating, dim) {
       const full = '★'.repeat(rating);
@@ -444,8 +456,9 @@
         const entries = await res.json();
         renderSummary(entries);
         renderTable(entries);
-      } catch {
-        document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="4">Couldn't reach the server.</td></tr>`;
+      } catch (err) {
+        console.error('[feedback] load failed:', err);
+        document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="4">Couldn't reach the server. (${esc(err.message || 'unknown error')})</td></tr>`;
       }
     }
 
@@ -479,9 +492,9 @@
       tbody.innerHTML = entries.map(e => `
     <tr>
       <td>${starString(e.rating, true)}</td>
-      <td class="cell-main">${RF.esc(e.userTag)}</td>
-      <td class="cell-muted mono">#${RF.esc((e.ticketId || '').slice(-6))}</td>
-      <td class="cell-muted">${RF.fmtDateTime(e.at)}</td>
+      <td class="cell-main">${esc(e.userTag)}</td>
+      <td class="cell-muted mono">#${esc((e.ticketId || '').slice(-6))}</td>
+      <td class="cell-muted">${fmtDateTime(e.at)}</td>
     </tr>
   `).join('');
     }

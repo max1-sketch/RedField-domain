@@ -167,6 +167,7 @@
     <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
     <nav class="sidebar-nav" id="navTabs"></nav>
     <div class="sidebar-footer">
+      <a href="/account" class="nav-item">👤 My Account</a>
       <span class="session-line mono" id="sessionClock">session --:--</span>
       <a href="/logout" class="nav-item"><span class="ic" id="logoutIcon"></span> Log out</a>
     </div>
@@ -281,7 +282,7 @@ function renderTickets(list) {
   }
 
   tbody.innerHTML = list.map(t => {
-    const esc = (typeof RF !== 'undefined' && typeof RF.esc === 'function') ? RF.esc : str => str || '';
+    const esc = (typeof RF !== 'undefined' && typeof RF.esc === 'function') ? RF.esc : str => (str === undefined || str === null ? '' : String(str)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const tokenQuery = t.accessToken ? '?token=' + t.accessToken : '';
 
     return `

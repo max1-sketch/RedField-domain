@@ -94,6 +94,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
     <nav class="sidebar-nav" id="navTabs"></nav>
     <div class="sidebar-footer">
+      <a href="/account" class="nav-item">👤 My Account</a>
       <span class="session-line mono" id="sessionClock">session --:--</span>
       <a href="/logout" class="nav-item"><span class="ic" id="logoutIcon"></span> Log out</a>
     </div>
@@ -126,7 +127,24 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 
 <script src="/theme.js"></script>
 <script>
-RF.startSessionClock(document.getElementById('sessionClock'));
+// Local helpers, kept independent of theme.js — esc/fmtDateTime used to only
+// exist here; if theme.js doesn't happen to define them, every row with data
+// in it would throw inside render() and this whole page would silently show
+// "Couldn't reach the server" even though the fetch succeeded fine.
+function esc(str) {
+  return (str === undefined || str === null ? '' : String(str))
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function fmtDateTime(iso) {
+  if (!iso) return 'Unknown';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return 'Unknown';
+  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+if (typeof RF !== 'undefined' && RF.startSessionClock) {
+  RF.startSessionClock(document.getElementById('sessionClock'));
+}
 
 let allEntries = [];
 
@@ -151,7 +169,7 @@ async function initNav() {
     document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
   }
   const logoutIconEl = document.getElementById('logoutIcon');
-  if (logoutIconEl && RF.ICONS.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
+  if (logoutIconEl && RF.ICONS?.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
 }
 
 async function load() {
@@ -169,8 +187,9 @@ async function load() {
     }
     allEntries = await res.json();
     render();
-  } catch {
-    document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="4">Couldn't reach the server.</td></tr>`;
+  } catch (err) {
+    console.error('[audit-log] load failed:', err);
+    document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="4">Couldn't reach the server. (${esc(err.message || 'unknown error')})</td></tr>`;
   }
 }
 
@@ -193,10 +212,10 @@ function render() {
     const color = actionColor(e.action);
     return `
     <tr>
-      <td><span class="action-badge" style="background:${color}22; color:${color};">${RF.esc(e.action.replace(/_/g, ' '))}</span></td>
-      <td class="cell-main">${RF.esc(e.actor)}</td>
-      <td class="cell-muted">${RF.esc(e.details)}</td>
-      <td class="cell-muted">${RF.fmtDateTime(e.timestamp)}</td>
+      <td><span class="action-badge" style="background:${color}22; color:${color};">${esc(e.action.replace(/_/g, ' '))}</span></td>
+      <td class="cell-main">${esc(e.actor)}</td>
+      <td class="cell-muted">${esc(e.details)}</td>
+      <td class="cell-muted">${fmtDateTime(e.timestamp)}</td>
     </tr>`;
   }).join('');
 }
