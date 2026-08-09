@@ -81,7 +81,17 @@ input[type=color] { width: 44px; height: 34px; padding: 2px; border-radius: 7px;
 .btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 10px 18px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .btn-accent { background: var(--accent); color: #0a0c11; }
 .btn-accent:hover { opacity: .9; }
+.btn-ghost { background: var(--panel-2); color: var(--ink); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--accent); }
+.btn-danger { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+.btn-danger:hover { background: rgba(239,68,68,0.2); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.post-row { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.post-row .field { flex: 1; min-width: 200px; margin-bottom: 0; }
+.post-status { font-size: 11.5px; margin-top: 8px; min-height: 1.2em; }
+.post-status.ok { color: var(--green); }
+.post-status.err { color: var(--red); }
 
 .save-bar { position: sticky; bottom: 0; background: var(--bg-0); padding: 16px 0 4px; margin-top: 4px; display: flex; align-items: center; gap: 14px; border-top: 1px solid var(--border); }
 .save-status { font-size: 12px; color: var(--green); opacity: 0; transition: opacity .2s; font-weight: 600; }
@@ -147,7 +157,7 @@ input[type=color] { width: 44px; height: 34px; padding: 2px; border-radius: 7px;
 <div class="modal-overlay" id="deletePanelOverlay">
   <div class="modal">
     <h3>Delete <span id="deletePanelName" class="mono"></span>?</h3>
-    <p>This removes the panel and its button from the site — you'll need to run <code>/sendpanels</code> again to clear the old posted panel from Discord. Tickets already open under this type aren't affected.</p>
+    <p>This removes the panel and its button from the site — you'll need to post it again from this page (or run <code>/sendpanels</code>) if you recreate it. Tickets already open under this type aren't affected.</p>
     <div class="modal-actions">
       <button class="btn btn-danger" id="confirmDeletePanel">Delete it</button>
       <button class="btn btn-ghost" id="cancelDeletePanel">Never mind</button>
@@ -157,10 +167,25 @@ input[type=color] { width: 44px; height: 34px; padding: 2px; border-radius: 7px;
 
 <script src="/theme.js"></script>
 <script>
-RF.startSessionClock(document.getElementById('sessionClock'));
+// --- Local helpers, kept independent of theme.js -----------------------
+// typeColor/esc used to live in a per-page RF module; now that nav/session
+// helpers come from the shared /theme.js, this page defines its own copies
+// so a gap in that shared module can never silently break panel creation
+// or rendering here again.
+const TYPE_COLORS = { REDFIELD: '#22c55e', MANAGEMENT: '#3b82f6', BUG: '#f59e0b' };
+function typeColor(type) { return TYPE_COLORS[type] || '#a78bfa'; }
+function esc(str) {
+  return (str === undefined || str === null ? '' : String(str))
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+if (typeof RF !== 'undefined' && RF.startSessionClock) {
+  RF.startSessionClock(document.getElementById('sessionClock'));
+}
 
 let panels = {};
 let roles = [];
+let channels = [];
 
 async function initNav() {
   try {
@@ -185,12 +210,13 @@ async function load() {
     if (res.status === 401) { window.location.reload(); return; }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      document.getElementById('main').innerHTML = `<h1 class="page-title">Panel Configs</h1><div class="card"><p style="margin:0;color:var(--muted);font-size:12.5px;">${RF.esc(err.error || 'Could not load — check the bot is online.')}</p></div>`;
+      document.getElementById('main').innerHTML = `<h1 class="page-title">Panel Configs</h1><div class="card"><p style="margin:0;color:var(--muted);font-size:12.5px;">${esc(err.error || 'Could not load — check the bot is online.')}</p></div>`;
       return;
     }
     const data = await res.json();
     panels = data.panels || {};
     roles = data.roles || [];
+    channels = data.channels || [];
     renderPage();
   } catch (err) {
     document.getElementById('main').innerHTML = `<h1 class="page-title">Panel Configs</h1><div class="card"><p style="margin:0;color:var(--muted);font-size:12.5px;">Couldn't reach the server. Refresh and try again.</p></div>`;
@@ -199,23 +225,27 @@ async function load() {
 
 function renderPage() {
   const cards = Object.entries(panels).map(([typeKey, p]) => {
-    const color = RF.typeColor(typeKey);
+    const color = typeColor(typeKey);
     const teamSet = new Set(p.teamRoleIds || []);
     const roleCheckboxes = roles.length
       ? roles.map(r => `
           <label class="role-check">
             <input type="checkbox" class="f-team-role" value="${r.id}" ${teamSet.has(r.id) ? 'checked' : ''}>
-            <span class="role-swatch" style="background:${r.color || '#8d9297'}"></span>${RF.esc(r.name)}
+            <span class="role-swatch" style="background:${r.color || '#8d9297'}"></span>${esc(r.name)}
           </label>
         `).join('')
       : `<span class="hint">No assignable roles in this server.</span>`;
 
+    const channelOptions = channels.length
+      ? `<option value="">Choose a channel…</option>${channels.map(c => `<option value="${c.id}" ${p.postChannelId === c.id ? 'selected' : ''}>#${esc(c.name)}</option>`).join('')}`
+      : `<option value="">No text channels found</option>`;
+
     return `
     <div class="card" data-type="${typeKey}">
       <div class="card-header">
-        <h2><span class="type-badge" style="background:${color}22; color:${color};">${RF.esc(typeKey)}</span></h2>
+        <h2><span class="type-badge" style="background:${color}22; color:${color};">${esc(typeKey)}</span></h2>
         <div style="display:flex;align-items:center;gap:14px;">
-          <span class="cat-note">Category: <b>${RF.esc(p.categoryName || 'TICKETS')}</b> — change on <a href="/settings">Settings</a></span>
+          <span class="cat-note">Ticket category: <b>${esc(p.categoryName || 'TICKETS')}</b> — change on <a href="/settings">Settings</a></span>
           <button class="btn btn-danger" onclick="askDeletePanel('${typeKey}')">Delete panel</button>
         </div>
       </div>
@@ -223,12 +253,12 @@ function renderPage() {
       <div class="field-grid">
         <div class="field">
           <label>Button text <span class="hint">(shown on the panel)</span></label>
-          <input type="text" class="f-buttonLabel" value="${RF.esc(p.buttonLabel)}" maxlength="80">
+          <input type="text" class="f-buttonLabel" value="${esc(p.buttonLabel)}" maxlength="80">
           <div class="char-count" data-count-for="buttonLabel">0/80</div>
         </div>
         <div class="field">
           <label>Button emoji <span class="hint">(optional)</span></label>
-          <input type="text" class="f-emoji" value="${RF.esc(p.emoji)}" placeholder="🛡️ or blank">
+          <input type="text" class="f-emoji" value="${esc(p.emoji)}" placeholder="🛡️ or blank">
         </div>
         <div class="field">
           <label>Button style</label>
@@ -239,23 +269,23 @@ function renderPage() {
         <div class="field">
           <label>Embed color</label>
           <div class="color-row">
-            <input type="color" class="f-color-picker" value="${RF.esc(p.color)}">
-            <input type="text" class="f-color" value="${RF.esc(p.color)}" maxlength="7">
+            <input type="color" class="f-color-picker" value="${esc(p.color)}">
+            <input type="text" class="f-color" value="${esc(p.color)}" maxlength="7">
           </div>
         </div>
         <div class="field full">
           <label>Panel title</label>
-          <input type="text" class="f-title" value="${RF.esc(p.title)}" maxlength="256">
+          <input type="text" class="f-title" value="${esc(p.title)}" maxlength="256">
           <div class="char-count" data-count-for="title">0/256</div>
         </div>
         <div class="field full">
           <label>Panel description <span class="hint">(shown in the embed)</span></label>
-          <textarea class="f-description" maxlength="4096">${RF.esc(p.description)}</textarea>
+          <textarea class="f-description" maxlength="4096">${esc(p.description)}</textarea>
           <div class="char-count" data-count-for="description">0/4096</div>
         </div>
         <div class="field full">
           <label>Modal question <span class="hint">(asked when someone opens a ticket)</span></label>
-          <input type="text" class="f-promptLabel" value="${RF.esc(p.promptLabel)}" maxlength="45">
+          <input type="text" class="f-promptLabel" value="${esc(p.promptLabel)}" maxlength="45">
           <div class="char-count" data-count-for="promptLabel">0/45</div>
         </div>
         <div class="field full">
@@ -268,6 +298,16 @@ function renderPage() {
             Restrict to this team only
           </label>
         </div>
+        <div class="field full">
+          <label>Where to post this panel <span class="hint">(the button players click to open a ticket)</span></label>
+          <div class="post-row">
+            <div class="field">
+              <select class="f-postChannel">${channelOptions}</select>
+            </div>
+            <button class="btn btn-accent f-postBtn" type="button">Post to Discord</button>
+          </div>
+          <div class="post-status" data-post-status></div>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -276,7 +316,7 @@ function renderPage() {
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
       <div>
         <h1 class="page-title">Panel Configs</h1>
-        <p class="page-sub">Edit what each panel says, its button, its color, and which roles get pinged. Run <code>/sendpanels</code> in Discord after saving to repost updated panels.</p>
+        <p class="page-sub">Edit what each panel says, its button, its color, which roles get pinged, and where it posts. Posting again replaces nothing automatically — it sends a new message, so delete the old one in Discord if you're reposting to the same channel.</p>
       </div>
       <button class="btn btn-accent" id="newPanelBtn" style="flex-shrink:0;">+ New panel</button>
     </div>
@@ -291,6 +331,7 @@ function renderPage() {
   wireCharCounts();
   wireColorSync();
   wireSave();
+  wirePostButtons();
   document.getElementById('newPanelBtn').addEventListener('click', openCreateModal);
 }
 
@@ -356,7 +397,8 @@ function wireSave() {
         color: card.querySelector('.f-color').value,
         promptLabel: card.querySelector('.f-promptLabel').value,
         teamRoleIds: Array.from(card.querySelectorAll('.f-team-role:checked')).map(cb => cb.value),
-        restrictToTeamOnly: card.querySelector('.f-restrict-team').checked
+        restrictToTeamOnly: card.querySelector('.f-restrict-team').checked,
+        postChannelId: card.querySelector('.f-postChannel').value || null
       };
     });
 
@@ -375,6 +417,47 @@ function wireSave() {
       }
     } catch { errEl.textContent = 'Could not save — check your connection.'; }
     btn.disabled = false;
+  });
+}
+
+function wirePostButtons() {
+  document.querySelectorAll('.card[data-type]').forEach(card => {
+    const typeKey = card.getAttribute('data-type');
+    const btn = card.querySelector('.f-postBtn');
+    const statusEl = card.querySelector('[data-post-status]');
+    btn.addEventListener('click', async () => {
+      const channelId = card.querySelector('.f-postChannel').value;
+      if (!channelId) {
+        statusEl.textContent = 'Pick a channel first.';
+        statusEl.className = 'post-status err';
+        return;
+      }
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Posting…';
+      statusEl.textContent = '';
+      statusEl.className = 'post-status';
+      try {
+        const res = await fetch(`/api/guild/panels/${encodeURIComponent(typeKey)}/post`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channelId })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          statusEl.textContent = '✓ Posted.';
+          statusEl.className = 'post-status ok';
+          if (panels[typeKey]) panels[typeKey].postChannelId = channelId;
+        } else {
+          statusEl.textContent = data.error || 'Could not post — try again.';
+          statusEl.className = 'post-status err';
+        }
+      } catch {
+        statusEl.textContent = 'Could not reach the server.';
+        statusEl.className = 'post-status err';
+      }
+      btn.disabled = false;
+      btn.textContent = original;
+    });
   });
 }
 
@@ -397,14 +480,16 @@ document.getElementById('confirmCreatePanel').addEventListener('click', async ()
   btn.disabled = true;
   try {
     const res = await fetch('/api/guild/panels/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (res.ok) {
       document.getElementById('createPanelOverlay').classList.remove('show');
-      load();
+      await load();
     } else {
       errEl.textContent = data.error || 'Could not create — try again.';
     }
-  } catch { errEl.textContent = 'Could not reach the server.'; }
+  } catch {
+    errEl.textContent = 'Could not reach the server.';
+  }
   btn.disabled = false;
 });
 

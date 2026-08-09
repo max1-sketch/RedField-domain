@@ -302,7 +302,8 @@ function defaultConfig() {
                 promptLabel: 'What do you need help with?',
                 categoryName: 'GENERAL TICKETS',
                 teamRoleIds: [],
-                restrictToTeamOnly: false
+                restrictToTeamOnly: false,
+                postChannelId: null
             },
             MANAGEMENT: {
                 title: 'Management',
@@ -314,7 +315,8 @@ function defaultConfig() {
                 promptLabel: 'Describe the situation you want to report',
                 categoryName: 'MANAGEMENT TICKETS',
                 teamRoleIds: [],
-                restrictToTeamOnly: false
+                restrictToTeamOnly: false,
+                postChannelId: null
             },
             BUG: {
                 title: 'Bug Report',
@@ -326,7 +328,8 @@ function defaultConfig() {
                 promptLabel: 'Describe the bug (steps to reproduce)',
                 categoryName: 'BUG TICKETS',
                 teamRoleIds: [],
-                restrictToTeamOnly: false
+                restrictToTeamOnly: false,
+                postChannelId: null
             }
         },
         maxTicketsPerUser: 3,
@@ -1063,6 +1066,11 @@ app.get('/api/guild', maintenanceGate, requireAuth, async (req, res) => {
             .map(c => ({ id: c.id, name: c.name }))
             .sort((a, b) => a.name.localeCompare(b.name));
 
+        const channels = guild.channels.cache
+            .filter(c => c.type === ChannelType.GuildText)
+            .map(c => ({ id: c.id, name: c.name }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+
         const owner = await guild.fetchOwner().catch(() => null);
 
         res.json({
@@ -1072,6 +1080,7 @@ app.get('/api/guild', maintenanceGate, requireAuth, async (req, res) => {
             ownerTag: owner ? owner.user.tag : null,
             roles,
             categories,
+            channels,
             staffRoleIds: guildConfig.staffRoleIds,
             adminRoleIds: guildConfig.adminRoleIds,
             staffPermissions: guildConfig.staffPermissions,
@@ -1086,7 +1095,8 @@ app.get('/api/guild', maintenanceGate, requireAuth, async (req, res) => {
                 promptLabel: p.promptLabel,
                 categoryName: p.categoryName,
                 teamRoleIds: p.teamRoleIds || [],
-                restrictToTeamOnly: Boolean(p.restrictToTeamOnly)
+                restrictToTeamOnly: Boolean(p.restrictToTeamOnly),
+                postChannelId: p.postChannelId || null
             }])),
             blacklistedUsers: guildConfig.blacklistedUsers,
             tags: guildConfig.tags
@@ -1143,6 +1153,7 @@ app.post('/api/guild/panels', maintenanceGate, requireAuth, requireTabPermission
         const colorHex = /^#[0-9A-Fa-f]{6}$/.test(edit.color) ? edit.color : null;
         const teamRoleIds = Array.isArray(edit.teamRoleIds) ? edit.teamRoleIds.filter(id => guild.roles.cache.has(id)) : [];
         const restrictToTeamOnly = Boolean(edit.restrictToTeamOnly);
+        const postChannelId = (edit.postChannelId && guild.channels.cache.has(edit.postChannelId)) ? edit.postChannelId : null;
 
         if (!title || title.length > 256) errors.push(`${typeKey}: title must be 1-256 characters`);
         if (!description || description.length > 4096) errors.push(`${typeKey}: description must be 1-4096 characters`);
@@ -1152,7 +1163,7 @@ app.post('/api/guild/panels', maintenanceGate, requireAuth, requireTabPermission
         if (!colorHex) errors.push(`${typeKey}: color must be a hex value like #2ecc71`);
         if (restrictToTeamOnly && !teamRoleIds.length) errors.push(`${typeKey}: pick at least one team role before restricting to team-only`);
 
-        validated[typeKey] = { title, description, buttonLabel, promptLabel, emoji, style, colorHex, teamRoleIds, restrictToTeamOnly };
+        validated[typeKey] = { title, description, buttonLabel, promptLabel, emoji, style, colorHex, teamRoleIds, restrictToTeamOnly, postChannelId };
     }
 
     if (errors.length) return res.status(400).json({ error: errors.join('; ') });
@@ -1164,7 +1175,8 @@ app.post('/api/guild/panels', maintenanceGate, requireAuth, requireTabPermission
             promptLabel: v.promptLabel, emoji: v.emoji, style: v.style,
             color: parseInt(v.colorHex.slice(1), 16),
             teamRoleIds: v.teamRoleIds,
-            restrictToTeamOnly: v.restrictToTeamOnly
+            restrictToTeamOnly: v.restrictToTeamOnly,
+            postChannelId: v.postChannelId
         };
     }
     saveConfigs();
@@ -1193,11 +1205,47 @@ app.post('/api/guild/panels/create', maintenanceGate, requireAuth, requireTabPer
         promptLabel: 'What do you need help with?',
         categoryName: 'TICKETS',
         teamRoleIds: [],
-        restrictToTeamOnly: false
+        restrictToTeamOnly: false,
+        postChannelId: null
     };
     saveConfigs();
     logAudit('CREATE_PANEL', resolveActorName(req), `Created panel "${name}" (${typeKey})`);
     res.json({ success: true, typeKey, panel: guildConfig.panels[typeKey] });
+});
+
+// Posts a single panel's embed + open-ticket button into a chosen text channel,
+// so panels no longer require running /sendpanels in Discord at all — staff can
+// configure and (re)post them entirely from this page.
+app.post('/api/guild/panels/:typeKey/post', maintenanceGate, requireAuth, requireTabPermission('panels'), async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const guildConfig = getGuildConfig(guild.id);
+    const { typeKey } = req.params;
+    const panel = guildConfig.panels[typeKey];
+    if (!panel) return res.status(404).json({ error: 'Panel not found.' });
+
+    const channelId = String(req.body?.channelId || panel.postChannelId || '').trim();
+    if (!channelId) return res.status(400).json({ error: 'Choose a channel to post this panel to first.' });
+
+    try {
+        const channel = await guild.channels.fetch(channelId).catch(() => null);
+        if (!channel || channel.type !== ChannelType.GuildText) {
+            return res.status(400).json({ error: 'That channel could not be found or is not a text channel.' });
+        }
+
+        const embed = new EmbedBuilder().setTitle(clamp(panel.title, 256)).setDescription(clamp(panel.description, 4096)).setColor(panel.color);
+        const button = new ButtonBuilder().setCustomId(`open_ticket_${typeKey}`).setLabel(clamp(panel.buttonLabel, 80)).setStyle(STYLE_MAP[panel.style] || ButtonStyle.Secondary);
+        if (panel.emoji && isValidEmoji(panel.emoji)) button.setEmoji(panel.emoji);
+        await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(button)] });
+
+        panel.postChannelId = channelId;
+        saveConfigs();
+        logAudit('POST_PANEL', resolveActorName(req), `Posted panel "${typeKey}" to #${channel.name}`);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[post panel] failed:', err);
+        res.status(500).json({ error: `Could not post the panel. (${err.message})` });
+    }
 });
 
 app.delete('/api/guild/panels/:typeKey', maintenanceGate, requireAuth, requireTabPermission('panels'), (req, res) => {
