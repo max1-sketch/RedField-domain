@@ -1281,6 +1281,46 @@ app.post('/api/guild/panels/:typeKey/post', maintenanceGate, requireAuth, requir
     }
 });
 
+// Posts every configured panel as a single "Open A Ticket" dropdown message
+// instead of one embed+button per panel — players pick a type from the list
+// rather than scrolling past several separate panel messages.
+app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requireTabPermission('panels'), async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const guildConfig = getGuildConfig(guild.id);
+
+    const channelId = String(req.body?.channelId || '').trim();
+    if (!channelId) return res.status(400).json({ error: 'Choose a channel first.' });
+
+    const panelEntries = Object.entries(guildConfig.panels);
+    if (!panelEntries.length) return res.status(400).json({ error: 'No panels configured yet.' });
+    if (panelEntries.length > 25) return res.status(400).json({ error: 'Discord dropdowns support at most 25 options, and you have more panels than that — post some individually instead.' });
+
+    try {
+        const channel = await guild.channels.fetch(channelId).catch(() => null);
+        if (!channel || channel.type !== ChannelType.GuildText) {
+            return res.status(400).json({ error: 'That channel could not be found or is not a text channel.' });
+        }
+
+        const select = new StringSelectMenuBuilder()
+            .setCustomId('open_ticket_select')
+            .setPlaceholder('Open A Ticket')
+            .addOptions(panelEntries.map(([typeKey, p]) => {
+                const opt = { label: clamp(p.buttonLabel || typeKey, 100) || typeKey, value: typeKey, description: clamp(p.title || '', 100) || undefined };
+                if (p.emoji && isValidEmoji(p.emoji)) opt.emoji = p.emoji;
+                return opt;
+            }));
+
+        await channel.send({ components: [new ActionRowBuilder().addComponents(select)] });
+
+        logAudit('POST_PANEL_DROPDOWN', resolveActorName(req), `Posted combined panel dropdown (${panelEntries.length} panels) to #${channel.name}`);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[post panel dropdown] failed:', err);
+        res.status(500).json({ error: `Could not post the dropdown. (${err.message})` });
+    }
+});
+
 app.delete('/api/guild/panels/:typeKey', maintenanceGate, requireAuth, requireTabPermission('panels'), (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
@@ -2959,6 +2999,21 @@ client.on('interactionCreate', async (interaction) => {
                     console.error('[showModal failed] type=%s error=%s stack=%s', typeKey, err.message, err.stack);
                     return interaction.reply({ content: `⚠️ Could not open the ticket form: ${err.message}`, ephemeral: true });
                 }
+            }
+        }
+
+        if (interaction.isStringSelectMenu() && interaction.customId === 'open_ticket_select') {
+            const typeKey = interaction.values[0];
+            const panel = guildConfig.panels[typeKey];
+            if (!panel) {
+                return interaction.reply({ content: '⚠️ This ticket type is no longer available.', ephemeral: true });
+            }
+            try {
+                const modal = ticketModal(typeKey, panel);
+                return await interaction.showModal(modal);
+            } catch (err) {
+                console.error('[showModal failed - dropdown] type=%s error=%s', typeKey, err.message);
+                return interaction.reply({ content: `⚠️ Could not open the ticket form: ${err.message}`, ephemeral: true });
             }
         }
 

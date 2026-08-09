@@ -100,6 +100,7 @@ input[type=color] { width: 44px; height: 34px; padding: 2px; border-radius: 7px;
 .post-status { font-size: 11.5px; margin-top: 8px; min-height: 1.2em; }
 .post-status.ok { color: var(--green); }
 .post-status.err { color: var(--red); }
+.badge-new { display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .05em; padding: 2px 7px; border-radius: 99px; background: var(--accent); color: #0a0c11; vertical-align: middle; margin-left: 8px; text-transform: uppercase; }
 
 .create-banner { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35); color: var(--green); border-radius: 8px; padding: 12px 16px; font-size: 13px; margin: 4px 0 16px; font-weight: 600; }
 .create-banner.err { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.35); color: var(--red); }
@@ -345,6 +346,19 @@ function renderPage(highlightTypeKey) {
       <button class="btn btn-accent" id="newPanelBtn" style="flex-shrink:0;">+ New panel</button>
     </div>
     <div id="createBanner"></div>
+
+    <div class="card">
+      <div class="card-header"><h2>Post all panels as one dropdown<span class="badge-new">NEW</span></h2></div>
+      <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.6;">Instead of a separate embed and button for every panel, post a single message with an "Open A Ticket" dropdown listing all of them — players pick a type from the list rather than scrolling past several messages. This uses each panel's button text, description, and emoji as the option shown in the list.</p>
+      <div class="post-row">
+        <div class="field">
+          <select id="dropdownChannel"></select>
+        </div>
+        <button class="btn btn-accent" id="dropdownPostBtn" type="button">Post Dropdown to Discord</button>
+      </div>
+      <div class="post-status" id="dropdownPostStatus"></div>
+    </div>
+
     ${cards}
     <div class="save-bar">
       <button class="btn btn-accent" id="saveBtn">Save all panels</button>
@@ -357,6 +371,7 @@ function renderPage(highlightTypeKey) {
   wireColorSync();
   wireSave();
   wirePostButtons();
+  wireDropdownPost();
   document.getElementById('newPanelBtn').addEventListener('click', openCreateModal);
 
   if (highlightTypeKey) {
@@ -495,6 +510,50 @@ function wirePostButtons() {
       btn.disabled = false;
       btn.textContent = original;
     });
+  });
+}
+
+function wireDropdownPost() {
+  const channelSelect = document.getElementById('dropdownChannel');
+  const btn = document.getElementById('dropdownPostBtn');
+  const statusEl = document.getElementById('dropdownPostStatus');
+  if (!channelSelect || !btn) return;
+
+  channelSelect.innerHTML = channels.length
+    ? `<option value="">Choose a channel…</option>${channels.map(c => `<option value="${c.id}">#${esc(c.name)}</option>`).join('')}`
+    : `<option value="">No text channels found</option>`;
+
+  btn.addEventListener('click', async () => {
+    const channelId = channelSelect.value;
+    if (!channelId) {
+      statusEl.textContent = 'Pick a channel first.';
+      statusEl.className = 'post-status err';
+      return;
+    }
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Posting…';
+    statusEl.textContent = '';
+    statusEl.className = 'post-status';
+    try {
+      const res = await fetch('/api/guild/panels/post-dropdown', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        statusEl.textContent = '✓ Posted.';
+        statusEl.className = 'post-status ok';
+      } else {
+        statusEl.textContent = data.error || 'Could not post — try again.';
+        statusEl.className = 'post-status err';
+      }
+    } catch {
+      statusEl.textContent = 'Could not reach the server.';
+      statusEl.className = 'post-status err';
+    }
+    btn.disabled = false;
+    btn.textContent = original;
   });
 }
 
