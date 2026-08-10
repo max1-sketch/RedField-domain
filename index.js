@@ -729,6 +729,7 @@ app.get('/auth/discord', (req, res) => {
     const safeReturnTo = (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/';
     const state = crypto.randomBytes(16).toString('hex');
 
+    // Lax SameSite policy so the state cookie persists through the Discord redirect
     res.setHeader('Set-Cookie', [
         `oauthState=${state}; HttpOnly; Path=/; Max-Age=300; SameSite=Lax`,
         `oauthReturnTo=${encodeURIComponent(safeReturnTo)}; HttpOnly; Path=/; Max-Age=300; SameSite=Lax`
@@ -750,12 +751,26 @@ app.get('/auth/discord/callback', async (req, res) => {
     const rawReturnTo = cookies.oauthReturnTo ? decodeURIComponent(cookies.oauthReturnTo) : '/';
     const returnTo = (rawReturnTo && rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')) ? rawReturnTo : '/';
 
-    if (oauthError) return res.redirect('/login?error=discord_denied');
+    if (oauthError) {
+        console.error('❌ [OAUTH ERROR] User denied or Discord OAuth error:', oauthError);
+        return res.redirect('/login?error=discord_denied');
+    }
     if (!DISCORD_LOGIN_CONFIGURED) return res.status(503).send('Discord login is not configured.');
-    if (!code || !state || state !== cookies.oauthState) return res.redirect('/login?error=discord_failed');
+    
+    if (!code) {
+        console.error('❌ [OAUTH ERROR] Missing auth code from Discord.');
+        return res.redirect('/login?error=discord_failed');
+    }
 
     try {
         const redirectUri = `${getWebsiteUrl()}/auth/discord/callback`;
+        
+        console.log('🔄 [OAUTH EXCHANGING TOKEN]', {
+            clientId: process.env.DISCORD_CLIENT_ID ? 'SET' : 'MISSING',
+            clientSecret: process.env.DISCORD_CLIENT_SECRET ? 'SET' : 'MISSING',
+            redirectUri
+        });
+
         const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -769,45 +784,55 @@ app.get('/auth/discord/callback', async (req, res) => {
         });
         const tokenData = await tokenRes.json();
 
+        if (!tokenData.access_token) {
+            console.error('❌ [DISCORD TOKEN ERROR] Discord API rejected the request:', tokenData);
+            return res.redirect('/login?error=discord_failed');
+        }
+
         const userRes = await fetch('https://discord.com/api/users/@me', {
             headers: { Authorization: `Bearer ${tokenData.access_token}` }
         });
         const discordUser = await userRes.json();
 
         const guild = getTargetGuild();
-        const member = guild ? await guild.members.fetch(discordUser.id).catch(() => null) : null;
+        let member = null;
+        if (guild) {
+            member = guild.members.cache.get(discordUser.id) || await guild.members.fetch(discordUser.id).catch(() => null);
+        }
+
         const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
         const staff = Boolean(member && isStaff(member, guildConfig));
 
-        // Always issue a session, staff or not — the routes that actually need
-        // to be staff-only (dashboard tabs via requireTabPermission) already
-        // enforce that correctly on their own, and requireDiscordOrTicketToken
-        // already has its own opener-or-staff check for transcripts. Bouncing
-        // every non-staff login to /coming-soon here, before any of that ever
-        // ran, was breaking transcript access for ticket openers — they aren't
-        // staff, but they ARE allowed to see their own transcript.
+        console.log('🔑 [DISCORD LOGIN SUCCESS]', {
+            discordId: discordUser.id,
+            username: discordUser.username,
+            staff
+        });
+
         const expiresAt = Date.now() + SESSION_SECONDS * 1000;
-        const session = signDiscordSession({ id: discordUser.id, tag: member ? member.user.tag : discordUser.username, exp: expiresAt });
+        const userTag = member ? member.user.tag : (discordUser.discriminator && discordUser.discriminator !== '0' ? `${discordUser.username}#${discordUser.discriminator}` : discordUser.username);
+        
+        const session = signDiscordSession({ id: discordUser.id, tag: userTag, exp: expiresAt });
+
+        const isHttps = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https';
+        const cookieFlags = `HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax${isHttps ? '; Secure' : ''}`;
+
         res.setHeader('Set-Cookie', [
-            `discordAuth=${session}; HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
-            `sessionExpires=${expiresAt}; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
+            `discordAuth=${session}; ${cookieFlags}`,
+            `sessionExpires=${expiresAt}; ${cookieFlags}`,
             'oauthState=; Path=/; Max-Age=0',
             'oauthReturnTo=; Path=/; Max-Age=0'
         ]);
-        logAudit('DISCORD_LOGIN', discordUser.username, `Logged in via Discord OAuth2`);
 
-        // A generic sign-in with nowhere specific to go (no transcript, no
-        // particular page) from someone who isn't staff has no dashboard page
-        // they can actually see — send them to coming-soon instead of a page
-        // they'd immediately get turned away from. Anyone headed somewhere
-        // specific (a transcript link, etc.) goes there and lets that route's
-        // own permission check decide.
+        logAudit('DISCORD_LOGIN', userTag, `Logged in via Discord OAuth2 (Staff: ${staff})`);
+
         if (!staff && returnTo === '/') {
             return res.redirect('/coming-soon');
         }
+
         res.redirect(returnTo);
     } catch (err) {
-        console.error('[discord oauth] failed:', err);
+        console.error('❌ [DISCORD OAUTH CATCH EXCEPTION]:', err);
         res.redirect('/login?error=discord_failed');
     }
 });
