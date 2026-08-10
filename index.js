@@ -16,6 +16,7 @@ const {
     TextInputBuilder,
     TextInputStyle,
     StringSelectMenuBuilder,
+    StringSelectMenuOptionBuilder,
     RoleSelectMenuBuilder,
     ChannelSelectMenuBuilder,
     PermissionFlagsBits,
@@ -941,6 +942,10 @@ app.get('/version-check.js', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'version-check.js'));
 });
 
+app.get('/badges.css', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'badges.css'));
+});
+
 app.use(express.static(path.join(__dirname, 'views'), { index: false }));
 
 function requireDiscordOrTicketToken(req, res, next) {
@@ -1215,6 +1220,30 @@ app.post('/api/tickets/:id/tags', maintenanceGate, requireAuth, (req, res) => {
 app.get('/api/feedback', maintenanceGate, requireAuth, requireTabPermission('feedback'), (req, res) => res.json(feedbackData));
 app.get('/api/audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), (req, res) => res.json(auditLogs));
 
+// Discord's own native server audit log (kicks/bans/role changes/etc done
+// directly in Discord, not through this dashboard) — a separate data source
+// from our own logAudit() history above, fetched live from Discord each time
+// rather than stored locally.
+app.get('/api/discord-audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    try {
+        const fetched = await guild.fetchAuditLogs({ limit: 50 });
+        const entries = Array.from(fetched.entries.values()).map(entry => ({
+            id: entry.id,
+            action: entry.action,
+            actor: entry.executor ? entry.executor.tag : 'Unknown',
+            target: entry.target ? (entry.target.tag || entry.target.name || String(entry.targetId || '')) : (entry.targetId || null),
+            reason: entry.reason || null,
+            timestamp: entry.createdAt ? entry.createdAt.toISOString() : null
+        }));
+        res.json(entries);
+    } catch (err) {
+        console.error('[discord audit log] failed:', err);
+        res.status(500).json({ error: `Could not fetch Discord's audit log. (${err.message})` });
+    }
+});
+
 function getTargetGuild() {
     if (GUILD_ID) {
         const g = client.guilds.cache.get(GUILD_ID);
@@ -1435,6 +1464,7 @@ app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requir
     const channelId = String(req.body?.channelId || '').trim();
     if (!channelId) return res.status(400).json({ error: 'Choose a channel first.' });
     const messageText = String(req.body?.message || '').trim().slice(0, 1900);
+    const asEmbed = Boolean(req.body?.asEmbed);
 
     const panelEntries = Object.entries(guildConfig.panels);
     if (!panelEntries.length) return res.status(400).json({ error: 'No panels configured yet.' });
@@ -1449,13 +1479,17 @@ app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requir
         const select = new StringSelectMenuBuilder()
             .setCustomId('open_ticket_select')
             .setPlaceholder('Open A Ticket')
-            .addOptions(panelEntries.map(([typeKey, p]) => {
-                const opt = { label: clamp(p.buttonLabel || typeKey, 100) || typeKey, value: typeKey, description: clamp(p.title || '', 100) || undefined };
-                if (p.emoji && isValidEmoji(p.emoji)) opt.emoji = p.emoji;
-                return opt;
-            }));
+            .addOptions(buildPanelSelectOptions(panelEntries));
 
-        await channel.send({ content: messageText || undefined, components: [new ActionRowBuilder().addComponents(select)] });
+        const payload = { components: [new ActionRowBuilder().addComponents(select)] };
+        if (messageText) {
+            if (asEmbed) {
+                payload.embeds = [new EmbedBuilder().setDescription(messageText).setColor(0x5865f2)];
+            } else {
+                payload.content = messageText;
+            }
+        }
+        await channel.send(payload);
 
         logAudit('POST_PANEL_DROPDOWN', resolveActorName(req), `Posted combined panel dropdown (${panelEntries.length} panels) to #${channel.name}`);
         res.json({ success: true });
@@ -2525,6 +2559,28 @@ function isValidEmoji(emoji) {
     } catch { return false; }
 }
 
+// Builds the select-menu options for a panel-type dropdown ("Open A Ticket").
+// Using StringSelectMenuOptionBuilder here (instead of assigning a raw
+// string to a plain object's `emoji` property) is the actual fix for
+// COMPONENT_INVALID_EMOJI — the builder's .setEmoji() resolves a plain
+// unicode string OR a <a:name:id> custom emoji string into the
+// {name, id, animated} shape Discord's API actually requires; a bare string
+// dropped straight into a raw option object is not valid there, even though
+// buttons happily accept a plain string via the same-looking .setEmoji().
+function buildPanelSelectOptions(panelEntries) {
+    return panelEntries.map(([typeKey, p]) => {
+        const opt = new StringSelectMenuOptionBuilder()
+            .setLabel(clamp(p.buttonLabel || typeKey, 100) || typeKey)
+            .setValue(typeKey);
+        const description = clamp(p.title || '', 100);
+        if (description) opt.setDescription(description);
+        if (p.emoji && isValidEmoji(p.emoji)) {
+            try { opt.setEmoji(p.emoji); } catch { /* skip a bad emoji rather than fail the whole dropdown */ }
+        }
+        return opt;
+    });
+}
+
 function findExistingTicket(guildId, userId, typeKey) {
     for (const [channelId, data] of openTickets.entries()) {
         if (data.guildId === guildId && data.userId === userId && data.type === typeKey) return channelId;
@@ -2995,11 +3051,7 @@ client.on('interactionCreate', async (interaction) => {
                 const select = new StringSelectMenuBuilder()
                     .setCustomId('open_ticket_select')
                     .setPlaceholder('Open A Ticket')
-                    .addOptions(panelEntries.map(([typeKey, p]) => {
-                        const opt = { label: clamp(p.buttonLabel || typeKey, 100) || typeKey, value: typeKey, description: clamp(p.title || '', 100) || undefined };
-                        if (p.emoji && isValidEmoji(p.emoji)) opt.emoji = p.emoji;
-                        return opt;
-                    }));
+                    .addOptions(buildPanelSelectOptions(panelEntries));
                 return interaction.reply({ content: 'Choose a ticket type:', components: [new ActionRowBuilder().addComponents(select)], ephemeral: true });
             }
 
@@ -3237,10 +3289,10 @@ client.on('interactionCreate', async (interaction) => {
                     .setCustomId('ticket_priority_select')
                     .setPlaceholder('Set ticket priority…')
                     .addOptions(
-                        { label: 'Low', value: 'low', emoji: '🟢' },
-                        { label: 'Normal', value: 'normal', emoji: '⚪' },
-                        { label: 'High', value: 'high', emoji: '🟠' },
-                        { label: 'Urgent', value: 'urgent', emoji: '🔴' }
+                        new StringSelectMenuOptionBuilder().setLabel('Low').setValue('low').setEmoji('🟢'),
+                        new StringSelectMenuOptionBuilder().setLabel('Normal').setValue('normal').setEmoji('⚪'),
+                        new StringSelectMenuOptionBuilder().setLabel('High').setValue('high').setEmoji('🟠'),
+                        new StringSelectMenuOptionBuilder().setLabel('Urgent').setValue('urgent').setEmoji('🔴')
                     );
                 return interaction.reply({ content: 'Set this ticket\'s priority:', components: [new ActionRowBuilder().addComponents(select)], ephemeral: true });
             }

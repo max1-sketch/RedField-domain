@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{SITE_TITLE}} — Logging</title>
+<link rel="stylesheet" href="/badges.css">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
@@ -54,8 +55,12 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .session-line.warn { color: var(--red); }
 
 .content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 1200px; }
-.page-title { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
+.page-title { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0 0 4px; display: flex; align-items: center; }
 .page-sub { font-size: 13px; color: var(--muted); margin: 0 0 22px; }
+.source-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.source-tab { background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 9px 16px; border-radius: 8px; cursor: pointer; }
+.source-tab:hover { border-color: var(--accent); color: var(--ink); }
+.source-tab.active { background: var(--accent); border-color: var(--accent); color: #0a0c11; }
 
 .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 18px 20px; border-bottom: 1px solid var(--border); }
@@ -116,8 +121,13 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
   </aside>
 
   <main class="content-area">
-    <h1 class="page-title">Logging</h1>
+    <h1 class="page-title">Logging<span class="badge-new">NEW</span></h1>
     <p class="page-sub">Audit log of administrative actions, config updates, and dashboard logins.</p>
+
+    <div class="source-tabs" id="sourceTabs">
+      <button class="source-tab active" data-source="website" type="button">Website / Bot Logs</button>
+      <button class="source-tab" data-source="discord" type="button">Discord Server Logs</button>
+    </div>
 
     <div class="card">
       <div class="filters-row">
@@ -128,7 +138,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
       </div>
       <div style="overflow-x:auto;">
         <table>
-          <thead><tr><th>Action</th><th>Actor</th><th>Details</th><th>When</th></tr></thead>
+          <thead id="tableHead"><tr><th>Action</th><th>Actor</th><th>Details</th><th>When</th></tr></thead>
           <tbody id="tbody">
             <tr class="empty-row"><td colspan="4">Loading…</td></tr>
           </tbody>
@@ -161,14 +171,40 @@ if (typeof RF !== 'undefined' && RF.startSessionClock) {
   RF.startSessionClock(document.getElementById('sessionClock'));
 }
 
-let allEntries = [];
-
 function actionColor(action) {
   if (action.includes('DELETE') || action === 'KICK' || action === 'BAN') return 'var(--red)';
   if (action.includes('CREATE') || action === 'LOGIN' || action === 'DISCORD_LOGIN') return 'var(--green)';
   if (action === 'TIMEOUT' || action.includes('UPDATE')) return 'var(--amber)';
   return 'var(--muted)';
 }
+
+// Discord's native audit log gives a numeric action code (from the
+// AuditLogEvent enum), not a name — map the common ones to readable labels.
+const DISCORD_ACTION_LABELS = {
+  1: 'Guild Update', 10: 'Channel Create', 11: 'Channel Update', 12: 'Channel Delete',
+  13: 'Overwrite Create', 14: 'Overwrite Update', 15: 'Overwrite Delete',
+  20: 'Member Kick', 21: 'Member Prune', 22: 'Member Ban', 23: 'Member Unban',
+  24: 'Member Update', 25: 'Member Role Update', 26: 'Member Move', 27: 'Member Disconnect', 28: 'Bot Add',
+  30: 'Role Create', 31: 'Role Update', 32: 'Role Delete',
+  40: 'Invite Create', 41: 'Invite Update', 42: 'Invite Delete',
+  50: 'Webhook Create', 51: 'Webhook Update', 52: 'Webhook Delete',
+  60: 'Emoji Create', 61: 'Emoji Update', 62: 'Emoji Delete',
+  72: 'Message Delete', 73: 'Message Bulk Delete', 74: 'Message Pin', 75: 'Message Unpin',
+  80: 'Integration Create', 81: 'Integration Update', 82: 'Integration Delete',
+  90: 'Sticker Create', 91: 'Sticker Update', 92: 'Sticker Delete',
+  110: 'Thread Create', 111: 'Thread Update', 112: 'Thread Delete',
+  140: 'AutoMod Rule Create', 141: 'AutoMod Rule Update', 142: 'AutoMod Rule Delete',
+  143: 'AutoMod Blocked Message', 145: 'AutoMod Timeout'
+};
+function discordActionLabel(code) { return DISCORD_ACTION_LABELS[code] || `Action #${code}`; }
+function discordActionColor(code) {
+  if ([12, 15, 20, 22, 32, 42, 52, 62, 72, 73, 82, 92, 112, 142].includes(code)) return 'var(--red)';
+  if ([10, 13, 30, 40, 50, 60, 80, 90, 110, 140].includes(code)) return 'var(--green)';
+  return 'var(--amber)';
+}
+
+let currentSource = 'website';
+let allEntries = [];
 
 async function initNav() {
   try {
@@ -188,8 +224,10 @@ async function initNav() {
 }
 
 async function load() {
+  const endpoint = currentSource === 'discord' ? '/api/discord-audit-log' : '/api/audit-log';
+  document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="4">Loading…</td></tr>`;
   try {
-    const res = await fetch('/api/audit-log');
+    const res = await fetch(endpoint);
     if (res.status === 401) { window.location.reload(); return; }
     if (res.status === 403) {
       document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="4"><span class="icon">🔒</span><h3>Admins only</h3><p>This page is restricted to Administrators.</p></td></tr>`;
@@ -197,7 +235,8 @@ async function load() {
       return;
     }
     if (!res.ok) {
-      document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="4">Couldn't load the audit log.</td></tr>`;
+      const err = await res.json().catch(() => ({}));
+      document.getElementById('tbody').innerHTML = `<tr class="empty-row"><td colspan="4">${esc(err.error || "Couldn't load the log.")}</td></tr>`;
       return;
     }
     allEntries = await res.json();
@@ -210,16 +249,41 @@ async function load() {
 
 function render() {
   const q = document.getElementById('search').value.trim().toLowerCase();
+  const isDiscord = currentSource === 'discord';
+
   const filtered = allEntries.filter(e => {
     if (!q) return true;
-    return `${e.actor} ${e.details} ${e.action}`.toLowerCase().includes(q);
+    const haystack = isDiscord
+      ? `${e.actor} ${e.reason || ''} ${e.target || ''} ${discordActionLabel(e.action)}`
+      : `${e.actor} ${e.details} ${e.action}`;
+    return haystack.toLowerCase().includes(q);
   });
 
   document.getElementById('countPill').innerHTML = `<b>${filtered.length}</b> of ${allEntries.length} entries`;
+  document.getElementById('tableHead').innerHTML = isDiscord
+    ? '<tr><th>Action</th><th>Actor</th><th>Target</th><th>Reason</th><th>When</th></tr>'
+    : '<tr><th>Action</th><th>Actor</th><th>Details</th><th>When</th></tr>';
 
   const tbody = document.getElementById('tbody');
+  const colCount = isDiscord ? 5 : 4;
   if (!filtered.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="4"><span class="icon">📜</span><h3>${allEntries.length ? 'No matches' : 'Nothing logged yet'}</h3><p>${allEntries.length ? 'Try a different search.' : 'Activity shows up here as staff use the dashboard.'}</p></td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="${colCount}"><span class="icon">📜</span><h3>${allEntries.length ? 'No matches' : 'Nothing logged yet'}</h3><p>${allEntries.length ? 'Try a different search.' : (isDiscord ? "Nothing in Discord's own server audit log yet, or the bot doesn't have View Audit Log permission." : 'Activity shows up here as staff use the dashboard.')}</p></td></tr>`;
+    return;
+  }
+
+  if (isDiscord) {
+    tbody.innerHTML = filtered.map(e => {
+      const color = discordActionColor(e.action);
+      const label = discordActionLabel(e.action);
+      return `
+      <tr>
+        <td><span class="action-badge" style="background:${color}22; color:${color};">${esc(label)}</span></td>
+        <td class="cell-main">${esc(e.actor)}</td>
+        <td class="cell-muted">${esc(e.target || '—')}</td>
+        <td class="cell-muted">${esc(e.reason || '—')}</td>
+        <td class="cell-muted">${fmtDateTime(e.timestamp)}</td>
+      </tr>`;
+    }).join('');
     return;
   }
 
@@ -236,6 +300,17 @@ function render() {
 }
 
 document.getElementById('search').addEventListener('input', render);
+
+document.querySelectorAll('.source-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.dataset.source === currentSource) return;
+    document.querySelectorAll('.source-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentSource = btn.dataset.source;
+    document.getElementById('search').value = '';
+    load();
+  });
+});
 
 async function loadAccountWidget() {
   try {
