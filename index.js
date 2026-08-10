@@ -1371,13 +1371,13 @@ app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requir
                     description: clamp(p.title || '', 100) || undefined 
                 };
 
-                // SAFELY PARSE EMOJI FOR DROPDOWN OPTIONS
+                // SAFELY PARSE EMOJIS FOR SELECT MENUS
                 if (p.emoji && p.emoji.trim()) {
                     const rawEmoji = p.emoji.trim();
                     const customMatch = rawEmoji.match(/<a?:(\w+):(\d+)>/);
                     
                     if (customMatch) {
-                        opt.emoji = { id: customMatch[2], name: customMatch[1] };
+                        opt.emoji = { name: customMatch[1], id: customMatch[2] };
                     } else if (isValidEmoji(rawEmoji)) {
                         opt.emoji = rawEmoji;
                     }
@@ -2413,19 +2413,23 @@ async function updateTicketPriorityEmbed(channel, ticket, priority) {
 }
 
 function isValidEmoji(emoji) {
-    if (!emoji) return false;
-    // Check if it's a valid Discord custom emoji format: <name:id> or <a:name:id>
-    const customMatch = emoji.match(/<a?:(\w+):(\d+)>/);
-    if (customMatch) return true;
+    if (!emoji || typeof emoji !== 'string') return false;
+    const trimmed = emoji.trim();
+    if (!trimmed) return false;
+
+    // Custom Discord Emoji format: <name:id> or <a:name:id>
+    if (/<a?:\w+:\d+>/.test(trimmed)) return true;
+    
+    // Numeric ID only
+    if (/^\d+$/.test(trimmed)) return true;
 
     try {
-        new ButtonBuilder().setCustomId('test').setLabel('t').setStyle(ButtonStyle.Secondary).setEmoji(emoji);
+        new ButtonBuilder().setCustomId('test_emoji').setLabel('test').setStyle(ButtonStyle.Secondary).setEmoji(trimmed);
         return true;
     } catch {
         return false;
     }
 }
-
 function findExistingTicket(guildId, userId, typeKey) {
     for (const [channelId, data] of openTickets.entries()) {
         if (data.guildId === guildId && data.userId === userId && data.type === typeKey) return channelId;
