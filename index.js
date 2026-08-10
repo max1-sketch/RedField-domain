@@ -733,7 +733,11 @@ app.get('/auth/discord', (req, res) => {
         } catch (e) {}
     }
 
-    const safeReturnTo = (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/';
+    let safeReturnTo = (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/';
+    
+    // FIX: If return URL is /login, force redirect to dashboard / after Discord auth
+    if (safeReturnTo === '/login') safeReturnTo = '/';
+
     const state = crypto.randomBytes(16).toString('hex');
 
     res.setHeader('Set-Cookie', [
@@ -750,7 +754,6 @@ app.get('/auth/discord', (req, res) => {
     });
     res.redirect(`https://discord.com/oauth2/authorize?${params.toString()}`);
 });
-
 app.get('/auth/discord/callback', async (req, res) => {
     const cookies = parseCookies(req);
     const { code, state, error: oauthError } = req.query;
