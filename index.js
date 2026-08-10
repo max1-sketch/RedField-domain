@@ -558,6 +558,13 @@ function requireTabPermission(tabName) {
         const guildConfig = getGuildConfig(guild.id);
         const ctx = getViewerContext(req, guild, guildConfig);
 
+        console.log('🛡️ [TAB PERM DEBUG]', {
+            tabName,
+            tier: ctx.tier,
+            allowedTabs: ctx.allowedTabs,
+            userId: req.authUser?.id || null
+        });
+
         if (ctx.tier === 'master' || ctx.tier === 'admin') return next();
         if (ctx.tier === 'staff' && ctx.allowedTabs.includes(tabName)) return next();
 
@@ -565,6 +572,7 @@ function requireTabPermission(tabName) {
             return res.status(403).json({ error: 'Access denied: Tab restricted by an Administrator.' });
         }
         
+        console.log(`❌ [TAB PERM DENIED] User tier "${ctx.tier}" missing tab "${tabName}". Bouncing to /login.`);
         return res.redirect('/login');
     };
 }
@@ -620,7 +628,7 @@ function parseCookies(req) {
     return cookies;
 }
 
-const SESSION_SECONDS = 10 * 60;
+const SESSION_SECONDS = 30 * 60;
 const SESSION_SECRET_FILE = path.join(DATA_DIR, 'sessionSecret.txt');
 let SESSION_SECRET;
 try {
@@ -661,7 +669,17 @@ function isRequestAuthed(req) {
 }
 
 function requireAuth(req, res, next) {
+    const cookies = parseCookies(req);
     const authUser = isRequestAuthed(req);
+
+    console.log('🔍 [AUTH DEBUG]', {
+        path: req.path,
+        hasDiscordCookie: Boolean(cookies.discordAuth),
+        hasTicketCookie: Boolean(cookies.ticketAuth),
+        authenticated: Boolean(authUser),
+        userId: authUser?.id || null
+    });
+
     if (authUser) {
         if (authUser.id) {
             const guild = getTargetGuild();
