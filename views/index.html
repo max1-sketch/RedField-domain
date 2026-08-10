@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{SITE_TITLE}} — Ticket Archive</title>
+<link rel="stylesheet" href="/badges.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -165,6 +166,28 @@
   .btn-view { background: var(--panel-2); border: 1px solid var(--border); color: var(--ink); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; transition: border-color 0.15s, color 0.15s; }
   .btn-view:hover { border-color: var(--accent); color: var(--accent); }
 
+  /* Dashboard overview + leaderboard */
+  .dash-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+  .dash-col { flex: 1; min-width: 280px; }
+  .dash-card-header { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: var(--ink); margin: 0 0 12px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat-tile { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .stat-tile .label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); font-weight: 600; margin-bottom: 6px; }
+  .stat-tile .value { font-size: 22px; font-weight: 800; color: var(--ink); }
+  .stat-tile .value.accent { color: var(--accent); }
+
+  .leaderboard-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 6px; }
+  .leaderboard-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; }
+  .leaderboard-row:hover { background: rgba(255,255,255,0.02); }
+  .leaderboard-rank { width: 22px; text-align: center; font-size: 13px; font-weight: 800; color: var(--faint); flex-shrink: 0; }
+  .leaderboard-rank.top1 { color: #fbbf24; }
+  .leaderboard-rank.top2 { color: #c0c0c0; }
+  .leaderboard-rank.top3 { color: #cd7f32; }
+  .leaderboard-tag { flex: 1; font-size: 13px; font-weight: 600; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .leaderboard-count { font-size: 12px; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+  .leaderboard-empty { font-size: 12.5px; color: var(--faint); text-align: center; padding: 24px 12px; }
+  .leaderboard-window { font-size: 10.5px; color: var(--faint); font-weight: 500; margin-left: auto; }
+
   /* Onboarding slideshow */
   .onboard-overlay { position: fixed; inset: 0; background: rgba(5,6,9,.8); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
   .onboard-overlay.show { display: flex; }
@@ -233,6 +256,25 @@
         </div>
         <h1 class="bot-3d-title">{{SITE_TITLE}}</h1>
         <p class="bot-credits">Built by <span class="creator-tag">Max-Golddoggo9866</span></p>
+      </div>
+    </div>
+
+    <!-- Dashboard Overview + Staff Leaderboard -->
+    <div class="dash-row">
+      <div class="dash-col">
+        <div class="dash-card-header">Dashboard Overview<span class="badge-new">NEW</span></div>
+        <div class="stat-grid" id="statGrid">
+          <div class="stat-tile"><div class="label">Open Tickets</div><div class="value">—</div></div>
+          <div class="stat-tile"><div class="label">Closed This Week</div><div class="value">—</div></div>
+          <div class="stat-tile"><div class="label">Avg Rating</div><div class="value">—</div></div>
+          <div class="stat-tile"><div class="label">Avg Resolution</div><div class="value">—</div></div>
+        </div>
+      </div>
+      <div class="dash-col">
+        <div class="dash-card-header">Staff Leaderboard<span class="badge-new">NEW</span><span class="leaderboard-window" id="leaderboardWindow"></span></div>
+        <div class="leaderboard-card" id="leaderboardCard">
+          <div class="leaderboard-empty">Loading…</div>
+        </div>
       </div>
     </div>
 
@@ -461,10 +503,62 @@ function goToSlide(i) {
   document.getElementById('onboardNext').textContent = i === ONBOARD_SLIDE_COUNT - 1 ? 'Get Started' : 'Next';
 }
 
+async function loadDashboardStats() {
+  try {
+    const res = await fetch('/api/dashboard-stats');
+    if (!res.ok) return;
+    const stats = await res.json();
+    renderDashboardStats(stats);
+  } catch (err) {
+    console.error('[dashboard stats] load failed:', err);
+  }
+}
+
+function renderDashboardStats(stats) {
+  const tiles = document.querySelectorAll('#statGrid .stat-tile .value');
+  if (tiles[0]) tiles[0].textContent = stats.openCount ?? '—';
+  if (tiles[1]) tiles[1].textContent = stats.closedThisWeek ?? '—';
+  if (tiles[2]) {
+    tiles[2].textContent = stats.avgRating ? `${stats.avgRating.toFixed(1)} ★` : '—';
+    tiles[2].classList.toggle('accent', Boolean(stats.avgRating));
+  }
+  if (tiles[3]) {
+    tiles[3].textContent = stats.avgResolutionMinutes != null ? formatMinutes(stats.avgResolutionMinutes) : '—';
+  }
+
+  const windowEl = document.getElementById('leaderboardWindow');
+  if (windowEl) windowEl.textContent = stats.leaderboard && stats.leaderboard.length ? `Last ${stats.leaderboardWindow}` : '';
+
+  const card = document.getElementById('leaderboardCard');
+  if (!stats.leaderboard || !stats.leaderboard.length) {
+    card.innerHTML = '<div class="leaderboard-empty">No claimed tickets closed yet — this fills in once staff start claiming and closing tickets.</div>';
+    return;
+  }
+  const rankClass = i => i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
+  card.innerHTML = stats.leaderboard.map((row, i) => `
+    <div class="leaderboard-row">
+      <span class="leaderboard-rank ${rankClass(i)}">${i + 1}</span>
+      <span class="leaderboard-tag">${esc(row.tag)}</span>
+      <span class="leaderboard-count">${row.count} closed</span>
+    </div>
+  `).join('');
+}
+
+function formatMinutes(mins) {
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  const rem = mins % 60;
+  if (hours < 24) return rem ? `${hours}h ${rem}m` : `${hours}h`;
+  const days = Math.floor(hours / 24);
+  const remHours = hours % 24;
+  return remHours ? `${days}d ${remHours}h` : `${days}d`;
+}
+
 initNav();
 loadTickets();
 loadAccountWidget();
 initOnboarding();
+loadDashboardStats();
 </script>
 </body>
 </html>

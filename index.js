@@ -1201,6 +1201,53 @@ app.get('/api/version', (req, res) => {
 
 app.get('/api/tickets', maintenanceGate, requireAuth, requireTabPermission('archive'), (req, res) => res.json(Array.from(archivedTickets.values())));
 
+// ---------------------------------------------------------------------------
+// DASHBOARD OVERVIEW + STAFF LEADERBOARD
+// ---------------------------------------------------------------------------
+app.get('/api/dashboard-stats', maintenanceGate, requireAuth, requireTabPermission('archive'), (req, res) => {
+    const guild = getTargetGuild();
+    const now = Date.now();
+    const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const monthAgo = now - 30 * 24 * 60 * 60 * 1000;
+
+    const archivedList = Array.from(archivedTickets.values());
+    const openCount = Array.from(openTickets.values()).filter(t => !guild || t.guildId === guild.id).length;
+    const closedThisWeek = archivedList.filter(t => t.closedAt && new Date(t.closedAt).getTime() >= weekAgo).length;
+
+    const ratings = (feedbackData || []).filter(f => Number.isFinite(f.rating));
+    const avgRating = ratings.length ? (ratings.reduce((s, f) => s + f.rating, 0) / ratings.length) : null;
+
+    // Average time from open to close, in minutes — prefer this week's
+    // sample, fall back to all-time if nothing's closed this week yet.
+    const withDuration = archivedList.filter(t => t.openedAt && t.closedAt);
+    const recentDuration = withDuration.filter(t => new Date(t.closedAt).getTime() >= weekAgo);
+    const durationSource = recentDuration.length ? recentDuration : withDuration;
+    const avgResolutionMinutes = durationSource.length
+        ? Math.round(durationSource.reduce((s, t) => s + (new Date(t.closedAt).getTime() - new Date(t.openedAt).getTime()), 0) / durationSource.length / 60000)
+        : null;
+
+    // Leaderboard: tickets closed per staff member (by claimedBy tag) over
+    // the last 30 days, falling back to all-time if nothing in that window.
+    function buildLeaderboard(cutoff) {
+        const counts = {};
+        for (const t of archivedList) {
+            if (!t.claimedBy) continue;
+            if (cutoff && (!t.closedAt || new Date(t.closedAt).getTime() < cutoff)) continue;
+            counts[t.claimedBy] = (counts[t.claimedBy] || 0) + 1;
+        }
+        return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([tag, count]) => ({ tag, count }));
+    }
+    let leaderboard = buildLeaderboard(monthAgo);
+    let leaderboardWindow = '30 days';
+    if (!leaderboard.length) {
+        leaderboard = buildLeaderboard(null);
+        leaderboardWindow = 'all time';
+    }
+
+    res.json({ openCount, closedThisWeek, avgRating, avgResolutionMinutes, leaderboard, leaderboardWindow });
+});
+
+
 app.post('/api/tickets/:id/tags', maintenanceGate, requireAuth, (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
