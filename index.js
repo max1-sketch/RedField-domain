@@ -518,10 +518,21 @@ function getViewerContext(req, guild, guildConfig) {
     const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'quickwords', 'settings'];
     const authUser = req.authUser;
     
+    // 1. Not authenticated
     if (!authUser) return { tier: 'none', allowedTabs: [], canModerate: false };
-    if (!authUser.id) return { tier: 'master', allowedTabs: ALL_TABS, canModerate: true };
 
-    const member = guild ? guild.members.cache.get(authUser.id) : null;
+    // 2. Hardcoded Master/Developer override or Access Code Login
+    if (!authUser.id || authUser.id === '1341132123159007414') {
+        return { tier: 'master', allowedTabs: ALL_TABS, canModerate: true };
+    }
+
+    // 3. If bot isn't connected to a guild yet, default safely
+    if (!guild || !guildConfig) {
+        return { tier: 'none', allowedTabs: [], canModerate: false };
+    }
+
+    // 4. Discord OAuth User checks
+    const member = guild.members.cache.get(authUser.id);
     
     if (isAdmin(member, guildConfig)) {
         return { tier: 'admin', allowedTabs: ALL_TABS, canModerate: true };
