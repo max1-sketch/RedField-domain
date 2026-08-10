@@ -218,14 +218,12 @@ function renderTemplate(filePath) {
     const validAccent = /^#[0-9A-Fa-f]{6}$/.test(siteConfig.accentColor) ? siteConfig.accentColor : '#d69a4e';
     const bannerHtml = siteConfig.bannerText ? `<div class="site-banner">📢 ${escapeHtml(siteConfig.bannerText)}</div>` : '';
     
-    // Global Footer with Copyright
     const footerHtml = `
       <div class="footer-note" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border, #262b3a); text-align: center; font-size: 12px; color: var(--muted, #9199a8); line-height: 1.6;">
         <p style="margin: 0; opacity: 0.8;">© 2026 Redfield Archives. All Rights Reserved.</p>
       </div>
     `;
     
-    // Inject version tracking scripts
     const versionScript = `<script>window.APP_BUILD_VERSION = "${BUILD_VERSION}";</script><script src="/version-check.js"></script>`;
     if (html.includes('</body>')) {
         html = html.replace('</body>', `${versionScript}\n</body>`);
@@ -447,7 +445,7 @@ function logModerationAction(action, targetId, targetTag, reason, byName) {
     }
 }
 
-// Restore All Permanent Data from Upstash Redis on Startup
+// Restore All Data from Upstash Redis safely
 async function loadAllFromRedis() {
     if (!redis) return;
     try {
@@ -583,6 +581,7 @@ function requireModerationCapability(req, res, next) {
 // EXPRESS WEB SERVER & SOCKET.IO SETUP
 // ---------------------------------------------------------------------------
 const app = express();
+app.enable('trust-proxy');
 app.use(express.json());
 
 const server = http.createServer(app);
@@ -775,9 +774,12 @@ app.get('/auth/discord/callback', async (req, res) => {
         
         const session = signDiscordSession({ id: discordUser.id, tag: userTag, exp: expiresAt });
 
+        const isHttps = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https';
+        const cookieFlags = `HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax${isHttps ? '; Secure' : ''}`;
+
         res.setHeader('Set-Cookie', [
-            `discordAuth=${session}; HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
-            `sessionExpires=${expiresAt}; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
+            `discordAuth=${session}; ${cookieFlags}`,
+            `sessionExpires=${expiresAt}; ${cookieFlags}`,
             'oauthState=; Path=/; Max-Age=0',
             'oauthReturnTo=; Path=/; Max-Age=0'
         ]);
@@ -2632,7 +2634,7 @@ client.once('ready', async () => {
         { name: 'tag', description: 'Send a canned response by its ID (configured on the website)', options: [{ name: 'id', description: 'The response ID from the website', type: 3, required: true }] }
     ];
 
-    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+    const rest = new REST({ version: '10' }).setToken(process.process.env.DISCORD_TOKEN);
     try {
         if (GUILD_ID) await rest.put(Routes.applicationGuildCommands(client.user.id, GUILD_ID), { body: commands });
         else await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
