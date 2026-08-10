@@ -1319,7 +1319,17 @@ app.post('/api/guild/panels/:typeKey/post', maintenanceGate, requireAuth, requir
 
         const embed = new EmbedBuilder().setTitle(clamp(panel.title, 256)).setDescription(clamp(panel.description, 4096)).setColor(panel.color);
         const button = new ButtonBuilder().setCustomId(`open_ticket_${typeKey}`).setLabel(clamp(panel.buttonLabel, 80)).setStyle(STYLE_MAP[panel.style] || ButtonStyle.Secondary);
-        if (panel.emoji && isValidEmoji(panel.emoji)) button.setEmoji(panel.emoji);
+
+        // SAFELY ATTACH EMOJI
+        if (panel.emoji) {
+            const customMatch = panel.emoji.trim().match(/<a?:(\w+):(\d+)>/);
+            if (customMatch) {
+                button.setEmoji(customMatch[2]); // Attach by custom Emoji ID
+            } else if (isValidEmoji(panel.emoji.trim())) {
+                button.setEmoji(panel.emoji.trim());
+            }
+        }
+
         await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(button)] });
 
         panel.postChannelId = channelId;
@@ -2388,10 +2398,17 @@ async function updateTicketPriorityEmbed(channel, ticket, priority) {
 }
 
 function isValidEmoji(emoji) {
+    if (!emoji) return false;
+    // Check if it's a valid Discord custom emoji format: <name:id> or <a:name:id>
+    const customMatch = emoji.match(/<a?:(\w+):(\d+)>/);
+    if (customMatch) return true;
+
     try {
         new ButtonBuilder().setCustomId('test').setLabel('t').setStyle(ButtonStyle.Secondary).setEmoji(emoji);
         return true;
-    } catch { return false; }
+    } catch {
+        return false;
+    }
 }
 
 function findExistingTicket(guildId, userId, typeKey) {
