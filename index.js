@@ -780,7 +780,15 @@ app.get('/auth/discord', (req, res) => {
     if (!returnTo && req.headers.referer) {
         try {
             const parsed = new URL(req.headers.referer);
-            returnTo = parsed.pathname + parsed.search;
+            const refPath = parsed.pathname + parsed.search;
+            // The referer is only useful when it's a page someone was actually
+            // trying to reach (e.g. a transcript link that redirected here).
+            // When the "Sign in with Discord" button itself lives on the login
+            // page, the referer is always /login — using that as the return
+            // destination sent people right back to the sign-in form after a
+            // successful login, even though they were already authenticated.
+            const isAuthOrLoginPath = /^\/(login|staff-login|coming-soon|auth\/)/.test(parsed.pathname);
+            if (!isAuthOrLoginPath) returnTo = refPath;
         } catch (e) {}
     }
 
@@ -957,7 +965,15 @@ function requireDiscordOrTicketToken(req, res, next) {
 // ---------------------------------------------------------------------------
 // VIEW ROUTES
 // ---------------------------------------------------------------------------
-app.get('/login', (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'login.html')));
+app.get('/login', (req, res) => {
+    // If they're already signed in (any method), sending them back to this
+    // page — which always renders the sign-in form no matter what — is
+    // exactly the "glitch back to login" loop. Skip straight to the
+    // dashboard instead; requireAuth further downstream still decides what
+    // they're actually allowed to see.
+    if (isRequestAuthed(req)) return res.redirect('/');
+    return sendTemplate(req, res, path.join(__dirname, 'views', 'login.html'));
+});
 app.get('/coming-soon', (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'coming-soon.html')));
 
 app.get('/', maintenanceGate, requireAuth, requireTabPermission('archive'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'index.html')));
