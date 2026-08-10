@@ -637,6 +637,21 @@ function requireTabPermission(tabName) {
     };
 }
 
+// Hard-gates a route to true Administrators (or the master access code) only.
+// Unlike requireTabPermission, this is never affected by the staff
+// allowedTabs toggle system — there is no "grant a regular staff member
+// access to this" path, by design, since this is the destructive
+// data-reset area.
+function requireHardAdmin(req, res, next) {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const guildConfig = getGuildConfig(guild.id);
+    const ctx = getViewerContext(req, guild, guildConfig);
+    if (ctx.tier === 'admin' || ctx.tier === 'master') return next();
+    if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Administrators only.' });
+    return res.redirect('/');
+}
+
 function requireModerationCapability(req, res, next) {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server' });
@@ -720,7 +735,7 @@ function parseCookies(req) {
     return cookies;
 }
 
-const SESSION_SECONDS = 10 * 60;
+const SESSION_SECONDS = 60 * 60; // 1 hour
 const SESSION_SECRET_FILE = path.join(DATA_DIR, 'sessionSecret.txt');
 let SESSION_SECRET;
 try {
@@ -1103,6 +1118,10 @@ app.get('/shift-roster', maintenanceGate, requireAuth, requireTabPermission('shi
 app.get('/audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'audit-log.html')));
 app.get('/settings', maintenanceGate, requireAuth, requireTabPermission('settings'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'settings.html')));
 app.get('/account', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'account.html')));
+// Intentionally not added to sidebar nav or the staff allowedTabs list —
+// reachable only if you know the URL, and even then only Administrators (or
+// the master access code) can actually get past requireHardAdmin.
+app.get('/danger-zone', maintenanceGate, requireAuth, requireHardAdmin, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'danger-zone.html')));
 app.get('/bot-commands', maintenanceGate, requireAuth, requireTabPermission('settings'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'bot-commands.html')));
 app.get('/transcript/:id', maintenanceGate, requireDiscordOrTicketToken, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'transcript.html')));
 
@@ -1245,6 +1264,74 @@ app.get('/api/dashboard-stats', maintenanceGate, requireAuth, requireTabPermissi
     }
 
     res.json({ openCount, closedThisWeek, avgRating, avgResolutionMinutes, leaderboard, leaderboardWindow });
+});
+
+// ---------------------------------------------------------------------------
+// DANGER ZONE — Administrator-only, not linked in navigation
+// ---------------------------------------------------------------------------
+app.get('/api/danger-zone/stats', maintenanceGate, requireAuth, requireHardAdmin, (req, res) => {
+    const guild = getTargetGuild();
+    const openCount = Array.from(openTickets.values()).filter(t => !guild || t.guildId === guild.id).length;
+    res.json({
+        openTickets: openCount,
+        archivedTickets: archivedTickets.size,
+        feedbackEntries: (feedbackData || []).length,
+        auditLogEntries: auditLogs.length
+    });
+});
+
+const DANGER_ZONE_CONFIRM_PHRASE = 'RESET EVERYTHING';
+
+app.post('/api/danger-zone/reset', maintenanceGate, requireAuth, requireHardAdmin, async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+
+    const confirmText = String(req.body?.confirmText || '');
+    if (confirmText !== DANGER_ZONE_CONFIRM_PHRASE) {
+        return res.status(400).json({ error: `Type "${DANGER_ZONE_CONFIRM_PHRASE}" exactly to confirm.` });
+    }
+    const alsoWipeFeedback = Boolean(req.body?.wipeFeedback);
+    const alsoWipeAuditLog = Boolean(req.body?.wipeAuditLog);
+    const byName = resolveActorName(req);
+
+    const openTicketEntries = Array.from(openTickets.entries()).filter(([, t]) => t.guildId === guild.id);
+    const counts = {
+        openTickets: openTicketEntries.length,
+        archivedTickets: archivedTickets.size,
+        feedbackEntries: alsoWipeFeedback ? (feedbackData || []).length : 0,
+        auditLogEntries: alsoWipeAuditLog ? auditLogs.length : 0
+    };
+
+    // Best-effort delete the live Discord channels for every open ticket —
+    // a failure on any single channel doesn't stop the rest of the reset.
+    let channelsDeleted = 0;
+    for (const [channelId] of openTicketEntries) {
+        try {
+            const ch = await guild.channels.fetch(channelId).catch(() => null);
+            if (ch) { await ch.delete().catch(() => {}); channelsDeleted++; }
+        } catch (err) {
+            console.error('[danger-zone] failed to delete channel', channelId, err.message);
+        }
+    }
+
+    openTickets.clear();
+    archivedTickets.clear();
+    await saveOpenTickets();
+    await saveArchive();
+
+    if (alsoWipeFeedback) {
+        feedbackData.length = 0;
+        await saveFeedback();
+    }
+    if (alsoWipeAuditLog) {
+        auditLogs.length = 0;
+    }
+
+    // Always recorded, even if the audit log itself was just wiped — this is
+    // the one entry that can never be skipped, so a reset is never silent.
+    logAudit('DANGER_ZONE_RESET', byName, `Full reset: ${counts.openTickets} open tickets (${channelsDeleted} channels deleted), ${counts.archivedTickets} archived transcripts${alsoWipeFeedback ? `, ${counts.feedbackEntries} feedback entries` : ''}${alsoWipeAuditLog ? `, ${counts.auditLogEntries} prior audit log entries` : ''} — all permanently removed`);
+
+    res.json({ success: true, counts, channelsDeleted });
 });
 
 

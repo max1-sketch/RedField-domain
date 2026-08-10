@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Danger Zone</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --accent: {{ACCENT_COLOR}};
+  --bg-0: #0a0c11;
+  --sidebar-bg: #0d0f16;
+  --panel: #141722;
+  --panel-2: #1a1e2b;
+  --border: #262b3a;
+  --ink: #e7e9ee;
+  --muted: #9199a8;
+  --faint: #5b6272;
+  --red: #ef4444;
+  --green: #22c55e;
+  --amber: #f59e0b;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { min-height: 100vh; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+a { color: inherit; text-decoration: none; }
+.mono { font-family: 'IBM Plex Mono', monospace; }
+.site-banner { background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; }
+
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar { width: 250px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.sidebar-brand { display: flex; align-items: center; gap: 10px; background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px; margin-bottom: 18px; line-height: 1.25; }
+.sidebar-brand .dot { width: 8px; height: 8px; border-radius: 50%; background: #0a0c11; flex-shrink: 0; opacity: .55; }
+nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); font-size: 13.5px; font-weight: 500; }
+.nav-item:hover { background: var(--panel-2); color: var(--ink); }
+.nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
+.nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
+.nav-item .ic svg { width: 100%; height: 100%; }
+
+.sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
+.session-line.warn { color: var(--red); }
+
+.content-area { flex: 1; min-width: 0; padding: 26px 30px 70px; max-width: 720px; }
+.page-title { font-size: 20px; font-weight: 800; color: var(--red); margin: 0 0 4px; display: flex; align-items: center; gap: 10px; }
+.page-sub { font-size: 13px; color: var(--muted); margin: 0 0 22px; line-height: 1.6; }
+.unlisted-note { font-size: 11.5px; color: var(--faint); background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px; padding: 9px 12px; margin: 0 0 22px; }
+
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin-bottom: 16px; }
+.card-header { font-size: 15px; font-weight: 700; color: var(--ink); margin: 0 0 14px; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 4px; }
+.stat-tile { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+.stat-tile .label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); font-weight: 600; margin-bottom: 5px; }
+.stat-tile .value { font-size: 20px; font-weight: 800; color: var(--ink); }
+
+.quick-links { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 10px 16px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-ghost { background: var(--panel-2); color: var(--ink); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--accent); }
+
+.danger-card { border: 1px solid rgba(239,68,68,0.35); background: rgba(239,68,68,0.04); }
+.danger-card .card-header { color: var(--red); }
+.danger-warn { font-size: 12.5px; color: #fca5a5; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); border-radius: 7px; padding: 12px 14px; margin-bottom: 16px; line-height: 1.6; }
+.danger-warn ul { margin: 8px 0 0; padding-left: 18px; }
+.danger-warn li { margin-bottom: 3px; }
+
+.check-row { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: var(--ink); margin-bottom: 10px; cursor: pointer; }
+.check-row input { margin-top: 2px; cursor: pointer; }
+.check-row .hint { display: block; color: var(--faint); font-size: 11.5px; margin-top: 2px; }
+
+.field { margin: 16px 0 14px; }
+.field label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); font-weight: 600; display: block; margin-bottom: 6px; }
+input[type=text] {
+  width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: var(--ink);
+  padding: 10px 12px; border-radius: 7px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;
+}
+input[type=text]:focus { outline: none; border-color: var(--red); }
+
+.btn-danger-solid { background: var(--red); color: #fff; width: 100%; justify-content: center; padding: 12px; font-size: 13.5px; }
+.btn-danger-solid:hover:not(:disabled) { opacity: .9; }
+.btn-danger-solid:disabled { opacity: .4; cursor: not-allowed; }
+
+.result-box { font-size: 12.5px; border-radius: 7px; padding: 12px 14px; margin-top: 14px; line-height: 1.6; }
+.result-box.ok { background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.3); color: #86efac; }
+.result-box.err { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+
+.loading-line { font-size: 13px; color: var(--faint); padding: 24px 0; text-align: center; }
+
+@media (max-width: 860px) {
+  .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
+  .sidebar.open { transform: translateX(0); }
+  .content-area { padding: 18px 16px 50px; }
+}
+</style>
+</head>
+<body>
+
+{{BANNER_HTML}}
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
+    <nav class="sidebar-nav" id="navTabs"></nav>
+    <div class="sidebar-footer">
+      <a href="/account" class="nav-item">👤 My Account</a>
+      <span class="session-line mono" id="sessionClock">session --:--</span>
+      <a href="/logout" class="nav-item"><span class="ic" id="logoutIcon"></span> Log out</a>
+    </div>
+  </aside>
+
+  <main class="content-area">
+    <h1 class="page-title">⚠️ Danger Zone</h1>
+    <p class="page-sub">Administrator-only tools for viewing everything at a glance and, if you really need to, wiping it.</p>
+    <div class="unlisted-note">This page is intentionally not linked anywhere in the sidebar. It's still protected by your normal Administrator login — bookmark the URL if you want quick access to it.</div>
+
+    <div class="card">
+      <div class="card-header">Everything, at a glance</div>
+      <div class="stat-grid" id="statGrid">
+        <div class="stat-tile"><div class="label">Open Tickets</div><div class="value">—</div></div>
+        <div class="stat-tile"><div class="label">Archived Transcripts</div><div class="value">—</div></div>
+        <div class="stat-tile"><div class="label">Feedback Entries</div><div class="value">—</div></div>
+        <div class="stat-tile"><div class="label">Audit Log Entries</div><div class="value">—</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">View everything</div>
+      <div class="quick-links">
+        <a class="btn btn-ghost" href="/tickets">Open Tickets →</a>
+        <a class="btn btn-ghost" href="/">Archived Transcripts →</a>
+        <a class="btn btn-ghost" href="/feedback">Feedback →</a>
+        <a class="btn btn-ghost" href="/audit-log">Audit Log →</a>
+      </div>
+    </div>
+
+    <div class="card danger-card">
+      <div class="card-header">Reset everything</div>
+      <div class="danger-warn">
+        This permanently deletes, with no way to undo it:
+        <ul>
+          <li>Every open ticket — including deleting the live Discord channel for each one</li>
+          <li>Every archived transcript</li>
+          <li>Optionally: feedback ratings and/or the audit log history (checkboxes below)</li>
+        </ul>
+        A single audit log entry recording that this reset happened, and who did it, is always added afterward — even if you choose to wipe the existing audit log too.
+      </div>
+
+      <label class="check-row">
+        <input type="checkbox" id="wipeFeedback">
+        <span>Also permanently delete all feedback ratings<span class="hint">Off by default — feedback isn't ticket data.</span></span>
+      </label>
+      <label class="check-row">
+        <input type="checkbox" id="wipeAuditLog">
+        <span>Also permanently delete the existing audit log history<span class="hint">Off by default. The reset itself still gets logged either way.</span></span>
+      </label>
+
+      <div class="field">
+        <label>Type "RESET EVERYTHING" to confirm</label>
+        <input type="text" id="confirmInput" autocomplete="off" placeholder="RESET EVERYTHING">
+      </div>
+
+      <button class="btn btn-danger-solid" id="resetBtn" disabled>Permanently reset everything</button>
+      <div id="resultBox"></div>
+    </div>
+  </main>
+</div>
+
+<script src="/theme.js"></script>
+<script>
+function esc(str) {
+  return (str === undefined || str === null ? '' : String(str))
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+if (typeof RF !== 'undefined' && RF.startSessionClock) {
+  RF.startSessionClock(document.getElementById('sessionClock'));
+}
+
+async function initNav() {
+  try {
+    const res = await fetch('/api/guild');
+    if (res.ok) {
+      const g = await res.json();
+      const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions?.allowedTabs : null;
+      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, allowedTabs);
+    } else {
+      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
+    }
+  } catch {
+    document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
+  }
+  const logoutIconEl = document.getElementById('logoutIcon');
+  if (logoutIconEl && RF.ICONS?.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
+}
+
+async function loadStats() {
+  try {
+    const res = await fetch('/api/danger-zone/stats');
+    if (!res.ok) return;
+    const stats = await res.json();
+    const tiles = document.querySelectorAll('#statGrid .stat-tile .value');
+    if (tiles[0]) tiles[0].textContent = stats.openTickets;
+    if (tiles[1]) tiles[1].textContent = stats.archivedTickets;
+    if (tiles[2]) tiles[2].textContent = stats.feedbackEntries;
+    if (tiles[3]) tiles[3].textContent = stats.auditLogEntries;
+  } catch (err) {
+    console.error('[danger-zone] stats load failed:', err);
+  }
+}
+
+const CONFIRM_PHRASE = 'RESET EVERYTHING';
+const confirmInput = document.getElementById('confirmInput');
+const resetBtn = document.getElementById('resetBtn');
+confirmInput.addEventListener('input', () => {
+  resetBtn.disabled = confirmInput.value !== CONFIRM_PHRASE;
+});
+
+resetBtn.addEventListener('click', async () => {
+  const resultBox = document.getElementById('resultBox');
+  resultBox.innerHTML = '';
+
+  const sure = window.confirm('This permanently deletes all tickets and transcripts and cannot be undone. Are you absolutely sure?');
+  if (!sure) return;
+
+  resetBtn.disabled = true;
+  const originalLabel = resetBtn.textContent;
+  resetBtn.textContent = 'Resetting…';
+
+  try {
+    const res = await fetch('/api/danger-zone/reset', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        confirmText: confirmInput.value,
+        wipeFeedback: document.getElementById('wipeFeedback').checked,
+        wipeAuditLog: document.getElementById('wipeAuditLog').checked
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      resultBox.innerHTML = `<div class="result-box ok">✓ Reset complete. Removed ${data.counts.openTickets} open ticket(s) (${data.channelsDeleted} Discord channel(s) deleted) and ${data.counts.archivedTickets} archived transcript(s)${data.counts.feedbackEntries ? `, ${data.counts.feedbackEntries} feedback entries` : ''}${data.counts.auditLogEntries ? `, ${data.counts.auditLogEntries} prior audit log entries` : ''}.</div>`;
+      confirmInput.value = '';
+      loadStats();
+    } else {
+      resultBox.innerHTML = `<div class="result-box err">${esc(data.error || 'Could not complete the reset — try again.')}</div>`;
+    }
+  } catch (err) {
+    resultBox.innerHTML = `<div class="result-box err">Couldn't reach the server. (${esc(err.message || 'unknown error')})</div>`;
+  }
+
+  resetBtn.textContent = originalLabel;
+  resetBtn.disabled = confirmInput.value !== CONFIRM_PHRASE;
+});
+
+initNav();
+loadStats();
+</script>
+</body>
+</html>

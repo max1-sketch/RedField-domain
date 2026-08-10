@@ -223,8 +223,8 @@ function render(me) {
     <div class="card">
       <div class="card-header"><h2>Session</h2></div>
       <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.6;">${me.tier === 'master'
-        ? "You're signed in with the shared access code, not a personal Discord login — sessions last 10 minutes and there's no personal account to sign out of individually."
-        : "Your session lasts 10 minutes of inactivity, then you'll be asked to sign in again."}</p>
+        ? "You're signed in with the shared access code, not a personal Discord login — sessions last 1 hour and there's no personal account to sign out of individually."
+        : "Your session lasts 1 hour, then you'll be asked to sign in again."}</p>
       <a href="/logout" class="btn btn-danger" style="text-decoration:none;">Log out now</a>
     </div>
   `;
