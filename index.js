@@ -661,6 +661,38 @@ if (ctx.tier === 'master' || ctx.tier === 'admin') return next();
 const app = express();
 app.use(express.json());
 
+// ---------------------------------------------------------------------------
+// SECURITY HEADERS
+// ---------------------------------------------------------------------------
+// Addresses a hardening scan: clickjacking protection, MIME-sniffing
+// protection, HSTS, and a real Content-Security-Policy. Every view in this
+// app relies heavily on inline <script> and inline style="" attributes
+// (that's how the whole codebase is built), so 'unsafe-inline' stays in for
+// script-src/style-src rather than breaking every page — a fully strict,
+// nonce-based CSP would need every view file rewritten to move scripts and
+// inline styles out, which is a much bigger job than this header pass.
+// 'unsafe-eval' is deliberately left out entirely; we don't need it anywhere.
+app.use((req, res, next) => {
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+    res.setHeader('Content-Security-Policy', [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline'",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: https:",
+        "connect-src 'self' ws: wss:",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "frame-src 'self'",
+        "frame-ancestors 'none'"
+    ].join('; '));
+    next();
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: '*', methods: ['GET', 'POST'] }
