@@ -635,18 +635,9 @@ function parseCookies(req) {
     });
     return cookies;
 }
+// Keep only THIS single declaration near the top:
+const SESSION_SECRET = process.env.SESSION_SECRET || 'RedFeild22';
 
-const SESSION_SECRET_FILE = path.join(DATA_DIR, 'sessionSecret.txt');
-let SESSION_SECRET;
-try {
-    if (fs.existsSync(SESSION_SECRET_FILE)) SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim();
-} catch (err) {
-    console.error('Could not read session secret:', err);
-}
-if (!SESSION_SECRET) {
-    SESSION_SECRET = crypto.randomBytes(32).toString('hex');
-    try { fs.writeFileSync(SESSION_SECRET_FILE, SESSION_SECRET); } catch (err) { console.error('Could not persist session secret:', err); }
-}
 function signDiscordSession(payload) {
     const b64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
     const sig = crypto.createHmac('sha256', SESSION_SECRET).update(b64).digest('base64url');
