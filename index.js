@@ -1365,8 +1365,24 @@ app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requir
             .setCustomId('open_ticket_select')
             .setPlaceholder('Open A Ticket')
             .addOptions(panelEntries.map(([typeKey, p]) => {
-                const opt = { label: clamp(p.buttonLabel || typeKey, 100) || typeKey, value: typeKey, description: clamp(p.title || '', 100) || undefined };
-                if (p.emoji && isValidEmoji(p.emoji)) opt.emoji = p.emoji;
+                const opt = { 
+                    label: clamp(p.buttonLabel || typeKey, 100) || typeKey, 
+                    value: typeKey, 
+                    description: clamp(p.title || '', 100) || undefined 
+                };
+
+                // SAFELY PARSE EMOJI FOR DROPDOWN OPTIONS
+                if (p.emoji && p.emoji.trim()) {
+                    const rawEmoji = p.emoji.trim();
+                    const customMatch = rawEmoji.match(/<a?:(\w+):(\d+)>/);
+                    
+                    if (customMatch) {
+                        opt.emoji = { id: customMatch[2], name: customMatch[1] };
+                    } else if (isValidEmoji(rawEmoji)) {
+                        opt.emoji = rawEmoji;
+                    }
+                }
+
                 return opt;
             }));
 
@@ -1379,7 +1395,6 @@ app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requir
         res.status(500).json({ error: `Could not post the dropdown. (${err.message})` });
     }
 });
-
 app.delete('/api/guild/panels/:typeKey', maintenanceGate, requireAuth, requireTabPermission('panels'), (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
