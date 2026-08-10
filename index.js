@@ -38,16 +38,13 @@ if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) 
 }
 
 // ---------------------------------------------------------------------------
-// CONFIG / ENV & CONSTANTS
+// CONFIG / ENV
 // ---------------------------------------------------------------------------
 const GUILD_ID = process.env.GUILD_ID || null;
-const SESSION_SECONDS = 24 * 60 * 60; // 24 Hours Session Lifetime
 
 function getWebsiteUrl() {
-    if (process.env.WEBSITE_URL) return process.env.WEBSITE_URL.replace(/\/+$/, '');
-    if (process.env.RENDER_EXTERNAL_URL) return process.env.RENDER_EXTERNAL_URL.replace(/\/+$/, '');
-    const port = process.env.PORT || 3002;
-    return `http://localhost:${port}`;
+    const url = process.env.WEBSITE_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:3002';
+    return url.replace(/\/+$/, '');
 }
 
 // ---------------------------------------------------------------------------
@@ -59,6 +56,7 @@ const CONFIG_FILE = path.join(DATA_DIR, 'guildConfigs.json');
 const SITE_CONFIG_FILE = path.join(DATA_DIR, 'siteConfig.json');
 const BLOCKLIST_FILE = path.join(DATA_DIR, 'blockedGuilds.json');
 const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
+const QUICKWORDS_FILE = path.join(DATA_DIR, 'quickWords.json');
 const AUDIT_LOG_FILE = path.join(DATA_DIR, 'auditLog.json');
 const APPLICATIONS_FILE = path.join(DATA_DIR, 'applications.json');
 
@@ -291,6 +289,62 @@ async function saveConfigs() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// PER-COMMAND ENABLE / RESTRICT SETTINGS
+// ---------------------------------------------------------------------------
+// Every slash command can be individually turned off, or restricted to a
+// minimum tier ('everyone' | 'staff' | 'admin') from the website. New
+// commands ship with sensible defaults below; an Administrator can loosen or
+// tighten any of them from the Bot Commands settings page.
+function defaultCommandSettings() {
+    return {
+        ping: { enabled: true, minTier: 'everyone' },
+        id: { enabled: true, minTier: 'everyone' },
+        permissionlevel: { enabled: true, minTier: 'everyone' },
+        new: { enabled: true, minTier: 'everyone' },
+        add: { enabled: true, minTier: 'staff' },
+        remove: { enabled: true, minTier: 'staff' },
+        rename: { enabled: true, minTier: 'staff' },
+        transcript: { enabled: true, minTier: 'staff' },
+        purge: { enabled: true, minTier: 'admin' },
+        claim: { enabled: true, minTier: 'staff' },
+        unclaim: { enabled: true, minTier: 'staff' },
+        close: { enabled: true, minTier: 'staff' },
+        closerequest: { enabled: true, minTier: 'staff' },
+        transfer: { enabled: true, minTier: 'staff' },
+        priority: { enabled: true, minTier: 'staff' },
+        tag: { enabled: true, minTier: 'staff' },
+        blacklist: { enabled: true, minTier: 'staff' },
+        unblacklist: { enabled: true, minTier: 'staff' },
+        duty: { enabled: true, minTier: 'staff' },
+        sendpanels: { enabled: true, minTier: 'staff' },
+        setup: { enabled: true, minTier: 'staff' },
+        configure: { enabled: true, minTier: 'staff' },
+        'config-site': { enabled: true, minTier: 'staff' }
+    };
+}
+const COMMAND_TIER_RANK = { everyone: 0, staff: 1, admin: 2 };
+function getCommandSetting(guildConfig, name) {
+    return (guildConfig.commandSettings && guildConfig.commandSettings[name]) || { enabled: true, minTier: 'staff' };
+}
+function memberCommandTier(member, guildConfig) {
+    if (isAdmin(member, guildConfig)) return 'admin';
+    if (isStaff(member, guildConfig)) return 'staff';
+    return 'everyone';
+}
+function checkCommandAccess(interaction, guildConfig, name) {
+    const setting = getCommandSetting(guildConfig, name);
+    if (!setting.enabled) return { ok: false, reason: 'disabled' };
+    const tier = memberCommandTier(interaction.member, guildConfig);
+    if ((COMMAND_TIER_RANK[tier] ?? 1) < (COMMAND_TIER_RANK[setting.minTier] ?? 1)) return { ok: false, reason: 'restricted' };
+    return { ok: true };
+}
+function commandAccessDeniedReply(access) {
+    return access.reason === 'disabled'
+        ? '❌ This command has been disabled by an Administrator.'
+        : "❌ You don't have permission to use this command.";
+}
+
 function defaultConfig() {
     return {
         panels: {
@@ -324,7 +378,8 @@ function defaultConfig() {
                 title: 'Bug Report',
                 description: 'This panel is for reporting bugs found on Redfield!\n\nOnly open a ticket if you require the following:\n• Reporting a bug\n\n**Do not** open this ticket to ask for mod.',
                 buttonLabel: 'Bug Report',
-                emoji: 'Secondary',
+                emoji: '🐛',
+                style: 'Secondary',
                 color: 0xf1c40f,
                 promptLabel: 'Describe the bug (steps to reproduce)',
                 categoryName: 'BUG TICKETS',
@@ -359,10 +414,14 @@ function getGuildConfig(guildId) {
     const savedPanels = saved.panels || {};
 
     merged.panels = {};
+    // Built-in panels: merge each with whatever's been saved for it.
     for (const key of Object.keys(def.panels)) {
         merged.panels[key] = { ...def.panels[key], ...(savedPanels[key] || {}) };
         if (!Array.isArray(merged.panels[key].teamRoleIds)) merged.panels[key].teamRoleIds = [];
     }
+    // Custom panels created via the website aren't in def.panels, so the loop
+    // above never touches them — without this they were being dropped and
+    // re-saved without them on literally every request after creation.
     for (const key of Object.keys(savedPanels)) {
         if (merged.panels[key]) continue;
         merged.panels[key] = { ...savedPanels[key] };
@@ -373,6 +432,17 @@ function getGuildConfig(guildId) {
     merged.adminRoleIds = Array.isArray(saved.adminRoleIds) ? saved.adminRoleIds : def.adminRoleIds;
     merged.tags = Array.isArray(saved.tags) ? saved.tags : def.tags;
     merged.staffRestrictions = saved.staffRestrictions || {};
+
+    const defCmdSettings = defaultCommandSettings();
+    const savedCmdSettings = saved.commandSettings || {};
+    merged.commandSettings = {};
+    for (const key of Object.keys(defCmdSettings)) {
+        merged.commandSettings[key] = { ...defCmdSettings[key], ...(savedCmdSettings[key] || {}) };
+    }
+    for (const key of Object.keys(savedCmdSettings)) {
+        if (merged.commandSettings[key]) continue;
+        merged.commandSettings[key] = savedCmdSettings[key];
+    }
 
     if (!saved.staffPermissions) {
         merged.staffPermissions = def.staffPermissions;
@@ -517,21 +587,14 @@ function getViewerContext(req, guild, guildConfig) {
     const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'quickwords', 'settings'];
     const authUser = req.authUser;
     
-    // 1. Not authenticated
+    // 1. Not authenticated at all
     if (!authUser) return { tier: 'none', allowedTabs: [], canModerate: false };
 
-    // 2. Hardcoded Master/Developer override or Access Code Login
-    if (!authUser.id || authUser.id === '1341132123159007414') {
-        return { tier: 'master', allowedTabs: ALL_TABS, canModerate: true };
-    }
+    // 2. Access Code Login or Master
+    if (!authUser.id) return { tier: 'master', allowedTabs: ALL_TABS, canModerate: true };
 
-    // 3. If bot isn't connected to a guild yet, default safely
-    if (!guild || !guildConfig) {
-        return { tier: 'none', allowedTabs: [], canModerate: false };
-    }
-
-    // 4. Discord OAuth User checks
-    const member = guild.members.cache.get(authUser.id);
+    // 3. Discord OAuth User
+    const member = guild ? guild.members.cache.get(authUser.id) : null;
     
     if (isAdmin(member, guildConfig)) {
         return { tier: 'admin', allowedTabs: ALL_TABS, canModerate: true };
@@ -549,6 +612,9 @@ function getViewerContext(req, guild, guildConfig) {
         };
     }
 
+    // 4. Anyone who is authenticated but isn't recognized as staff/admin (including a
+    // guild-member cache miss) gets NO access — never fall back to granting staff
+    // permissions. A cache miss is not the same thing as being staff.
     return { tier: 'none', allowedTabs: [], canModerate: false };
 }
 
@@ -559,13 +625,6 @@ function requireTabPermission(tabName) {
         const guildConfig = getGuildConfig(guild.id);
         const ctx = getViewerContext(req, guild, guildConfig);
 
-        console.log('🛡️ [TAB PERM DEBUG]', {
-            tabName,
-            tier: ctx.tier,
-            allowedTabs: ctx.allowedTabs,
-            userId: req.authUser?.id || null
-        });
-
         if (ctx.tier === 'master' || ctx.tier === 'admin') return next();
         if (ctx.tier === 'staff' && ctx.allowedTabs.includes(tabName)) return next();
 
@@ -573,7 +632,6 @@ function requireTabPermission(tabName) {
             return res.status(403).json({ error: 'Access denied: Tab restricted by an Administrator.' });
         }
         
-        console.log(`❌ [TAB PERM DENIED] User tier "${ctx.tier}" missing tab "${tabName}". Bouncing to /login.`);
         return res.redirect('/login');
     };
 }
@@ -591,7 +649,7 @@ function requireModerationCapability(req, res, next) {
         }
     }
 
-    if (ctx.tier === 'master' || ctx.tier === 'admin') return next();
+if (ctx.tier === 'master' || ctx.tier === 'admin') return next();
     if (ctx.tier === 'staff' && ctx.allowedTabs.includes('moderation') && ctx.canModerate) return next();
 
     return res.status(403).json({ error: 'Moderation actions are disabled for your Staff role by an Administrator.' });
@@ -601,13 +659,7 @@ function requireModerationCapability(req, res, next) {
 // EXPRESS WEB SERVER & SOCKET.IO SETUP
 // ---------------------------------------------------------------------------
 const app = express();
-app.enable('trust-proxy');
 app.use(express.json());
-
-app.use((req, res, next) => {
-    console.log(`📡 [INCOMING REQUEST] ${req.method} ${req.url}`);
-    next();
-});
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -634,9 +686,19 @@ function parseCookies(req) {
     });
     return cookies;
 }
-// Keep only THIS single declaration near the top:
-const SESSION_SECRET = process.env.SESSION_SECRET || 'RedFeild22';
 
+const SESSION_SECONDS = 10 * 60;
+const SESSION_SECRET_FILE = path.join(DATA_DIR, 'sessionSecret.txt');
+let SESSION_SECRET;
+try {
+    if (fs.existsSync(SESSION_SECRET_FILE)) SESSION_SECRET = fs.readFileSync(SESSION_SECRET_FILE, 'utf8').trim();
+} catch (err) {
+    console.error('Could not read session secret:', err);
+}
+if (!SESSION_SECRET) {
+    SESSION_SECRET = crypto.randomBytes(32).toString('hex');
+    try { fs.writeFileSync(SESSION_SECRET_FILE, SESSION_SECRET); } catch (err) { console.error('Could not persist session secret:', err); }
+}
 function signDiscordSession(payload) {
     const b64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
     const sig = crypto.createHmac('sha256', SESSION_SECRET).update(b64).digest('base64url');
@@ -666,17 +728,7 @@ function isRequestAuthed(req) {
 }
 
 function requireAuth(req, res, next) {
-    const cookies = parseCookies(req);
     const authUser = isRequestAuthed(req);
-
-    console.log('🔍 [AUTH DEBUG]', {
-        path: req.path,
-        hasDiscordCookie: Boolean(cookies.discordAuth),
-        hasTicketCookie: Boolean(cookies.ticketAuth),
-        authenticated: Boolean(authUser),
-        userId: authUser?.id || null
-    });
-
     if (authUser) {
         if (authUser.id) {
             const guild = getTargetGuild();
@@ -732,11 +784,7 @@ app.get('/auth/discord', (req, res) => {
         } catch (e) {}
     }
 
-    let safeReturnTo = (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/';
-    
-    // FIX: If return URL is /login, force redirect to dashboard / after Discord auth
-    if (safeReturnTo === '/login') safeReturnTo = '/';
-
+    const safeReturnTo = (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) ? returnTo : '/';
     const state = crypto.randomBytes(16).toString('hex');
 
     res.setHeader('Set-Cookie', [
@@ -753,32 +801,19 @@ app.get('/auth/discord', (req, res) => {
     });
     res.redirect(`https://discord.com/oauth2/authorize?${params.toString()}`);
 });
+
 app.get('/auth/discord/callback', async (req, res) => {
     const cookies = parseCookies(req);
     const { code, state, error: oauthError } = req.query;
     const rawReturnTo = cookies.oauthReturnTo ? decodeURIComponent(cookies.oauthReturnTo) : '/';
     const returnTo = (rawReturnTo && rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')) ? rawReturnTo : '/';
 
-    if (oauthError) {
-        console.error('❌ [OAUTH ERROR] User denied or Discord OAuth error:', oauthError);
-        return res.redirect('/login?error=discord_denied');
-    }
+    if (oauthError) return res.redirect('/login?error=discord_denied');
     if (!DISCORD_LOGIN_CONFIGURED) return res.status(503).send('Discord login is not configured.');
-    
-    if (!code) {
-        console.error('❌ [OAUTH ERROR] Missing auth code from Discord.');
-        return res.redirect('/login?error=discord_failed');
-    }
+    if (!code || !state || state !== cookies.oauthState) return res.redirect('/login?error=discord_failed');
 
     try {
         const redirectUri = `${getWebsiteUrl()}/auth/discord/callback`;
-        
-        console.log('🔄 [OAUTH EXCHANGING TOKEN]', {
-            clientId: process.env.DISCORD_CLIENT_ID ? 'SET' : 'MISSING',
-            clientSecret: process.env.DISCORD_CLIENT_SECRET ? 'SET' : 'MISSING',
-            redirectUri
-        });
-
         const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -792,55 +827,45 @@ app.get('/auth/discord/callback', async (req, res) => {
         });
         const tokenData = await tokenRes.json();
 
-        if (!tokenData.access_token) {
-            console.error('❌ [DISCORD TOKEN ERROR] Discord API rejected the request:', tokenData);
-            return res.redirect('/login?error=discord_failed');
-        }
-
         const userRes = await fetch('https://discord.com/api/users/@me', {
             headers: { Authorization: `Bearer ${tokenData.access_token}` }
         });
         const discordUser = await userRes.json();
 
         const guild = getTargetGuild();
-        let member = null;
-        if (guild) {
-            member = guild.members.cache.get(discordUser.id) || await guild.members.fetch(discordUser.id).catch(() => null);
-        }
-
+        const member = guild ? await guild.members.fetch(discordUser.id).catch(() => null) : null;
         const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
         const staff = Boolean(member && isStaff(member, guildConfig));
 
-        console.log('🔑 [DISCORD LOGIN SUCCESS]', {
-            discordId: discordUser.id,
-            username: discordUser.username,
-            staff
-        });
-
+        // Always issue a session, staff or not — the routes that actually need
+        // to be staff-only (dashboard tabs via requireTabPermission) already
+        // enforce that correctly on their own, and requireDiscordOrTicketToken
+        // already has its own opener-or-staff check for transcripts. Bouncing
+        // every non-staff login to /coming-soon here, before any of that ever
+        // ran, was breaking transcript access for ticket openers — they aren't
+        // staff, but they ARE allowed to see their own transcript.
         const expiresAt = Date.now() + SESSION_SECONDS * 1000;
-        const userTag = member ? member.user.tag : (discordUser.discriminator && discordUser.discriminator !== '0' ? `${discordUser.username}#${discordUser.discriminator}` : discordUser.username);
-        
-        const session = signDiscordSession({ id: discordUser.id, tag: userTag, exp: expiresAt });
-
-        const isHttps = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https';
-        const cookieFlags = `HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax${isHttps ? '; Secure' : ''}`;
-
+        const session = signDiscordSession({ id: discordUser.id, tag: member ? member.user.tag : discordUser.username, exp: expiresAt });
         res.setHeader('Set-Cookie', [
-            `discordAuth=${session}; ${cookieFlags}`,
-            `sessionExpires=${expiresAt}; ${cookieFlags}`,
+            `discordAuth=${session}; HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
+            `sessionExpires=${expiresAt}; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
             'oauthState=; Path=/; Max-Age=0',
             'oauthReturnTo=; Path=/; Max-Age=0'
         ]);
+        logAudit('DISCORD_LOGIN', discordUser.username, `Logged in via Discord OAuth2`);
 
-        logAudit('DISCORD_LOGIN', userTag, `Logged in via Discord OAuth2 (Staff: ${staff})`);
-
+        // A generic sign-in with nowhere specific to go (no transcript, no
+        // particular page) from someone who isn't staff has no dashboard page
+        // they can actually see — send them to coming-soon instead of a page
+        // they'd immediately get turned away from. Anyone headed somewhere
+        // specific (a transcript link, etc.) goes there and lets that route's
+        // own permission check decide.
         if (!staff && returnTo === '/') {
-            return res.redirect('/coming-soon');
+            return res.redirect('/coming-soon?notStaff=1');
         }
-
         res.redirect(returnTo);
     } catch (err) {
-        console.error('❌ [DISCORD OAUTH CATCH EXCEPTION]:', err);
+        console.error('[discord oauth] failed:', err);
         res.redirect('/login?error=discord_failed');
     }
 });
@@ -879,42 +904,54 @@ app.get('/version-check.js', (req, res) => {
 app.use(express.static(path.join(__dirname, 'views'), { index: false }));
 
 function requireDiscordOrTicketToken(req, res, next) {
-    const cookies = parseCookies(req);
-    const session = verifyDiscordSession(cookies.discordAuth);
-
-    if (!session) {
-        if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized: Discord sign-in required.' });
-        return res.redirect(`/auth/discord?returnTo=${encodeURIComponent(req.path)}`);
-    }
-
-    const guild = getTargetGuild();
-    const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
-    const restriction = getStaffRestriction(guildConfig, session.id);
-
-    if (isSiteBanned(restriction) || isLoginBlocked(restriction)) {
-        clearAuthCookies(res);
-        if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Your access to website transcripts has been banned by an Administrator.' });
-        return res.status(403).send('🔒 Your access to transcripts has been suspended.');
-    }
-
-    req.authUser = session;
-
-    const ticket = archivedTickets.get(req.params.id);
-    if (!ticket) {
-        if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Transcript not found.' });
-        return res.status(404).send('Transcript not found.');
-    }
-
-    const member = guild ? guild.members.cache.get(session.id) : null;
-    const isStaffUser = member && isStaff(member, guildConfig);
-    const isTicketOpener = ticket.openedById === session.id;
-
-    if (isStaffUser || isTicketOpener) {
+    // Staff who are already signed in — whether via the shared access code or
+    // an already-staff Discord session — have full dashboard access and
+    // shouldn't need a *separate* Discord login just to open a transcript
+    // link. Only fall back to requiring one when nobody's authenticated yet.
+    const authed = isRequestAuthed(req);
+    if (authed) {
+        if (authed.id) {
+            const guild = getTargetGuild();
+            const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
+            const restriction = getStaffRestriction(guildConfig, authed.id);
+            if (isSiteBanned(restriction) || isLoginBlocked(restriction)) {
+                clearAuthCookies(res);
+                if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Your access to website transcripts has been banned by an Administrator.' });
+                return res.status(403).send('🔒 Your access to transcripts has been suspended.');
+            }
+            const member = guild ? guild.members.cache.get(authed.id) : null;
+            if (member && isStaff(member, guildConfig)) {
+                req.authUser = authed;
+                return next();
+            }
+            // Discord session but not staff — only their own ticket is allowed.
+            const ticket = archivedTickets.get(req.params.id);
+            if (!ticket) {
+                if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Transcript not found.' });
+                return res.status(404).send('Transcript not found.');
+            }
+            if (ticket.openedById === authed.id) {
+                req.authUser = authed;
+                return next();
+            }
+            if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Access denied: You do not have permission to view this transcript.' });
+            return res.status(403).send('<h2 style="font-family:sans-serif;color:#ef4444;padding:40px;text-align:center;background:#0a0c11;min-height:100vh;margin:0;">🔒 Access Denied: You do not have permission to view this transcript.</h2>');
+        }
+        // Access-code ("master") login — full access, no extra check needed.
+        req.authUser = authed;
         return next();
     }
 
-    if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Access denied: You do not have permission to view this transcript.' });
-    return res.status(403).send('<h2 style="font-family:sans-serif;color:#ef4444;padding:40px;text-align:center;background:#0a0c11;min-height:100vh;margin:0;">🔒 Access Denied: You do not have permission to view this transcript.</h2>');
+    // Not authenticated at all yet — a valid transcript token in the URL
+    // (the link DMed to the opener when their ticket closed) works without
+    // any login; otherwise send them to sign in with Discord.
+    const ticket = archivedTickets.get(req.params.id);
+    if (ticket && ticket.accessToken && req.query.token && req.query.token === ticket.accessToken) {
+        return next();
+    }
+
+    if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized: Discord sign-in required.' });
+    return res.redirect(`/auth/discord?returnTo=${encodeURIComponent(req.path)}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -1013,6 +1050,7 @@ app.get('/shift-roster', maintenanceGate, requireAuth, requireTabPermission('shi
 app.get('/audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'audit-log.html')));
 app.get('/settings', maintenanceGate, requireAuth, requireTabPermission('settings'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'settings.html')));
 app.get('/account', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'account.html')));
+app.get('/bot-commands', maintenanceGate, requireAuth, requireTabPermission('settings'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'bot-commands.html')));
 app.get('/transcript/:id', maintenanceGate, requireDiscordOrTicketToken, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'transcript.html')));
 
 app.get('/api/tickets/:id', maintenanceGate, requireDiscordOrTicketToken, (req, res) => {
@@ -1021,6 +1059,10 @@ app.get('/api/tickets/:id', maintenanceGate, requireDiscordOrTicketToken, (req, 
     res.json(ticket);
 });
 
+// User Context API — used by the sidebar nav on every page, and by the
+// account page. Previously only handled a Discord session; a shared
+// access-code ("master") login just got a bare 401 with no way for the
+// account page to show anything sensible for that case.
 app.get('/api/me', (req, res) => {
     const cookies = parseCookies(req);
 
@@ -1299,6 +1341,9 @@ app.post('/api/guild/panels/create', maintenanceGate, requireAuth, requireTabPer
     res.json({ success: true, typeKey, panel: guildConfig.panels[typeKey] });
 });
 
+// Posts a single panel's embed + open-ticket button into a chosen text channel,
+// so panels no longer require running /sendpanels in Discord at all — staff can
+// configure and (re)post them entirely from this page.
 app.post('/api/guild/panels/:typeKey/post', maintenanceGate, requireAuth, requireTabPermission('panels'), async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
@@ -1318,23 +1363,7 @@ app.post('/api/guild/panels/:typeKey/post', maintenanceGate, requireAuth, requir
 
         const embed = new EmbedBuilder().setTitle(clamp(panel.title, 256)).setDescription(clamp(panel.description, 4096)).setColor(panel.color);
         const button = new ButtonBuilder().setCustomId(`open_ticket_${typeKey}`).setLabel(clamp(panel.buttonLabel, 80)).setStyle(STYLE_MAP[panel.style] || ButtonStyle.Secondary);
-
-        // SAFELY APPLY EMOJI TO BUTTON
-        if (panel.emoji && panel.emoji.trim()) {
-            const raw = panel.emoji.trim();
-            const customMatch = raw.match(/<a?:(\w+):(\d+)>/);
-            
-            try {
-                if (customMatch) {
-                    button.setEmoji(customMatch[2]); // Use custom Emoji ID
-                } else if (isValidEmoji(raw)) {
-                    button.setEmoji(raw);
-                }
-            } catch (emojiErr) {
-                console.warn(`[post panel] Invalid emoji "${raw}" skipped for button.`);
-            }
-        }
-
+        if (panel.emoji && isValidEmoji(panel.emoji)) button.setEmoji(panel.emoji);
         await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(button)] });
 
         panel.postChannelId = channelId;
@@ -1347,6 +1376,9 @@ app.post('/api/guild/panels/:typeKey/post', maintenanceGate, requireAuth, requir
     }
 });
 
+// Posts every configured panel as a single "Open A Ticket" dropdown message
+// instead of one embed+button per panel — players pick a type from the list
+// rather than scrolling past several separate panel messages.
 app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requireTabPermission('panels'), async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
@@ -1358,7 +1390,7 @@ app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requir
 
     const panelEntries = Object.entries(guildConfig.panels);
     if (!panelEntries.length) return res.status(400).json({ error: 'No panels configured yet.' });
-    if (panelEntries.length > 25) return res.status(400).json({ error: 'Discord dropdowns support at most 25 options.' });
+    if (panelEntries.length > 25) return res.status(400).json({ error: 'Discord dropdowns support at most 25 options, and you have more panels than that — post some individually instead.' });
 
     try {
         const channel = await guild.channels.fetch(channelId).catch(() => null);
@@ -1366,43 +1398,16 @@ app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requir
             return res.status(400).json({ error: 'That channel could not be found or is not a text channel.' });
         }
 
-        // Helper function to build options cleanly
-        const buildOptions = (includeEmojis = true) => panelEntries.map(([typeKey, p]) => {
-            const opt = { 
-                label: clamp(p.buttonLabel || typeKey, 100) || typeKey, 
-                value: typeKey, 
-                description: clamp(p.title || '', 100) || undefined 
-            };
-
-            if (includeEmojis && p.emoji && p.emoji.trim()) {
-                const raw = p.emoji.trim();
-                const customMatch = raw.match(/<(a)?:(\w+):(\d+)>/);
-                
-                if (customMatch) {
-                    opt.emoji = { name: customMatch[2], id: customMatch[3], animated: Boolean(customMatch[1]) };
-                } else if (!raw.includes('<') && !raw.includes(':')) {
-                    opt.emoji = raw; // Standard unicode emoji
-                }
-            }
-            return opt;
-        });
-
         const select = new StringSelectMenuBuilder()
             .setCustomId('open_ticket_select')
             .setPlaceholder('Open A Ticket')
-            .addOptions(buildOptions(true));
+            .addOptions(panelEntries.map(([typeKey, p]) => {
+                const opt = { label: clamp(p.buttonLabel || typeKey, 100) || typeKey, value: typeKey, description: clamp(p.title || '', 100) || undefined };
+                if (p.emoji && isValidEmoji(p.emoji)) opt.emoji = p.emoji;
+                return opt;
+            }));
 
-        try {
-            await channel.send({ content: messageText || undefined, components: [new ActionRowBuilder().addComponents(select)] });
-        } catch (discordErr) {
-            // Fail-safe fallback: If Discord rejects any emoji, strip them and post successfully
-            console.warn('[post dropdown] Emoji rejected by Discord API, posting without emojis:', discordErr.message);
-            const safeSelect = new StringSelectMenuBuilder()
-                .setCustomId('open_ticket_select')
-                .setPlaceholder('Open A Ticket')
-                .addOptions(buildOptions(false));
-            await channel.send({ content: messageText || undefined, components: [new ActionRowBuilder().addComponents(safeSelect)] });
-        }
+        await channel.send({ content: messageText || undefined, components: [new ActionRowBuilder().addComponents(select)] });
 
         logAudit('POST_PANEL_DROPDOWN', resolveActorName(req), `Posted combined panel dropdown (${panelEntries.length} panels) to #${channel.name}`);
         res.json({ success: true });
@@ -1411,6 +1416,40 @@ app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requir
         res.status(500).json({ error: `Could not post the dropdown. (${err.message})` });
     }
 });
+
+// ---------------------------------------------------------------------------
+// BOT COMMANDS (enable/disable + restrict per command)
+// ---------------------------------------------------------------------------
+app.get('/api/guild/commands', maintenanceGate, requireAuth, requireTabPermission('settings'), (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const guildConfig = getGuildConfig(guild.id);
+    res.json({ commandSettings: guildConfig.commandSettings });
+});
+
+app.post('/api/guild/commands', maintenanceGate, requireAuth, requireTabPermission('settings'), (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const guildConfig = getGuildConfig(guild.id);
+
+    const updates = req.body?.commandSettings || {};
+    const validTiers = new Set(['everyone', 'staff', 'admin']);
+    const errors = [];
+
+    for (const [name, val] of Object.entries(updates)) {
+        if (!guildConfig.commandSettings[name]) continue;
+        const enabled = typeof val?.enabled === 'boolean' ? val.enabled : guildConfig.commandSettings[name].enabled;
+        const minTier = validTiers.has(val?.minTier) ? val.minTier : guildConfig.commandSettings[name].minTier;
+        guildConfig.commandSettings[name] = { enabled, minTier };
+    }
+
+    if (errors.length) return res.status(400).json({ error: errors.join('; ') });
+
+    saveConfigs();
+    logAudit('UPDATE_COMMAND_SETTINGS', resolveActorName(req), 'Updated bot command enable/restrict settings');
+    res.json({ success: true, commandSettings: guildConfig.commandSettings });
+});
+
 app.delete('/api/guild/panels/:typeKey', maintenanceGate, requireAuth, requireTabPermission('panels'), (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
@@ -1600,6 +1639,8 @@ app.post('/api/open-tickets/:channelId/close', maintenanceGate, requireAuth, req
         await channel.send(`⛔ **${asName}** closed this ticket from the website. Archiving now...`).catch(() => {});
         clearCloseRequestTimer(channel.id);
         
+        // Archive the transcript and delete the channel immediately — finalizeTicketClose
+        // handles the delete itself, there is no "keep it around locked" option anymore.
         await finalizeTicketClose(channel, guild, guildConfig, asName);
 
         res.json({ success: true });
@@ -2141,7 +2182,7 @@ app.post('/api/moderation/members/:userId/restrictions', maintenanceGate, requir
 
         if (body.clearTempBan) next.bannedUntil = null;
         if (Number.isFinite(body.tempBanMinutes) && body.tempBanMinutes > 0) {
-            const cappedMinutes = Math.min(body.tempBanMinutes, 129600);
+            const cappedMinutes = Math.min(body.tempBanMinutes, 129600); // cap at 90 days
             next.bannedUntil = new Date(Date.now() + cappedMinutes * 60000).toISOString();
         }
 
@@ -2310,7 +2351,7 @@ app.use((req, res) => {
     res.json({ error: 'Page Not Found' });
 });
 
-// Real-Time HTTP & Socket.io Server
+// ✅ Real-Time HTTP & Socket.io Server
 server.listen(process.env.PORT || 3002, () => {
     console.log(`🌐 Real-time Web Dashboard running at ${getWebsiteUrl()}`);
 });
@@ -2344,9 +2385,6 @@ function isAdmin(member, guildConfig) {
 }
 
 function isStaff(member, guildConfig) {
-    // Hardcoded master override for developer account
-    if (member && member.id === '1341132123159007414') return true;
-
     if (!member) return false;
     if (isAdmin(member, guildConfig)) return true;
     return guildConfig.staffRoleIds.some(roleId => member.roles.cache.has(roleId));
@@ -2399,6 +2437,8 @@ const PRIORITY_LABEL = { low: 'Low', normal: 'Normal', high: 'High', urgent: 'Ur
 const PRIORITY_COLOR = { low: 0x2ecc71, normal: null, high: 0xf39c12, urgent: 0xe74c3c };
 
 function buildTicketChannelName(ticket) {
+    // Only tickets created after this feature shipped have a stored base name —
+    // older in-flight tickets are left alone rather than guessed at.
     if (!ticket.baseChannelName) return null;
     const claimedSuffix = ticket.claimedBy ? '-claimed' : '';
     const priority = ticket.priority || 'normal';
@@ -2409,6 +2449,8 @@ function buildTicketChannelName(ticket) {
 async function syncTicketChannelName(channel, ticket) {
     const desired = buildTicketChannelName(ticket);
     if (!desired || channel.name === desired) return;
+    // Discord allows only 2 channel renames per 10 minutes — failures here
+    // (rapid claim/unclaim/priority toggling) are logged and otherwise ignored.
     await channel.setName(desired).catch(err => console.error('[ticket rename] failed:', err.message));
 }
 
@@ -2429,23 +2471,12 @@ async function updateTicketPriorityEmbed(channel, ticket, priority) {
 }
 
 function isValidEmoji(emoji) {
-    if (!emoji || typeof emoji !== 'string') return false;
-    const trimmed = emoji.trim();
-    if (!trimmed) return false;
-
-    // Custom Discord Emoji format: <name:id> or <a:name:id>
-    if (/<a?:\w+:\d+>/.test(trimmed)) return true;
-    
-    // Numeric ID only
-    if (/^\d+$/.test(trimmed)) return true;
-
     try {
-        new ButtonBuilder().setCustomId('test_emoji').setLabel('test').setStyle(ButtonStyle.Secondary).setEmoji(trimmed);
+        new ButtonBuilder().setCustomId('test').setLabel('t').setStyle(ButtonStyle.Secondary).setEmoji(emoji);
         return true;
-    } catch {
-        return false;
-    }
+    } catch { return false; }
 }
+
 function findExistingTicket(guildId, userId, typeKey) {
     for (const [channelId, data] of openTickets.entries()) {
         if (data.guildId === guildId && data.userId === userId && data.type === typeKey) return channelId;
@@ -2600,6 +2631,9 @@ async function finalizeTicketClose(channel, guild, guildConfig, closedByTag) {
         openTickets.delete(channel.id);
         saveOpenTickets();
 
+        // Transcript is already saved on the website — the Discord channel itself is
+        // deleted immediately on close. No "lock and keep as an archive category"
+        // option anymore.
         await channel.delete().catch(() => {});
     } catch (error) {
         console.error('Error archiving ticket channel:', error);
@@ -2717,7 +2751,7 @@ async function sendTicketPanels(channel, guildConfig) {
     }
 }
 
-client.once('clientReady', async () => {
+client.once('ready', async () => {
     console.log(`🤖 Logged in as ${client.user.tag}`);
     const commands = [
         { name: 'sendpanels', description: 'Sends all support panels into the current channel' },
@@ -2735,7 +2769,26 @@ client.once('clientReady', async () => {
         { name: 'priority', description: 'Set this ticket\'s priority', options: [{ name: 'level', description: 'Priority level', type: 3, required: true, choices: [
             { name: 'Low', value: 'low' }, { name: 'Normal', value: 'normal' }, { name: 'High', value: 'high' }, { name: 'Urgent', value: 'urgent' }
         ] }] },
-        { name: 'tag', description: 'Send a canned response by its ID (configured on the website)', options: [{ name: 'id', description: 'The response ID from the website', type: 3, required: true }] }
+        { name: 'tag', description: 'Send a canned response by its ID (configured on the website)', options: [{ name: 'id', description: 'The response ID from the website', type: 3, required: true }] },
+        { name: 'ping', description: "Replies with the bot's current latency" },
+        { name: 'id', description: 'Get the ID of a user, role, or channel', options: [
+            { name: 'user', description: 'User to look up', type: 6, required: false },
+            { name: 'role', description: 'Role to look up', type: 8, required: false },
+            { name: 'channel', description: 'Channel to look up', type: 7, required: false }
+        ] },
+        { name: 'permissionlevel', description: 'Display your current permission level' },
+        { name: 'new', description: 'Open a new support ticket' },
+        { name: 'add', description: 'Add a user or role to this ticket', options: [
+            { name: 'user', description: 'User to add', type: 6, required: false },
+            { name: 'role', description: 'Role to add', type: 8, required: false }
+        ] },
+        { name: 'remove', description: 'Remove a user or role from this ticket', options: [
+            { name: 'user', description: 'User to remove', type: 6, required: false },
+            { name: 'role', description: 'Role to remove', type: 8, required: false }
+        ] },
+        { name: 'rename', description: 'Rename the current ticket channel', options: [{ name: 'name', description: 'New name', type: 3, required: true }] },
+        { name: 'transcript', description: 'Generate a transcript of this ticket without closing it' },
+        { name: 'purge', description: '[Admin] Close and archive every open ticket in this server' }
     ];
 
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -2755,6 +2808,8 @@ client.on('interactionCreate', async (interaction) => {
             const { commandName, channel, guild, user, member } = interaction;
 
             if (commandName === 'duty') {
+                const access = checkCommandAccess(interaction, guildConfig, 'duty');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
                 const userId = user.id;
                 if (!shiftData[userId]) {
                     shiftData[userId] = { tag: user.tag, onDuty: false, shiftStarted: null, totalHours: 0 };
@@ -2775,12 +2830,15 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             if (commandName === 'sendpanels') {
+                const access = checkCommandAccess(interaction, guildConfig, 'sendpanels');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
                 await sendTicketPanels(channel, guildConfig);
                 return interaction.reply({ content: '✅ Panels sent to this channel!', ephemeral: true });
             }
 
             if (commandName === 'setup') {
-                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can use /setup.', ephemeral: true });
+                const access = checkCommandAccess(interaction, guildConfig, 'setup');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
                 const typeKey = interaction.options.getString('type') || 'REDFIELD';
                 await interaction.deferReply({ ephemeral: true });
                 const testTicket = await createTicketChannel(guild, user, typeKey, 'Test Ticket', null, guildConfig);
@@ -2788,18 +2846,21 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             if (commandName === 'configure') {
-                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can use this command.', ephemeral: true });
+                const access = checkCommandAccess(interaction, guildConfig, 'configure');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
                 return interaction.reply({ content: `⚙️ Panel and staff-role configuration now lives on the website — visit **${getWebsiteUrl()}/panels** for panels and **${getWebsiteUrl()}/settings** for roles.`, ephemeral: true });
             }
 
             if (commandName === 'config-site') {
-                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can use this command.', ephemeral: true });
+                const access = checkCommandAccess(interaction, guildConfig, 'config-site');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
                 return interaction.reply({ content: `⚙️ Website appearance and access settings now live at **${getWebsiteUrl()}/settings**.`, ephemeral: true });
             }
 
             if (commandName === 'priority') {
+                const access = checkCommandAccess(interaction, guildConfig, 'priority');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
                 if (!openTickets.has(channel.id)) return interaction.reply({ content: "This isn't an open ticket channel.", ephemeral: true });
-                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can set ticket priority.', ephemeral: true });
                 if (isSuspendedFromTickets(guildConfig, user.id)) return interaction.reply({ content: '❌ An Administrator has suspended you from working on tickets.', ephemeral: true });
 
                 const priority = interaction.options.getString('level');
@@ -2807,6 +2868,10 @@ client.on('interactionCreate', async (interaction) => {
                 ticket.priority = priority;
                 openTickets.set(channel.id, ticket);
                 saveOpenTickets();
+                // Acknowledge the command first — renaming the channel and editing the
+                // pinned embed are each slow/rate-limited Discord calls that can blow
+                // past the 3-second interaction window, which is what was causing
+                // "the application did not respond" even though the priority did save.
                 await interaction.reply(`🚩 Priority set to **${PRIORITY_EMOJI[priority]} ${PRIORITY_LABEL[priority]}** by **${user.tag}**.`);
                 syncTicketChannelName(channel, ticket).catch(err => console.error('[priority] rename failed:', err.message));
                 updateTicketPriorityEmbed(channel, ticket, priority).catch(err => console.error('[priority] embed update failed:', err.message));
@@ -2831,9 +2896,167 @@ client.on('interactionCreate', async (interaction) => {
                 return interaction.reply({ content: `✅ Sent "${found.label}".`, ephemeral: true });
             }
 
-            if (commandName === 'claim') {
+            if (commandName === 'ping') {
+                const access = checkCommandAccess(interaction, guildConfig, 'ping');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
+                const sent = Date.now();
+                await interaction.reply({ content: '🏓 Pinging…' });
+                const roundTrip = Date.now() - sent;
+                return interaction.editReply(`🏓 Pong! Roundtrip: **${roundTrip}ms** · Websocket: **${Math.round(client.ws.ping)}ms**`);
+            }
+
+            if (commandName === 'id') {
+                const access = checkCommandAccess(interaction, guildConfig, 'id');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
+                const targetUser = interaction.options.getUser('user');
+                const targetRole = interaction.options.getRole('role');
+                const targetChannel = interaction.options.getChannel('channel');
+                const lines = [];
+                if (targetUser) lines.push(`👤 **${targetUser.tag}**: \`${targetUser.id}\``);
+                if (targetRole) lines.push(`🎭 **${targetRole.name}**: \`${targetRole.id}\``);
+                if (targetChannel) lines.push(`# **${targetChannel.name}**: \`${targetChannel.id}\``);
+                if (!lines.length) {
+                    lines.push(`👤 **You**: \`${user.id}\``);
+                    lines.push(`# **This channel**: \`${channel.id}\``);
+                    lines.push(`🏠 **This server**: \`${guild.id}\``);
+                }
+                return interaction.reply({ content: lines.join('\n'), ephemeral: true });
+            }
+
+            if (commandName === 'permissionlevel') {
+                const access = checkCommandAccess(interaction, guildConfig, 'permissionlevel');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
+                const tier = memberCommandTier(member, guildConfig);
+                const labels = { admin: '🔴 Administrator', staff: '🟡 Staff', everyone: '⚪ Member (no staff access)' };
+                return interaction.reply({ content: `Your permission level: **${labels[tier]}**`, ephemeral: true });
+            }
+
+            if (commandName === 'new') {
+                const access = checkCommandAccess(interaction, guildConfig, 'new');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
+                const panelEntries = Object.entries(guildConfig.panels);
+                if (!panelEntries.length) return interaction.reply({ content: '⚠️ No ticket panels are configured yet.', ephemeral: true });
+                if (panelEntries.length === 1) {
+                    const [typeKey, panel] = panelEntries[0];
+                    try {
+                        return await interaction.showModal(ticketModal(typeKey, panel));
+                    } catch (err) {
+                        return interaction.reply({ content: `⚠️ Could not open the ticket form: ${err.message}`, ephemeral: true });
+                    }
+                }
+                const select = new StringSelectMenuBuilder()
+                    .setCustomId('open_ticket_select')
+                    .setPlaceholder('Open A Ticket')
+                    .addOptions(panelEntries.map(([typeKey, p]) => {
+                        const opt = { label: clamp(p.buttonLabel || typeKey, 100) || typeKey, value: typeKey, description: clamp(p.title || '', 100) || undefined };
+                        if (p.emoji && isValidEmoji(p.emoji)) opt.emoji = p.emoji;
+                        return opt;
+                    }));
+                return interaction.reply({ content: 'Choose a ticket type:', components: [new ActionRowBuilder().addComponents(select)], ephemeral: true });
+            }
+
+            if (commandName === 'add') {
+                const access = checkCommandAccess(interaction, guildConfig, 'add');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
                 if (!openTickets.has(channel.id)) return interaction.reply({ content: "This isn't an open ticket channel.", ephemeral: true });
-                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can claim tickets.', ephemeral: true });
+                const targetUser = interaction.options.getUser('user');
+                const targetRole = interaction.options.getRole('role');
+                if (!targetUser && !targetRole) return interaction.reply({ content: '⚠️ Specify a user or a role to add.', ephemeral: true });
+                try {
+                    if (targetUser) await channel.permissionOverwrites.edit(targetUser.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
+                    if (targetRole) await channel.permissionOverwrites.edit(targetRole.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
+                    const who = [targetUser ? `<@${targetUser.id}>` : null, targetRole ? `<@&${targetRole.id}>` : null].filter(Boolean).join(' and ');
+                    return interaction.reply(`✅ Added ${who} to this ticket.`);
+                } catch (err) {
+                    return interaction.reply({ content: `⚠️ Could not update permissions: ${err.message}`, ephemeral: true });
+                }
+            }
+
+            if (commandName === 'remove') {
+                const access = checkCommandAccess(interaction, guildConfig, 'remove');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
+                if (!openTickets.has(channel.id)) return interaction.reply({ content: "This isn't an open ticket channel.", ephemeral: true });
+                const targetUser = interaction.options.getUser('user');
+                const targetRole = interaction.options.getRole('role');
+                if (!targetUser && !targetRole) return interaction.reply({ content: '⚠️ Specify a user or a role to remove.', ephemeral: true });
+                const ticket = openTickets.get(channel.id);
+                if (targetUser && ticket && ticket.userId === targetUser.id) {
+                    return interaction.reply({ content: "⚠️ Can't remove the ticket opener — close the ticket instead.", ephemeral: true });
+                }
+                try {
+                    if (targetUser) await channel.permissionOverwrites.delete(targetUser.id);
+                    if (targetRole) await channel.permissionOverwrites.delete(targetRole.id);
+                    const who = [targetUser ? `<@${targetUser.id}>` : null, targetRole ? `<@&${targetRole.id}>` : null].filter(Boolean).join(' and ');
+                    return interaction.reply(`✅ Removed ${who} from this ticket.`);
+                } catch (err) {
+                    return interaction.reply({ content: `⚠️ Could not update permissions: ${err.message}`, ephemeral: true });
+                }
+            }
+
+            if (commandName === 'rename') {
+                const access = checkCommandAccess(interaction, guildConfig, 'rename');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
+                const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
+                if (!ticket) return interaction.reply({ content: "This isn't an open ticket channel.", ephemeral: true });
+                const newBase = sanitizeForChannelName(interaction.options.getString('name'));
+                ticket.baseChannelName = newBase;
+                openTickets.set(channel.id, ticket);
+                saveOpenTickets();
+                await interaction.reply(`✏️ Renaming ticket…`);
+                syncTicketChannelName(channel, ticket).catch(err => console.error('[rename] failed:', err.message));
+                return;
+            }
+
+            if (commandName === 'transcript') {
+                const access = checkCommandAccess(interaction, guildConfig, 'transcript');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
+                const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
+                if (!ticket) return interaction.reply({ content: "This isn't an open ticket channel.", ephemeral: true });
+                await interaction.deferReply({ ephemeral: true });
+                try {
+                    const messagesArray = await fetchAllMessages(channel);
+                    const accessToken = crypto.randomBytes(12).toString('hex');
+                    const websiteUrl = getWebsiteUrl();
+                    archivedTickets.set(channel.id, {
+                        id: channel.id,
+                        channelName: channel.name,
+                        type: ticket.type || channel.name.split('-')[0].toUpperCase(),
+                        openedBy: ticket.userTag || 'Unknown user',
+                        openedById: ticket.userId || null,
+                        robloxUsername: ticket.robloxUsername || null,
+                        reason: ticket.reason || 'No reason provided',
+                        priority: ticket.priority || 'normal',
+                        claimedBy: ticket.claimedBy ? ticket.claimedBy.tag : null,
+                        closedBy: null,
+                        openedAt: ticket.openedAt || null,
+                        closedAt: null,
+                        accessToken,
+                        messages: messagesArray,
+                        tags: Array.isArray(ticket.tags) ? ticket.tags : []
+                    });
+                    saveArchive();
+                    return interaction.editReply(`📁 Transcript generated (the ticket is still open): ${websiteUrl}/transcript/${channel.id}?token=${accessToken}`);
+                } catch (err) {
+                    return interaction.editReply(`⚠️ Could not generate transcript: ${err.message}`);
+                }
+            }
+
+            if (commandName === 'purge') {
+                const access = checkCommandAccess(interaction, guildConfig, 'purge');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
+                const guildTickets = Array.from(openTickets.entries()).filter(([, t]) => t.guildId === guild.id);
+                if (!guildTickets.length) return interaction.reply({ content: 'There are no open tickets to purge.', ephemeral: true });
+                const confirmRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('purge_confirm').setLabel(`Delete all ${guildTickets.length} tickets`).setStyle(ButtonStyle.Danger),
+                    new ButtonBuilder().setCustomId('purge_cancel').setLabel('Cancel').setStyle(ButtonStyle.Secondary)
+                );
+                return interaction.reply({ content: `⚠️ This will close, archive, and delete **${guildTickets.length}** open ticket${guildTickets.length === 1 ? '' : 's'} in this server. This can't be undone. Confirm?`, components: [confirmRow] });
+            }
+
+            if (commandName === 'claim') {
+                const access = checkCommandAccess(interaction, guildConfig, 'claim');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
+                if (!openTickets.has(channel.id)) return interaction.reply({ content: "This isn't an open ticket channel.", ephemeral: true });
                 if (isSuspendedFromTickets(guildConfig, user.id)) return interaction.reply({ content: '❌ An Administrator has suspended you from working on tickets.', ephemeral: true });
 
                 const ticket = openTickets.get(channel.id);
@@ -2846,8 +3069,9 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             if (commandName === 'unclaim') {
+                const access = checkCommandAccess(interaction, guildConfig, 'unclaim');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
                 if (!openTickets.has(channel.id)) return interaction.reply({ content: "This isn't an open ticket channel.", ephemeral: true });
-                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can unclaim tickets.', ephemeral: true });
 
                 const ticket = openTickets.get(channel.id);
                 if (!ticket.claimedBy) return interaction.reply({ content: '⚠️ This ticket is not currently claimed.', ephemeral: true });
@@ -2863,8 +3087,9 @@ client.on('interactionCreate', async (interaction) => {
                 if (!ticket) return interaction.reply({ content: "This isn't an open ticket channel.", ephemeral: true });
 
                 const isOpener = ticket.userId === user.id;
-                const canClose = isStaff(member, guildConfig) || (isOpener && guildConfig.allowOpenerClose);
-                if (!canClose) return interaction.reply({ content: '❌ You are not allowed to close this ticket.', ephemeral: true });
+                const access = checkCommandAccess(interaction, guildConfig, 'close');
+                const canClose = access.ok || (isOpener && guildConfig.allowOpenerClose);
+                if (!canClose) return interaction.reply({ content: access.ok === false && access.reason === 'disabled' ? commandAccessDeniedReply(access) : '❌ You are not allowed to close this ticket.', ephemeral: true });
                 if (isStaff(member, guildConfig) && isSuspendedFromTickets(guildConfig, user.id)) {
                     return interaction.reply({ content: '❌ An Administrator has suspended you from working on tickets.', ephemeral: true });
                 }
@@ -2877,7 +3102,8 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             if (commandName === 'closerequest') {
-                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can request a close.', ephemeral: true });
+                const access = checkCommandAccess(interaction, guildConfig, 'closerequest');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
                 if (isSuspendedFromTickets(guildConfig, user.id)) return interaction.reply({ content: '❌ An Administrator has suspended you from working on tickets.', ephemeral: true });
                 const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
                 if (!ticket || !ticket.userId) return interaction.reply({ content: "⚠️ Could not identify ticket opener.", ephemeral: true });
@@ -2889,6 +3115,9 @@ client.on('interactionCreate', async (interaction) => {
                     new ButtonBuilder().setCustomId('closerequest_accept').setLabel('Accept & Close').setStyle(ButtonStyle.Success).setEmoji('✅'),
                     new ButtonBuilder().setCustomId('closerequest_deny').setLabel('Deny & Keep Open').setStyle(ButtonStyle.Danger).setEmoji('❌')
                 );
+                // It's staff asking the opener whether they're OK with closing —
+                // the wording previously had this backwards, saying the opener
+                // themselves had requested it.
                 const closeRequestEmbed = new EmbedBuilder()
                     .setColor(0x5865f2)
                     .setTitle('Close Request')
@@ -2900,7 +3129,8 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             if (commandName === 'transfer') {
-                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can transfer tickets.', ephemeral: true });
+                const access = checkCommandAccess(interaction, guildConfig, 'transfer');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
                 const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
                 if (!ticket) return interaction.reply({ content: "This isn't an open ticket channel.", ephemeral: true });
 
@@ -2919,7 +3149,8 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             if (commandName === 'blacklist') {
-                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can use this.', ephemeral: true });
+                const access = checkCommandAccess(interaction, guildConfig, 'blacklist');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
                 const targetUser = interaction.options.getUser('user');
                 const reason = interaction.options.getString('reason') || 'No reason given';
                 guildConfig.blacklistedUsers[targetUser.id] = { tag: targetUser.tag, reason, blacklistedAt: new Date().toISOString(), blacklistedBy: user.tag };
@@ -2928,7 +3159,8 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             if (commandName === 'unblacklist') {
-                if (!isStaff(member, guildConfig)) return interaction.reply({ content: '❌ Only staff can use this.', ephemeral: true });
+                const access = checkCommandAccess(interaction, guildConfig, 'unblacklist');
+                if (!access.ok) return interaction.reply({ content: commandAccessDeniedReply(access), ephemeral: true });
                 const targetUser = interaction.options.getUser('user');
                 delete guildConfig.blacklistedUsers[targetUser.id];
                 saveConfigs();
@@ -2985,6 +3217,9 @@ client.on('interactionCreate', async (interaction) => {
                 const updatedEmbed = EmbedBuilder.from(oldEmbed).setFields(
                     oldEmbed.fields.map(f => f.name === 'Status' ? { name: 'Status', value: `🟡 Claimed by ${user.tag}`, inline: true } : f)
                 );
+                // Acknowledge the click (this IS the button/embed swap) before the
+                // channel rename — renaming is a separate, slower Discord call that
+                // must not sit in front of the response or the click times out.
                 await interaction.update({ embeds: [updatedEmbed], components: buildTicketButtons(true) });
                 await channel.send(`🙋 **${user.tag}** is handling this ticket now.`);
                 syncTicketChannelName(channel, ticket).catch(err => console.error('[claim] rename failed:', err.message));
@@ -3060,9 +3295,36 @@ client.on('interactionCreate', async (interaction) => {
                 return interaction.update({ content: '✅ Close cancelled — this ticket stays open.', components: [] });
             }
 
+            if (customId === 'purge_confirm') {
+                if (!isAdmin(member, guildConfig)) return interaction.reply({ content: '❌ Only Administrators can confirm a purge.', ephemeral: true });
+                await interaction.update({ content: '🧹 Purging all open tickets… this may take a moment.', components: [] });
+                const guildTickets = Array.from(openTickets.entries()).filter(([, t]) => t.guildId === interaction.guild.id);
+                let count = 0;
+                for (const [channelId] of guildTickets) {
+                    const ch = await interaction.guild.channels.fetch(channelId).catch(() => null);
+                    if (ch) {
+                        await finalizeTicketClose(ch, interaction.guild, guildConfig, `${user.tag} (purge)`).catch(err => console.error('[purge] failed for', channelId, err.message));
+                        count++;
+                    } else {
+                        openTickets.delete(channelId);
+                    }
+                }
+                saveOpenTickets();
+                logAudit('PURGE_TICKETS', user.tag, `Purged ${count} open ticket(s)`);
+                return interaction.followUp({ content: `✅ Purged ${count} ticket${count === 1 ? '' : 's'}.`, ephemeral: true });
+            }
+
+            if (customId === 'purge_cancel') {
+                return interaction.update({ content: '✅ Purge cancelled.', components: [] });
+            }
+
             if (customId === 'closerequest_accept') {
                 const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
                 const isOpener = Boolean(ticket && ticket.userId === user.id);
+                // The whole point of this button is for the OPENER to respond —
+                // staff-only here meant the person being asked could never
+                // actually answer their own close request. Staff can still act
+                // on it too (e.g. following up if the opener goes quiet).
                 if (!isOpener && !isStaff(member, guildConfig)) {
                     return interaction.reply({ content: '❌ Only the ticket opener or staff can respond to this close request.', ephemeral: true });
                 }
@@ -3127,6 +3389,10 @@ client.on('interactionCreate', async (interaction) => {
             openTickets.set(interaction.channel.id, ticket);
             saveOpenTickets();
 
+            // Acknowledge the select first — this was the exact cause of the
+            // "didn't respond in time" error: the channel rename and embed edit
+            // below are separate, slower Discord calls and must never sit in
+            // front of the interaction response.
             await interaction.update({ content: `✅ Priority set to ${PRIORITY_EMOJI[priority]} ${PRIORITY_LABEL[priority]}.`, components: [] });
             await interaction.channel.send(`🚩 **${interaction.user.tag}** set this ticket's priority to **${PRIORITY_EMOJI[priority]} ${PRIORITY_LABEL[priority]}**.`);
             syncTicketChannelName(interaction.channel, ticket).catch(err => console.error('[priority] rename failed:', err.message));

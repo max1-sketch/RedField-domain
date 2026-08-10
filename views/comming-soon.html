@@ -48,6 +48,7 @@ a { color: inherit; }
   display: block; margin-top: 10px; font-size: 12px; color: var(--faint); text-decoration: none;
 }
 .btn-ghost:hover { color: var(--muted); }
+.warn-banner { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: #fbbf24; border-radius: 8px; padding: 10px 12px; font-size: 12px; font-weight: 600; text-align: left; line-height: 1.5; margin-bottom: 16px; }
 </style>
 </head>
 <body>
@@ -58,10 +59,17 @@ a { color: inherit; }
   <div class="icon">🚧</div>
   <p class="eyebrow">Member Portal</p>
   <p class="brand">{{SITE_TITLE}}</p>
+  <div id="warnBanner"></div>
   <p class="sub">The member area for regular users isn't ready yet. If you were trying to view a ticket transcript, use the link sent to your DMs when the ticket closed — that works regardless of this page.</p>
   <a class="btn" href="/login">Back to sign-in</a>
   <a class="btn-ghost" href="/logout">Log out</a>
 </div>
+
+<script>
+  if (new URLSearchParams(window.location.search).get('notStaff') === '1') {
+    document.getElementById('warnBanner').innerHTML = `<div class="warn-banner">⚠️ Your Discord account isn't recognized as staff on this server, so the dashboard isn't available to you. If you believe this is a mistake, contact an Administrator.</div>`;
+  }
+</script>
 
 </body>
 </html>

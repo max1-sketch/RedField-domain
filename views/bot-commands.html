@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Bot Commands</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --accent: {{ACCENT_COLOR}};
+  --bg-0: #0a0c11;
+  --sidebar-bg: #0d0f16;
+  --panel: #141722;
+  --panel-2: #1a1e2b;
+  --border: #262b3a;
+  --ink: #e7e9ee;
+  --muted: #9199a8;
+  --faint: #5b6272;
+  --red: #ef4444;
+  --green: #22c55e;
+  --amber: #f59e0b;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { min-height: 100vh; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+a { color: inherit; text-decoration: none; }
+.mono { font-family: 'IBM Plex Mono', monospace; }
+.site-banner { background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; }
+
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar { width: 250px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.sidebar-brand { display: flex; align-items: center; gap: 10px; background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; font-size: 14.5px; margin-bottom: 18px; line-height: 1.25; }
+.sidebar-brand .dot { width: 8px; height: 8px; border-radius: 50%; background: #0a0c11; flex-shrink: 0; opacity: .55; }
+nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); font-size: 13.5px; font-weight: 500; }
+.nav-item:hover { background: var(--panel-2); color: var(--ink); }
+.nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
+.nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
+.nav-item .ic svg { width: 100%; height: 100%; }
+.nav-item.active .ic { opacity: 1; }
+
+.sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.account-card { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border); color: var(--ink); text-decoration: none; position: relative; transition: border-color .15s, background .15s; }
+.account-card:hover { border-color: var(--accent); background: var(--panel); }
+.account-avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; background: var(--accent); color: #0a0c11; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; overflow: hidden; }
+.account-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.account-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.account-name { font-size: 12.5px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.account-sub { font-size: 10.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
+.session-line.warn { color: var(--red); }
+
+.content-area { flex: 1; min-width: 0; padding: 26px 30px 70px; max-width: 900px; }
+.page-title { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0 0 4px; }
+.page-sub { font-size: 13px; color: var(--muted); margin: 0 0 22px; line-height: 1.6; }
+
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 0; margin-bottom: 16px; overflow: hidden; }
+.cmd-row { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.cmd-row:last-child { border-bottom: none; }
+.cmd-name { font-family: 'IBM Plex Mono', monospace; font-size: 13.5px; font-weight: 700; color: var(--ink); width: 150px; flex-shrink: 0; }
+.cmd-desc { font-size: 12px; color: var(--faint); flex: 1; min-width: 160px; }
+.cmd-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+.toggle { position: relative; display: inline-block; width: 38px; height: 21px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-track { position: absolute; inset: 0; background: var(--panel-2); border: 1px solid var(--border); border-radius: 99px; cursor: pointer; transition: background .15s, border-color .15s; }
+.toggle-track::before { content: ''; position: absolute; width: 15px; height: 15px; left: 2px; top: 2px; background: var(--faint); border-radius: 50%; transition: transform .15s, background .15s; }
+.toggle input:checked + .toggle-track { background: var(--accent); border-color: var(--accent); }
+.toggle input:checked + .toggle-track::before { transform: translateX(17px); background: #0a0c11; }
+
+select.tier-select {
+  background: var(--panel-2); border: 1px solid var(--border); color: var(--ink);
+  padding: 6px 9px; border-radius: 6px; font-family: inherit; font-size: 12px; width: 130px;
+}
+select.tier-select:focus { outline: none; border-color: var(--accent); }
+
+.save-bar { position: sticky; bottom: 0; background: var(--bg-0); padding: 16px 0 4px; margin-top: 4px; display: flex; align-items: center; gap: 14px; border-top: 1px solid var(--border); }
+.btn { display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; padding: 10px 18px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-accent { background: var(--accent); color: #0a0c11; }
+.btn-accent:hover { opacity: .9; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.save-status { font-size: 12px; color: var(--green); opacity: 0; transition: opacity .2s; font-weight: 600; }
+.save-status.show { opacity: 1; }
+.save-error { font-size: 12px; color: var(--red); }
+
+.loading-line { font-size: 13px; color: var(--faint); padding: 24px 0; text-align: center; }
+
+@media (max-width: 860px) {
+  .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
+  .sidebar.open { transform: translateX(0); }
+  .content-area { padding: 18px 16px 50px; }
+}
+</style>
+</head>
+<body>
+
+{{BANNER_HTML}}
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand"><span class="dot"></span>{{SITE_TITLE}}</div>
+    <nav class="sidebar-nav" id="navTabs"></nav>
+    <div class="sidebar-footer">
+      <a href="/account" class="account-card">
+        <span class="account-avatar" id="accountAvatar">👤</span>
+        <span class="account-info">
+          <span class="account-name" id="accountName">My Account</span>
+          <span class="account-sub" id="accountSub">View profile</span>
+        </span>
+      </a>
+      <span class="session-line mono" id="sessionClock">session --:--</span>
+      <a href="/logout" class="nav-item"><span class="ic" id="logoutIcon"></span> Log out</a>
+    </div>
+  </aside>
+
+  <main class="content-area" id="main">
+    <h1 class="page-title">Bot Commands</h1>
+    <div class="loading-line">Loading…</div>
+  </main>
+</div>
+
+<script src="/theme.js"></script>
+<script>
+function esc(str) {
+  return (str === undefined || str === null ? '' : String(str))
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+if (typeof RF !== 'undefined' && RF.startSessionClock) {
+  RF.startSessionClock(document.getElementById('sessionClock'));
+}
+
+// Description shown next to each command — purely cosmetic, matched to what
+// each slash command actually registers as in Discord.
+const COMMAND_INFO = {
+  ping: 'Replies with the bot\'s current latency',
+  id: 'Get the ID of a user, role, or channel',
+  permissionlevel: 'Display your current permission level',
+  new: 'Open a new support ticket',
+  add: 'Add a user or role to the current ticket',
+  remove: 'Remove a user or role from the current ticket',
+  rename: 'Rename the current ticket channel',
+  transcript: 'Generate a transcript without closing the ticket',
+  purge: 'Close and archive every open ticket in the server',
+  claim: 'Claim the current ticket',
+  unclaim: 'Unclaim the current ticket',
+  close: 'Close the current ticket',
+  closerequest: 'Ask the ticket opener to confirm closing',
+  transfer: 'Transfer a ticket to another staff member',
+  priority: 'Set a ticket\'s priority level',
+  tag: 'Send a canned response by its ID',
+  blacklist: 'Blacklist a user from opening tickets',
+  unblacklist: 'Remove a user from the blacklist',
+  duty: 'Toggle your own on/off duty status',
+  sendpanels: 'Post all panels into the current channel',
+  setup: 'Create a test ticket channel',
+  configure: 'Points staff to the website for panel/role config',
+  'config-site': 'Points staff to the website for site settings'
+};
+
+let commandSettings = {};
+
+async function initNav() {
+  try {
+    const res = await fetch('/api/guild');
+    if (res.ok) {
+      const g = await res.json();
+      const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions?.allowedTabs : null;
+      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, allowedTabs);
+    } else {
+      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
+    }
+  } catch {
+    document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
+  }
+  const logoutIconEl = document.getElementById('logoutIcon');
+  if (logoutIconEl && RF.ICONS?.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
+}
+
+async function loadAccountWidget() {
+  try {
+    const res = await fetch('/api/me');
+    if (!res.ok) return;
+    const me = await res.json();
+    const avatarEl = document.getElementById('accountAvatar');
+    const nameEl = document.getElementById('accountName');
+    const subEl = document.getElementById('accountSub');
+    const tierLabels = { admin: 'Administrator', staff: 'Staff', master: 'Access code login', member: 'Member' };
+    if (avatarEl) {
+      avatarEl.innerHTML = me.avatarURL
+        ? `<img src="${esc(me.avatarURL)}" alt="">`
+        : esc((me.displayName || me.tag || '?').charAt(0).toUpperCase());
+    }
+    if (nameEl) nameEl.textContent = me.displayName || me.tag || 'My Account';
+    if (subEl) subEl.textContent = tierLabels[me.tier] || 'View profile';
+  } catch { /* leave the default placeholder in place */ }
+}
+
+async function load() {
+  try {
+    const res = await fetch('/api/guild/commands');
+    if (res.status === 401) { window.location.reload(); return; }
+    if (res.status === 403) {
+      document.getElementById('main').innerHTML = `<h1 class="page-title">Bot Commands</h1><div class="card"><div class="cmd-row"><p style="margin:0;color:var(--muted);font-size:12.5px;">This page is restricted to Administrators.</p></div></div>`;
+      return;
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      document.getElementById('main').innerHTML = `<h1 class="page-title">Bot Commands</h1><div class="card"><div class="cmd-row"><p style="margin:0;color:var(--muted);font-size:12.5px;">${esc(err.error || 'Could not load — check the bot is online.')}</p></div></div>`;
+      return;
+    }
+    const data = await res.json();
+    commandSettings = data.commandSettings || {};
+    renderPage();
+  } catch (err) {
+    console.error('[bot-commands] load failed:', err);
+    document.getElementById('main').innerHTML = `<h1 class="page-title">Bot Commands</h1><div class="card"><div class="cmd-row"><p style="margin:0;color:var(--red);font-size:12.5px;">Couldn't reach the server. (${esc(err.message || 'unknown error')})</p></div></div>`;
+  }
+}
+
+function renderPage() {
+  const names = Object.keys(commandSettings).sort();
+  const rows = names.map(name => {
+    const setting = commandSettings[name];
+    return `
+    <div class="cmd-row" data-cmd="${esc(name)}">
+      <div class="cmd-name">/${esc(name)}</div>
+      <div class="cmd-desc">${esc(COMMAND_INFO[name] || '')}</div>
+      <div class="cmd-controls">
+        <select class="tier-select f-tier">
+          <option value="everyone" ${setting.minTier === 'everyone' ? 'selected' : ''}>Everyone</option>
+          <option value="staff" ${setting.minTier === 'staff' ? 'selected' : ''}>Staff+</option>
+          <option value="admin" ${setting.minTier === 'admin' ? 'selected' : ''}>Admin only</option>
+        </select>
+        <label class="toggle">
+          <input type="checkbox" class="f-enabled" ${setting.enabled ? 'checked' : ''}>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('main').innerHTML = `
+    <h1 class="page-title">Bot Commands</h1>
+    <p class="page-sub">Turn any slash command off, or raise its minimum permission level. "Everyone" means any server member can use it (still subject to the command's own built-in checks, like only being usable inside a ticket); "Staff+" and "Admin only" are enforced on top of that. Changes apply immediately — no need to restart the bot.</p>
+    <div class="card">${rows}</div>
+    <div class="save-bar">
+      <button class="btn btn-accent" id="saveBtn">Save changes</button>
+      <span class="save-status" id="saveStatus">Saved ✓</span>
+      <span class="save-error" id="saveError"></span>
+    </div>
+  `;
+
+  document.getElementById('saveBtn').addEventListener('click', save);
+}
+
+async function save() {
+  const updates = {};
+  document.querySelectorAll('.cmd-row[data-cmd]').forEach(row => {
+    const name = row.getAttribute('data-cmd');
+    updates[name] = {
+      enabled: row.querySelector('.f-enabled').checked,
+      minTier: row.querySelector('.f-tier').value
+    };
+  });
+
+  const btn = document.getElementById('saveBtn');
+  const errEl = document.getElementById('saveError');
+  errEl.textContent = '';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/guild/commands', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commandSettings: updates })
+    });
+    if (res.ok) {
+      const el = document.getElementById('saveStatus');
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2000);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      errEl.textContent = err.error || 'Could not save — try again.';
+    }
+  } catch {
+    errEl.textContent = 'Could not reach the server.';
+  }
+  btn.disabled = false;
+}
+
+initNav();
+load();
+loadAccountWidget();
+</script>
+</body>
+</html>
