@@ -1320,13 +1320,19 @@ app.post('/api/guild/panels/:typeKey/post', maintenanceGate, requireAuth, requir
         const embed = new EmbedBuilder().setTitle(clamp(panel.title, 256)).setDescription(clamp(panel.description, 4096)).setColor(panel.color);
         const button = new ButtonBuilder().setCustomId(`open_ticket_${typeKey}`).setLabel(clamp(panel.buttonLabel, 80)).setStyle(STYLE_MAP[panel.style] || ButtonStyle.Secondary);
 
-        // SAFELY ATTACH EMOJI
-        if (panel.emoji) {
-            const customMatch = panel.emoji.trim().match(/<a?:(\w+):(\d+)>/);
-            if (customMatch) {
-                button.setEmoji(customMatch[2]); // Attach by custom Emoji ID
-            } else if (isValidEmoji(panel.emoji.trim())) {
-                button.setEmoji(panel.emoji.trim());
+        // SAFELY APPLY EMOJI TO BUTTON
+        if (panel.emoji && panel.emoji.trim()) {
+            const raw = panel.emoji.trim();
+            const customMatch = raw.match(/<a?:(\w+):(\d+)>/);
+            
+            try {
+                if (customMatch) {
+                    button.setEmoji(customMatch[2]); // Use custom Emoji ID
+                } else if (isValidEmoji(raw)) {
+                    button.setEmoji(raw);
+                }
+            } catch (emojiErr) {
+                console.warn(`[post panel] Invalid emoji "${raw}" skipped for button.`);
             }
         }
 
