@@ -59,7 +59,6 @@ const CONFIG_FILE = path.join(DATA_DIR, 'guildConfigs.json');
 const SITE_CONFIG_FILE = path.join(DATA_DIR, 'siteConfig.json');
 const BLOCKLIST_FILE = path.join(DATA_DIR, 'blockedGuilds.json');
 const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
-const QUICKWORDS_FILE = path.join(DATA_DIR, 'quickWords.json');
 const AUDIT_LOG_FILE = path.join(DATA_DIR, 'auditLog.json');
 const APPLICATIONS_FILE = path.join(DATA_DIR, 'applications.json');
 
