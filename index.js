@@ -1359,7 +1359,7 @@ app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requir
 
     const panelEntries = Object.entries(guildConfig.panels);
     if (!panelEntries.length) return res.status(400).json({ error: 'No panels configured yet.' });
-    if (panelEntries.length > 25) return res.status(400).json({ error: 'Discord dropdowns support at most 25 options, and you have more panels than that — post some individually instead.' });
+    if (panelEntries.length > 25) return res.status(400).json({ error: 'Discord dropdowns support at most 25 options.' });
 
     try {
         const channel = await guild.channels.fetch(channelId).catch(() => null);
@@ -1367,32 +1367,43 @@ app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requir
             return res.status(400).json({ error: 'That channel could not be found or is not a text channel.' });
         }
 
+        // Helper function to build options cleanly
+        const buildOptions = (includeEmojis = true) => panelEntries.map(([typeKey, p]) => {
+            const opt = { 
+                label: clamp(p.buttonLabel || typeKey, 100) || typeKey, 
+                value: typeKey, 
+                description: clamp(p.title || '', 100) || undefined 
+            };
+
+            if (includeEmojis && p.emoji && p.emoji.trim()) {
+                const raw = p.emoji.trim();
+                const customMatch = raw.match(/<(a)?:(\w+):(\d+)>/);
+                
+                if (customMatch) {
+                    opt.emoji = { name: customMatch[2], id: customMatch[3], animated: Boolean(customMatch[1]) };
+                } else if (!raw.includes('<') && !raw.includes(':')) {
+                    opt.emoji = raw; // Standard unicode emoji
+                }
+            }
+            return opt;
+        });
+
         const select = new StringSelectMenuBuilder()
             .setCustomId('open_ticket_select')
             .setPlaceholder('Open A Ticket')
-            .addOptions(panelEntries.map(([typeKey, p]) => {
-                const opt = { 
-                    label: clamp(p.buttonLabel || typeKey, 100) || typeKey, 
-                    value: typeKey, 
-                    description: clamp(p.title || '', 100) || undefined 
-                };
+            .addOptions(buildOptions(true));
 
-                // SAFELY PARSE EMOJIS FOR SELECT MENUS
-                if (p.emoji && p.emoji.trim()) {
-                    const rawEmoji = p.emoji.trim();
-                    const customMatch = rawEmoji.match(/<a?:(\w+):(\d+)>/);
-                    
-                    if (customMatch) {
-                        opt.emoji = { name: customMatch[1], id: customMatch[2] };
-                    } else if (isValidEmoji(rawEmoji)) {
-                        opt.emoji = rawEmoji;
-                    }
-                }
-
-                return opt;
-            }));
-
-        await channel.send({ content: messageText || undefined, components: [new ActionRowBuilder().addComponents(select)] });
+        try {
+            await channel.send({ content: messageText || undefined, components: [new ActionRowBuilder().addComponents(select)] });
+        } catch (discordErr) {
+            // Fail-safe fallback: If Discord rejects any emoji, strip them and post successfully
+            console.warn('[post dropdown] Emoji rejected by Discord API, posting without emojis:', discordErr.message);
+            const safeSelect = new StringSelectMenuBuilder()
+                .setCustomId('open_ticket_select')
+                .setPlaceholder('Open A Ticket')
+                .addOptions(buildOptions(false));
+            await channel.send({ content: messageText || undefined, components: [new ActionRowBuilder().addComponents(safeSelect)] });
+        }
 
         logAudit('POST_PANEL_DROPDOWN', resolveActorName(req), `Posted combined panel dropdown (${panelEntries.length} panels) to #${channel.name}`);
         res.json({ success: true });
