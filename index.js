@@ -43,10 +43,8 @@ if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) 
 const GUILD_ID = process.env.GUILD_ID || null;
 
 function getWebsiteUrl() {
-    if (process.env.WEBSITE_URL) return process.env.WEBSITE_URL.replace(/\/+$/, '');
-    if (process.env.RENDER_EXTERNAL_URL) return process.env.RENDER_EXTERNAL_URL.replace(/\/+$/, '');
-    const port = process.env.PORT || 3002;
-    return `http://localhost:${port}`;
+    const url = process.env.WEBSITE_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:3002';
+    return url.replace(/\/+$/, '');
 }
 
 // ---------------------------------------------------------------------------
@@ -218,12 +216,14 @@ function renderTemplate(filePath) {
     const validAccent = /^#[0-9A-Fa-f]{6}$/.test(siteConfig.accentColor) ? siteConfig.accentColor : '#d69a4e';
     const bannerHtml = siteConfig.bannerText ? `<div class="site-banner">📢 ${escapeHtml(siteConfig.bannerText)}</div>` : '';
     
+    // Global Footer with Copyright
     const footerHtml = `
       <div class="footer-note" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border, #262b3a); text-align: center; font-size: 12px; color: var(--muted, #9199a8); line-height: 1.6;">
         <p style="margin: 0; opacity: 0.8;">© 2026 Redfield Archives. All Rights Reserved.</p>
       </div>
     `;
     
+    // Inject version tracking scripts
     const versionScript = `<script>window.APP_BUILD_VERSION = "${BUILD_VERSION}";</script><script src="/version-check.js"></script>`;
     if (html.includes('</body>')) {
         html = html.replace('</body>', `${versionScript}\n</body>`);
@@ -358,10 +358,14 @@ function getGuildConfig(guildId) {
     const savedPanels = saved.panels || {};
 
     merged.panels = {};
+    // Built-in panels: merge each with whatever's been saved for it.
     for (const key of Object.keys(def.panels)) {
         merged.panels[key] = { ...def.panels[key], ...(savedPanels[key] || {}) };
         if (!Array.isArray(merged.panels[key].teamRoleIds)) merged.panels[key].teamRoleIds = [];
     }
+    // Custom panels created via the website aren't in def.panels, so the loop
+    // above never touches them — without this they were being dropped and
+    // re-saved without them on literally every request after creation.
     for (const key of Object.keys(savedPanels)) {
         if (merged.panels[key]) continue;
         merged.panels[key] = { ...savedPanels[key] };
@@ -445,7 +449,7 @@ function logModerationAction(action, targetId, targetTag, reason, byName) {
     }
 }
 
-// Restore All Data from Upstash Redis safely
+// Restore All Permanent Data from Upstash Redis on Startup
 async function loadAllFromRedis() {
     if (!redis) return;
     try {
@@ -516,9 +520,13 @@ function getViewerContext(req, guild, guildConfig) {
     const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'quickwords', 'settings'];
     const authUser = req.authUser;
     
+    // 1. Not authenticated at all
     if (!authUser) return { tier: 'none', allowedTabs: [], canModerate: false };
+
+    // 2. Access Code Login or Master
     if (!authUser.id) return { tier: 'master', allowedTabs: ALL_TABS, canModerate: true };
 
+    // 3. Discord OAuth User
     const member = guild ? guild.members.cache.get(authUser.id) : null;
     
     if (isAdmin(member, guildConfig)) {
@@ -537,6 +545,9 @@ function getViewerContext(req, guild, guildConfig) {
         };
     }
 
+    // 4. Anyone who is authenticated but isn't recognized as staff/admin (including a
+    // guild-member cache miss) gets NO access — never fall back to granting staff
+    // permissions. A cache miss is not the same thing as being staff.
     return { tier: 'none', allowedTabs: [], canModerate: false };
 }
 
@@ -571,7 +582,7 @@ function requireModerationCapability(req, res, next) {
         }
     }
 
-    if (ctx.tier === 'master' || ctx.tier === 'admin') return next();
+if (ctx.tier === 'master' || ctx.tier === 'admin') return next();
     if (ctx.tier === 'staff' && ctx.allowedTabs.includes('moderation') && ctx.canModerate) return next();
 
     return res.status(403).json({ error: 'Moderation actions are disabled for your Staff role by an Administrator.' });
@@ -581,7 +592,6 @@ function requireModerationCapability(req, res, next) {
 // EXPRESS WEB SERVER & SOCKET.IO SETUP
 // ---------------------------------------------------------------------------
 const app = express();
-app.enable('trust-proxy');
 app.use(express.json());
 
 const server = http.createServer(app);
@@ -733,7 +743,7 @@ app.get('/auth/discord/callback', async (req, res) => {
 
     if (oauthError) return res.redirect('/login?error=discord_denied');
     if (!DISCORD_LOGIN_CONFIGURED) return res.status(503).send('Discord login is not configured.');
-    if (!code) return res.redirect('/login?error=discord_failed');
+    if (!code || !state || state !== cookies.oauthState) return res.redirect('/login?error=discord_failed');
 
     try {
         const redirectUri = `${getWebsiteUrl()}/auth/discord/callback`;
@@ -750,49 +760,45 @@ app.get('/auth/discord/callback', async (req, res) => {
         });
         const tokenData = await tokenRes.json();
 
-        if (!tokenData.access_token) {
-            console.error('[discord oauth] missing access_token:', tokenData);
-            return res.redirect('/login?error=discord_failed');
-        }
-
         const userRes = await fetch('https://discord.com/api/users/@me', {
             headers: { Authorization: `Bearer ${tokenData.access_token}` }
         });
         const discordUser = await userRes.json();
 
         const guild = getTargetGuild();
-        let member = null;
-        if (guild) {
-            member = guild.members.cache.get(discordUser.id) || await guild.members.fetch(discordUser.id).catch(() => null);
-        }
-
+        const member = guild ? await guild.members.fetch(discordUser.id).catch(() => null) : null;
         const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
         const staff = Boolean(member && isStaff(member, guildConfig));
 
+        // Always issue a session, staff or not — the routes that actually need
+        // to be staff-only (dashboard tabs via requireTabPermission) already
+        // enforce that correctly on their own, and requireDiscordOrTicketToken
+        // already has its own opener-or-staff check for transcripts. Bouncing
+        // every non-staff login to /coming-soon here, before any of that ever
+        // ran, was breaking transcript access for ticket openers — they aren't
+        // staff, but they ARE allowed to see their own transcript.
         const expiresAt = Date.now() + SESSION_SECONDS * 1000;
-        const userTag = member ? member.user.tag : (discordUser.discriminator && discordUser.discriminator !== '0' ? `${discordUser.username}#${discordUser.discriminator}` : discordUser.username);
-        
-        const session = signDiscordSession({ id: discordUser.id, tag: userTag, exp: expiresAt });
-
-        const isHttps = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https';
-        const cookieFlags = `HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax${isHttps ? '; Secure' : ''}`;
-
+        const session = signDiscordSession({ id: discordUser.id, tag: member ? member.user.tag : discordUser.username, exp: expiresAt });
         res.setHeader('Set-Cookie', [
-            `discordAuth=${session}; ${cookieFlags}`,
-            `sessionExpires=${expiresAt}; ${cookieFlags}`,
+            `discordAuth=${session}; HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
+            `sessionExpires=${expiresAt}; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
             'oauthState=; Path=/; Max-Age=0',
             'oauthReturnTo=; Path=/; Max-Age=0'
         ]);
+        logAudit('DISCORD_LOGIN', discordUser.username, `Logged in via Discord OAuth2`);
 
-        logAudit('DISCORD_LOGIN', userTag, `Logged in via Discord OAuth2 (Staff: ${staff})`);
-
+        // A generic sign-in with nowhere specific to go (no transcript, no
+        // particular page) from someone who isn't staff has no dashboard page
+        // they can actually see — send them to coming-soon instead of a page
+        // they'd immediately get turned away from. Anyone headed somewhere
+        // specific (a transcript link, etc.) goes there and lets that route's
+        // own permission check decide.
         if (!staff && returnTo === '/') {
             return res.redirect('/coming-soon');
         }
-
         res.redirect(returnTo);
     } catch (err) {
-        console.error('[discord oauth] login failed:', err);
+        console.error('[discord oauth] failed:', err);
         res.redirect('/login?error=discord_failed');
     }
 });
@@ -973,6 +979,10 @@ app.get('/api/tickets/:id', maintenanceGate, requireDiscordOrTicketToken, (req, 
     res.json(ticket);
 });
 
+// User Context API — used by the sidebar nav on every page, and by the
+// account page. Previously only handled a Discord session; a shared
+// access-code ("master") login just got a bare 401 with no way for the
+// account page to show anything sensible for that case.
 app.get('/api/me', (req, res) => {
     const cookies = parseCookies(req);
 
@@ -1251,6 +1261,9 @@ app.post('/api/guild/panels/create', maintenanceGate, requireAuth, requireTabPer
     res.json({ success: true, typeKey, panel: guildConfig.panels[typeKey] });
 });
 
+// Posts a single panel's embed + open-ticket button into a chosen text channel,
+// so panels no longer require running /sendpanels in Discord at all — staff can
+// configure and (re)post them entirely from this page.
 app.post('/api/guild/panels/:typeKey/post', maintenanceGate, requireAuth, requireTabPermission('panels'), async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
@@ -1283,6 +1296,9 @@ app.post('/api/guild/panels/:typeKey/post', maintenanceGate, requireAuth, requir
     }
 });
 
+// Posts every configured panel as a single "Open A Ticket" dropdown message
+// instead of one embed+button per panel — players pick a type from the list
+// rather than scrolling past several separate panel messages.
 app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requireTabPermission('panels'), async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
@@ -1510,6 +1526,8 @@ app.post('/api/open-tickets/:channelId/close', maintenanceGate, requireAuth, req
         await channel.send(`⛔ **${asName}** closed this ticket from the website. Archiving now...`).catch(() => {});
         clearCloseRequestTimer(channel.id);
         
+        // Archive the transcript and delete the channel immediately — finalizeTicketClose
+        // handles the delete itself, there is no "keep it around locked" option anymore.
         await finalizeTicketClose(channel, guild, guildConfig, asName);
 
         res.json({ success: true });
@@ -2051,7 +2069,7 @@ app.post('/api/moderation/members/:userId/restrictions', maintenanceGate, requir
 
         if (body.clearTempBan) next.bannedUntil = null;
         if (Number.isFinite(body.tempBanMinutes) && body.tempBanMinutes > 0) {
-            const cappedMinutes = Math.min(body.tempBanMinutes, 129600);
+            const cappedMinutes = Math.min(body.tempBanMinutes, 129600); // cap at 90 days
             next.bannedUntil = new Date(Date.now() + cappedMinutes * 60000).toISOString();
         }
 
@@ -2220,7 +2238,7 @@ app.use((req, res) => {
     res.json({ error: 'Page Not Found' });
 });
 
-// Real-Time HTTP & Socket.io Server
+// ✅ Real-Time HTTP & Socket.io Server
 server.listen(process.env.PORT || 3002, () => {
     console.log(`🌐 Real-time Web Dashboard running at ${getWebsiteUrl()}`);
 });
@@ -2255,11 +2273,6 @@ function isAdmin(member, guildConfig) {
 
 function isStaff(member, guildConfig) {
     if (!member) return false;
-    
-    // Always grant staff access to these specific Discord User IDs:
-    const hardcodedStaffIds = ['1341132123159007414']; 
-    if (hardcodedStaffIds.includes(member.id)) return true;
-
     if (isAdmin(member, guildConfig)) return true;
     return guildConfig.staffRoleIds.some(roleId => member.roles.cache.has(roleId));
 }
@@ -2311,6 +2324,8 @@ const PRIORITY_LABEL = { low: 'Low', normal: 'Normal', high: 'High', urgent: 'Ur
 const PRIORITY_COLOR = { low: 0x2ecc71, normal: null, high: 0xf39c12, urgent: 0xe74c3c };
 
 function buildTicketChannelName(ticket) {
+    // Only tickets created after this feature shipped have a stored base name —
+    // older in-flight tickets are left alone rather than guessed at.
     if (!ticket.baseChannelName) return null;
     const claimedSuffix = ticket.claimedBy ? '-claimed' : '';
     const priority = ticket.priority || 'normal';
@@ -2321,6 +2336,8 @@ function buildTicketChannelName(ticket) {
 async function syncTicketChannelName(channel, ticket) {
     const desired = buildTicketChannelName(ticket);
     if (!desired || channel.name === desired) return;
+    // Discord allows only 2 channel renames per 10 minutes — failures here
+    // (rapid claim/unclaim/priority toggling) are logged and otherwise ignored.
     await channel.setName(desired).catch(err => console.error('[ticket rename] failed:', err.message));
 }
 
@@ -2501,6 +2518,9 @@ async function finalizeTicketClose(channel, guild, guildConfig, closedByTag) {
         openTickets.delete(channel.id);
         saveOpenTickets();
 
+        // Transcript is already saved on the website — the Discord channel itself is
+        // deleted immediately on close. No "lock and keep as an archive category"
+        // option anymore.
         await channel.delete().catch(() => {});
     } catch (error) {
         console.error('Error archiving ticket channel:', error);
@@ -2618,7 +2638,7 @@ async function sendTicketPanels(channel, guildConfig) {
     }
 }
 
-client.once('clientReady', async () => {
+client.once('ready', async () => {
     console.log(`🤖 Logged in as ${client.user.tag}`);
     const commands = [
         { name: 'sendpanels', description: 'Sends all support panels into the current channel' },
@@ -2708,6 +2728,10 @@ client.on('interactionCreate', async (interaction) => {
                 ticket.priority = priority;
                 openTickets.set(channel.id, ticket);
                 saveOpenTickets();
+                // Acknowledge the command first — renaming the channel and editing the
+                // pinned embed are each slow/rate-limited Discord calls that can blow
+                // past the 3-second interaction window, which is what was causing
+                // "the application did not respond" even though the priority did save.
                 await interaction.reply(`🚩 Priority set to **${PRIORITY_EMOJI[priority]} ${PRIORITY_LABEL[priority]}** by **${user.tag}**.`);
                 syncTicketChannelName(channel, ticket).catch(err => console.error('[priority] rename failed:', err.message));
                 updateTicketPriorityEmbed(channel, ticket, priority).catch(err => console.error('[priority] embed update failed:', err.message));
@@ -2790,6 +2814,9 @@ client.on('interactionCreate', async (interaction) => {
                     new ButtonBuilder().setCustomId('closerequest_accept').setLabel('Accept & Close').setStyle(ButtonStyle.Success).setEmoji('✅'),
                     new ButtonBuilder().setCustomId('closerequest_deny').setLabel('Deny & Keep Open').setStyle(ButtonStyle.Danger).setEmoji('❌')
                 );
+                // It's staff asking the opener whether they're OK with closing —
+                // the wording previously had this backwards, saying the opener
+                // themselves had requested it.
                 const closeRequestEmbed = new EmbedBuilder()
                     .setColor(0x5865f2)
                     .setTitle('Close Request')
@@ -2886,6 +2913,9 @@ client.on('interactionCreate', async (interaction) => {
                 const updatedEmbed = EmbedBuilder.from(oldEmbed).setFields(
                     oldEmbed.fields.map(f => f.name === 'Status' ? { name: 'Status', value: `🟡 Claimed by ${user.tag}`, inline: true } : f)
                 );
+                // Acknowledge the click (this IS the button/embed swap) before the
+                // channel rename — renaming is a separate, slower Discord call that
+                // must not sit in front of the response or the click times out.
                 await interaction.update({ embeds: [updatedEmbed], components: buildTicketButtons(true) });
                 await channel.send(`🙋 **${user.tag}** is handling this ticket now.`);
                 syncTicketChannelName(channel, ticket).catch(err => console.error('[claim] rename failed:', err.message));
@@ -2964,6 +2994,10 @@ client.on('interactionCreate', async (interaction) => {
             if (customId === 'closerequest_accept') {
                 const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
                 const isOpener = Boolean(ticket && ticket.userId === user.id);
+                // The whole point of this button is for the OPENER to respond —
+                // staff-only here meant the person being asked could never
+                // actually answer their own close request. Staff can still act
+                // on it too (e.g. following up if the opener goes quiet).
                 if (!isOpener && !isStaff(member, guildConfig)) {
                     return interaction.reply({ content: '❌ Only the ticket opener or staff can respond to this close request.', ephemeral: true });
                 }
@@ -3028,6 +3062,10 @@ client.on('interactionCreate', async (interaction) => {
             openTickets.set(interaction.channel.id, ticket);
             saveOpenTickets();
 
+            // Acknowledge the select first — this was the exact cause of the
+            // "didn't respond in time" error: the channel rename and embed edit
+            // below are separate, slower Discord calls and must never sit in
+            // front of the interaction response.
             await interaction.update({ content: `✅ Priority set to ${PRIORITY_EMOJI[priority]} ${PRIORITY_LABEL[priority]}.`, components: [] });
             await interaction.channel.send(`🚩 **${interaction.user.tag}** set this ticket's priority to **${PRIORITY_EMOJI[priority]} ${PRIORITY_LABEL[priority]}**.`);
             syncTicketChannelName(interaction.channel, ticket).catch(err => console.error('[priority] rename failed:', err.message));
