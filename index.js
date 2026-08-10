@@ -601,6 +601,10 @@ if (ctx.tier === 'master' || ctx.tier === 'admin') return next();
 // ---------------------------------------------------------------------------
 const app = express();
 app.use(express.json());
+app.use((req, res, next) => {
+    console.log(`📡 [INCOMING REQUEST] ${req.method} ${req.url}`);
+    next();
+});
 
 const server = http.createServer(app);
 const io = new Server(server, {
