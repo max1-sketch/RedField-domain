@@ -2613,7 +2613,7 @@ async function sendTicketPanels(channel, guildConfig) {
     }
 }
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
     console.log(`🤖 Logged in as ${client.user.tag}`);
     const commands = [
         { name: 'sendpanels', description: 'Sends all support panels into the current channel' },
@@ -2634,7 +2634,7 @@ client.once('ready', async () => {
         { name: 'tag', description: 'Send a canned response by its ID (configured on the website)', options: [{ name: 'id', description: 'The response ID from the website', type: 3, required: true }] }
     ];
 
-    const rest = new REST({ version: '10' }).setToken(process.process.env.DISCORD_TOKEN);
+    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
     try {
         if (GUILD_ID) await rest.put(Routes.applicationGuildCommands(client.user.id, GUILD_ID), { body: commands });
         else await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
