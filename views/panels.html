@@ -506,9 +506,12 @@ function wirePostButtons() {
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
-          statusEl.textContent = '✓ Posted.';
+          statusEl.textContent = data.emojiCleared
+            ? '✓ Posted — its emoji was invalid, so it was removed from this panel. Set a new one if you\'d like.'
+            : '✓ Posted.';
           statusEl.className = 'post-status ok';
           if (panels[typeKey]) panels[typeKey].postChannelId = channelId;
+          if (data.emojiCleared && panels[typeKey]) panels[typeKey].emoji = '';
         } else {
           statusEl.textContent = data.error || 'Could not post — try again.';
           statusEl.className = 'post-status err';
@@ -556,7 +559,9 @@ function wireDropdownPost() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        statusEl.textContent = '✓ Posted.';
+        statusEl.textContent = data.emojiClearedFor
+          ? `✓ Posted — the emoji on "${esc(data.emojiClearedFor)}" was invalid and has been removed from that panel.`
+          : '✓ Posted.';
         statusEl.className = 'post-status ok';
       } else {
         statusEl.textContent = data.error || 'Could not post — try again.';

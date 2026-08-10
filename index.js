@@ -1421,6 +1421,14 @@ app.post('/api/guild/panels/create', maintenanceGate, requireAuth, requireTabPer
 // Posts a single panel's embed + open-ticket button into a chosen text channel,
 // so panels no longer require running /sendpanels in Discord at all — staff can
 // configure and (re)post them entirely from this page.
+// Detects Discord's specific "your emoji data is bad" rejection so callers
+// can retry without emoji instead of just failing outright — this is what
+// makes already-stored bad emoji (saved before isValidEmoji was tightened)
+// self-heal on the next post instead of needing a manual edit first.
+function isInvalidEmojiError(err) {
+    return Boolean(err && err.code === 50035 && /emoji/i.test(String(err.message || '')));
+}
+
 app.post('/api/guild/panels/:typeKey/post', maintenanceGate, requireAuth, requireTabPermission('panels'), async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
@@ -1439,14 +1447,29 @@ app.post('/api/guild/panels/:typeKey/post', maintenanceGate, requireAuth, requir
         }
 
         const embed = new EmbedBuilder().setTitle(clamp(panel.title, 256)).setDescription(clamp(panel.description, 4096)).setColor(panel.color);
-        const button = new ButtonBuilder().setCustomId(`open_ticket_${typeKey}`).setLabel(clamp(panel.buttonLabel, 80)).setStyle(STYLE_MAP[panel.style] || ButtonStyle.Secondary);
-        if (panel.emoji && isValidEmoji(panel.emoji)) button.setEmoji(panel.emoji);
-        await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(button)] });
+        const buildButton = (withEmoji) => {
+            const b = new ButtonBuilder().setCustomId(`open_ticket_${typeKey}`).setLabel(clamp(panel.buttonLabel, 80)).setStyle(STYLE_MAP[panel.style] || ButtonStyle.Secondary);
+            if (withEmoji && panel.emoji && isValidEmoji(panel.emoji)) b.setEmoji(panel.emoji);
+            return b;
+        };
+
+        let emojiWasCleared = false;
+        try {
+            await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(buildButton(true))] });
+        } catch (sendErr) {
+            if (!isInvalidEmojiError(sendErr) || !panel.emoji) throw sendErr;
+            // Stored emoji is bad in a way our validation didn't catch —
+            // clear it so this panel doesn't fail every future post, then
+            // retry once without it.
+            panel.emoji = '';
+            emojiWasCleared = true;
+            await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(buildButton(false))] });
+        }
 
         panel.postChannelId = channelId;
         saveConfigs();
-        logAudit('POST_PANEL', resolveActorName(req), `Posted panel "${typeKey}" to #${channel.name}`);
-        res.json({ success: true });
+        logAudit('POST_PANEL', resolveActorName(req), `Posted panel "${typeKey}" to #${channel.name}${emojiWasCleared ? ' (invalid emoji cleared)' : ''}`);
+        res.json({ success: true, emojiCleared: emojiWasCleared });
     } catch (err) {
         console.error('[post panel] failed:', err);
         res.status(500).json({ error: `Could not post the panel. (${err.message})` });
@@ -1476,23 +1499,47 @@ app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requir
             return res.status(400).json({ error: 'That channel could not be found or is not a text channel.' });
         }
 
-        const select = new StringSelectMenuBuilder()
-            .setCustomId('open_ticket_select')
-            .setPlaceholder('Open A Ticket')
-            .addOptions(buildPanelSelectOptions(panelEntries));
-
-        const payload = { components: [new ActionRowBuilder().addComponents(select)] };
-        if (messageText) {
-            if (asEmbed) {
-                payload.embeds = [new EmbedBuilder().setDescription(messageText).setColor(0x5865f2)];
-            } else {
-                payload.content = messageText;
+        const buildPayload = (entries) => {
+            const select = new StringSelectMenuBuilder()
+                .setCustomId('open_ticket_select')
+                .setPlaceholder('Open A Ticket')
+                .addOptions(buildPanelSelectOptions(entries));
+            const payload = { components: [new ActionRowBuilder().addComponents(select)] };
+            if (messageText) {
+                if (asEmbed) payload.embeds = [new EmbedBuilder().setDescription(messageText).setColor(0x5865f2)];
+                else payload.content = messageText;
             }
-        }
-        await channel.send(payload);
+            return payload;
+        };
 
-        logAudit('POST_PANEL_DROPDOWN', resolveActorName(req), `Posted combined panel dropdown (${panelEntries.length} panels) to #${channel.name}`);
-        res.json({ success: true });
+        let clearedTypeKey = null;
+        try {
+            await channel.send(buildPayload(panelEntries));
+        } catch (sendErr) {
+            if (!isInvalidEmojiError(sendErr)) throw sendErr;
+            // Try to identify exactly which option Discord rejected
+            // (its error message includes the option's index, e.g.
+            // "options[2].emoji.name") so we can clear just that panel's
+            // emoji instead of stripping every panel's emoji blindly.
+            const match = String(sendErr.message || '').match(/options\[(\d+)\]/);
+            const badIndex = match ? parseInt(match[1], 10) : null;
+            let retryEntries = panelEntries;
+            if (badIndex !== null && panelEntries[badIndex]) {
+                const [badTypeKey, badPanel] = panelEntries[badIndex];
+                badPanel.emoji = '';
+                clearedTypeKey = badTypeKey;
+                retryEntries = panelEntries;
+            } else {
+                // Couldn't identify the exact one — strip all emoji for this
+                // retry only, without permanently touching stored config.
+                retryEntries = panelEntries.map(([k, p]) => [k, { ...p, emoji: '' }]);
+            }
+            await channel.send(buildPayload(retryEntries));
+            if (clearedTypeKey) saveConfigs();
+        }
+
+        logAudit('POST_PANEL_DROPDOWN', resolveActorName(req), `Posted combined panel dropdown (${panelEntries.length} panels) to #${channel.name}${clearedTypeKey ? ` (cleared invalid emoji on ${clearedTypeKey})` : ''}`);
+        res.json({ success: true, emojiClearedFor: clearedTypeKey });
     } catch (err) {
         console.error('[post panel dropdown] failed:', err);
         res.status(500).json({ error: `Could not post the dropdown. (${err.message})` });
@@ -2552,11 +2599,34 @@ async function updateTicketPriorityEmbed(channel, ticket, priority) {
     }
 }
 
+// The previous version of this only checked whether discord.js's own
+// builder could construct an emoji object locally without throwing — that
+// is NOT the same as Discord's server accepting it. discord.js's setEmoji()
+// is lenient: pass it plain text and it happily wraps it into {name: "..."}
+// without verifying it's an actual emoji character, so garbage sailed
+// through this check and only failed later, when the message was actually
+// sent (COMPONENT_INVALID_EMOJI). This does real validation: a proper
+// Discord custom-emoji reference, or an actual Unicode emoji character.
 function isValidEmoji(emoji) {
+    if (!emoji || typeof emoji !== 'string') return false;
+    const trimmed = emoji.trim();
+    if (!trimmed) return false;
+    // Custom guild emoji: <:name:id> or animated <a:name:id>
+    if (/^<a?:\w{2,32}:\d{15,25}>$/.test(trimmed)) return true;
+    // Reject anything containing letters, digits, or other plain-text
+    // characters — a real emoji never does, and this is exactly the kind of
+    // "looks emoji-ish but isn't" input Discord's API rejects.
+    if (/[a-zA-Z0-9]/.test(trimmed)) return false;
+    // Real emoji (including multi-codepoint sequences like flags, ZWJ
+    // family/skin-tone combos) are short; this guards against pasted text.
+    if (trimmed.length > 16) return false;
     try {
-        new ButtonBuilder().setCustomId('test').setLabel('t').setStyle(ButtonStyle.Secondary).setEmoji(emoji);
+        return /\p{Extended_Pictographic}|\p{Emoji_Presentation}|\p{Regional_Indicator}/u.test(trimmed);
+    } catch {
+        // Extremely old JS engine without Unicode property escapes — fall
+        // back to just the length/character-class checks above.
         return true;
-    } catch { return false; }
+    }
 }
 
 // Builds the select-menu options for a panel-type dropdown ("Open A Ticket").
