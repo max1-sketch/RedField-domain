@@ -3,7 +3,7 @@
     if (!clientVersion) return;
 
     let isOutdated = false;
-    let countdownInterval = null;
+    let pollTimer = null;
 
     function checkServerVersion() {
         fetch('/api/version')
@@ -11,62 +11,67 @@
             .then(data => {
                 if (data && data.version && data.version !== clientVersion && !isOutdated) {
                     isOutdated = true;
-                    renderOutdatedBanner();
+                    if (pollTimer) clearInterval(pollTimer);
+                    renderUpdateToast();
                 }
             })
             .catch(() => {});
     }
 
-    function renderOutdatedBanner() {
-        if (document.getElementById('outdatedBanner')) return;
+    function renderUpdateToast() {
+        if (document.getElementById('updateToast')) return;
 
-        const banner = document.createElement('div');
-        banner.id = 'outdatedBanner';
-        banner.style.cssText = `
+        const toast = document.createElement('div');
+        toast.id = 'updateToast';
+        toast.style.cssText = `
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
+            bottom: 16px;
+            right: 16px;
             z-index: 999999;
-            background: #e05a3a;
-            color: #ffffff;
+            background: rgba(18, 21, 30, 0.72);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            color: #e7e9ee;
             font-family: 'IBM Plex Mono', monospace, sans-serif;
-            font-size: 13px;
-            font-weight: 700;
-            text-align: center;
-            padding: 10px 16px;
-            cursor: pointer;
-            user-select: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            transition: background 0.2s ease;
+            font-size: 11.5px;
+            font-weight: 600;
+            letter-spacing: .02em;
+            padding: 9px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.12);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity .2s ease, transform .2s ease;
         `;
-        banner.innerHTML = `⚠️ Website version is outdated! Double-click here to start a 10s force refresh.`;
+        document.body.appendChild(toast);
 
-        banner.addEventListener('dblclick', startForceRestartCountdown);
-        document.body.prepend(banner);
-    }
+        // Fade/slide in on next frame so the transition actually plays.
+        requestAnimationFrame(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
+        });
 
-    function startForceRestartCountdown() {
-        const banner = document.getElementById('outdatedBanner');
-        if (!banner || countdownInterval) return;
+        let secondsLeft = 3;
+        toast.textContent = `⟳ Update available — refreshing in ${secondsLeft}s`;
 
-        let secondsLeft = 10;
-        banner.style.background = '#d97706';
-        banner.innerHTML = `🔄 Outdated website! Force restarting in <b>${secondsLeft}s</b>...`;
-
-        countdownInterval = setInterval(() => {
+        const countdown = setInterval(() => {
             secondsLeft -= 1;
             if (secondsLeft <= 0) {
-                clearInterval(countdownInterval);
-                banner.style.background = '#22c55e';
-                banner.innerHTML = `🚀 Refreshing now...`;
-                window.location.reload(true);
+                clearInterval(countdown);
+                toast.textContent = `⟳ Refreshing…`;
+                // Plain reload() is the correct modern call — the old
+                // reload(true) "force" argument was a non-standard Firefox
+                // extension that's deprecated and ignored everywhere else;
+                // it never actually did anything extra in most browsers.
+                window.location.reload();
             } else {
-                banner.innerHTML = `🔄 Outdated website! Force restarting in <b>${secondsLeft}s</b>...`;
+                toast.textContent = `⟳ Update available — refreshing in ${secondsLeft}s`;
             }
         }, 1000);
     }
 
-    // Poll every 3 seconds for instant detection
-    setInterval(checkServerVersion, 3000);
+    // Poll every 3 seconds for fast detection.
+    pollTimer = setInterval(checkServerVersion, 3000);
 })();
