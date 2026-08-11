@@ -191,6 +191,7 @@ function defaultSiteConfig() {
         siteTitle: 'Redfield Archives',
         bannerText: '',
         accentColor: '#d69a4e',
+        colorScheme: 'dark', // 'dark' | 'light' — applies site-wide, for everyone
         footerNote: '',
         maintenanceMode: false,
         maintenanceMessage: "We're doing some maintenance on the portal. Back shortly."
@@ -240,6 +241,19 @@ function renderTemplate(filePath) {
         html = html.replace('</body>', `${versionScript}\n</body>`);
     } else {
         html += versionScript;
+    }
+
+    // Site-wide light/dark mode — applied here in the shared template
+    // pipeline, rather than needing every individual view file edited, by
+    // (a) stamping a data-theme attribute on <body> and (b) linking an
+    // override stylesheet that punches through each page's own hardcoded
+    // :root variables with !important.
+    const scheme = siteConfig.colorScheme === 'light' ? 'light' : 'dark';
+    if (/<body[\s>]/.test(html)) {
+        html = html.replace(/<body(\s[^>]*)?>/, (match, attrs) => `<body data-theme="${scheme}"${attrs || ''}>`);
+    }
+    if (html.includes('</head>')) {
+        html = html.replace('</head>', `<link rel="stylesheet" href="/theme-overrides.css">\n</head>`);
     }
 
     return html
@@ -971,6 +985,10 @@ app.get('/badges.css', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'badges.css'));
 });
 
+app.get('/theme-overrides.css', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'theme-overrides.css'));
+});
+
 app.use(express.static(path.join(__dirname, 'views'), { index: false }));
 
 function requireDiscordOrTicketToken(req, res, next) {
@@ -1128,6 +1146,25 @@ app.get('/shift-roster', maintenanceGate, requireAuth, requireTabPermission('shi
 app.get('/audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'audit-log.html')));
 app.get('/settings', maintenanceGate, requireAuth, requireTabPermission('settings'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'settings.html')));
 app.get('/account', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'account.html')));
+// A separate, read-only page for regular (non-staff) ticket openers — just
+// their own tickets, none of the staff archive's admin controls. Only
+// requireAuth, deliberately no requireTabPermission — any signed-in Discord
+// user can reach it, staff or not, it just shows nothing but their own.
+app.get('/my-tickets', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'my-tickets.html')));
+app.get('/api/user/tickets', maintenanceGate, requireAuth, (req, res) => {
+    if (!req.authUser || !req.authUser.id) return res.json([]);
+    const mine = Array.from(archivedTickets.values())
+        .filter(t => t.openedById === req.authUser.id)
+        .sort((a, b) => new Date(b.closedAt || 0) - new Date(a.closedAt || 0));
+    res.json(mine.map(t => ({
+        id: t.id,
+        type: t.type,
+        reason: t.reason,
+        closedAt: t.closedAt,
+        openedAt: t.openedAt,
+        accessToken: t.accessToken
+    })));
+});
 // Intentionally not added to sidebar nav or the staff allowedTabs list —
 // reachable only if you know the URL, and even then only Administrators (or
 // the master access code) can actually get past requireHardAdmin.
@@ -1698,6 +1735,23 @@ app.get('/api/guild/commands', maintenanceGate, requireAuth, requireTabPermissio
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
     const guildConfig = getGuildConfig(guild.id);
     res.json({ commandSettings: guildConfig.commandSettings });
+});
+
+// Site-wide appearance — currently just light/dark, kept separate from the
+// per-guild config since it's a site (not Discord-server) level setting.
+app.get('/api/site/appearance', maintenanceGate, requireAuth, (req, res) => {
+    res.json({ colorScheme: siteConfig.colorScheme === 'light' ? 'light' : 'dark' });
+});
+
+app.post('/api/site/appearance', maintenanceGate, requireAuth, requireHardAdmin, (req, res) => {
+    const scheme = String(req.body?.colorScheme || '').toLowerCase();
+    if (scheme !== 'light' && scheme !== 'dark') {
+        return res.status(400).json({ error: 'colorScheme must be "light" or "dark".' });
+    }
+    siteConfig.colorScheme = scheme;
+    saveSiteConfig();
+    logAudit('UPDATE_APPEARANCE', resolveActorName(req), `Set site color scheme to ${scheme}`);
+    res.json({ success: true, colorScheme: scheme });
 });
 
 app.post('/api/guild/commands', maintenanceGate, requireAuth, requireTabPermission('settings'), (req, res) => {

@@ -1,0 +1,33 @@
+/* Site-wide light-mode override. Every page in this dashboard hardcodes its
+   own dark palette directly in a local :root { ... } block rather than
+   importing shared variables, so this file can't just redefine the same
+   custom properties at the same specificity — it has to win regardless of
+   page-load order, hence html[data-theme="light"] + !important. That's an
+   intentional, if slightly heavy-handed, choice: it means enabling light
+   mode works immediately across every existing page without editing each
+   one's markup individually. renderTemplate() in index.js is what stamps
+   data-theme onto <body> and links this file in — see there for the toggle. */
+
+html[data-theme="light"] body,
+body[data-theme="light"] {
+  --bg-0: #f4f5f8 !important;
+  --bg: #f4f5f8 !important;
+  --sidebar-bg: #ffffff !important;
+  --panel: #ffffff !important;
+  --panel-2: #eef0f4 !important;
+  --border: #dde1e8 !important;
+  --ink: #1a1d24 !important;
+  --muted: #5b6272 !important;
+  --faint: #7d8494 !important;
+}
+
+/* A handful of pages use --bg instead of --bg-0, or hardcode rgba() darks
+   directly on body/backgrounds rather than through a variable — cover those
+   too so light mode doesn't leave obvious dark patches behind. */
+html[data-theme="light"] body {
+  background: var(--bg-0) !important;
+  color: var(--ink) !important;
+}
+html[data-theme="light"] ::-webkit-scrollbar-track {
+  background: var(--panel-2) !important;
+}
