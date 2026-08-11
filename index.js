@@ -206,8 +206,9 @@ try {
 } catch (err) {
     console.error('Could not load site config, using defaults:', err);
 }
-function saveSiteConfig() {
+async function saveSiteConfig() {
     try {
+        if (redis) await redis.set('siteConfig', JSON.stringify(siteConfig));
         fs.writeFileSync(SITE_CONFIG_FILE, JSON.stringify(siteConfig, null, 2));
     } catch (err) {
         console.error('Failed to save site config:', err);
@@ -568,6 +569,16 @@ async function loadAllFromRedis() {
 
         const savedApps = await redis.get('applicationsData');
         if (savedApps) applicationsData = typeof savedApps === 'string' ? JSON.parse(savedApps) : savedApps;
+
+        // siteConfig (title, banner, accent color, light/dark mode) was
+        // never included here before — it only ever wrote to a local disk
+        // file, which most hosts wipe on every deploy. That's exactly why
+        // appearance changes weren't sticking.
+        const savedSite = await redis.get('siteConfig');
+        if (savedSite) {
+            const parsed = typeof savedSite === 'string' ? JSON.parse(savedSite) : savedSite;
+            siteConfig = { ...defaultSiteConfig(), ...parsed };
+        }
 
         console.log('✅ All data successfully restored from Upstash Cloud Redis!');
     } catch (err) {

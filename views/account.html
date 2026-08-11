@@ -114,6 +114,14 @@ input[type=text]:focus { outline: none; border-color: var(--accent); }
 .theme-option .swatch.light { background: linear-gradient(135deg, #ffffff, #eef0f4); }
 .theme-option .name { font-size: 12.5px; font-weight: 700; color: var(--ink); }
 .appear-note { font-size: 11.5px; color: var(--faint); margin: 10px 0 0; line-height: 1.6; }
+.theme-option.disabled { opacity: .5; cursor: not-allowed; pointer-events: none; }
+.theme-option .swatch.gradient { background: linear-gradient(135deg, var(--accent), #5865f2, #1a1e2b); }
+.badge-beta {
+  display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .04em;
+  padding: 3px 9px; border-radius: 99px; background: rgba(245,158,11,0.15); color: #f59e0b;
+  border: 1px solid rgba(245,158,11,0.4); vertical-align: middle; margin-left: 6px;
+  text-transform: uppercase; line-height: 1.4;
+}
 
 @media (max-width: 860px) {
   .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
@@ -258,6 +266,12 @@ function render(me) {
           <div class="name">Light</div>
         </div>
       </div>
+      <div class="theme-toggle-row" style="margin-top:10px;">
+        <div class="theme-option disabled">
+          <div class="swatch gradient"></div>
+          <div class="name">Custom Gradient <span class="badge-beta">Coming Soon</span></div>
+        </div>
+      </div>
       <p class="appear-note" id="appearStatus"></p>
     </div>` : ''}
 
@@ -306,6 +320,13 @@ function setActiveThemeOption(scheme) {
   if (lightEl) lightEl.classList.toggle('active', scheme === 'light');
 }
 
+// Applies the scheme to THIS page right now, instead of only taking effect
+// on the next page load — this is what was missing before: saving worked,
+// but nothing visibly changed until you refreshed.
+function applyThemeLive(scheme) {
+  document.body.setAttribute('data-theme', scheme);
+}
+
 async function saveAppearance(scheme) {
   const statusEl = document.getElementById('appearStatus');
   if (statusEl) statusEl.textContent = 'Saving…';
@@ -317,7 +338,8 @@ async function saveAppearance(scheme) {
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
       setActiveThemeOption(scheme);
-      if (statusEl) statusEl.textContent = '✓ Saved — refresh any open tab to see it.';
+      applyThemeLive(scheme);
+      if (statusEl) statusEl.textContent = '✓ Saved and applied — every page updates for everyone from here on.';
     } else if (statusEl) {
       statusEl.textContent = data.error || 'Could not save — try again.';
     }
