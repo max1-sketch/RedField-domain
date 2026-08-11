@@ -1006,7 +1006,12 @@ app.get('/badges.css', (req, res) => {
 });
 
 app.get('/theme-overrides.css', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'theme-overrides.css'));
+    res.type('text/css');
+    res.sendFile(path.join(__dirname, 'views', 'theme-overrides.css'), (err) => {
+        if (err && !res.headersSent) {
+            res.status(404).type('text/css').send('/* theme-overrides.css file missing in views/ directory */');
+        }
+    });
 });
 
 app.use(express.static(path.join(__dirname, 'views'), { index: false }));
