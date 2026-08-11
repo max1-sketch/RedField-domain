@@ -1749,6 +1749,7 @@ app.get('/api/open-tickets', maintenanceGate, requireAuth, requireTabPermission(
         reason: t.reason,
         priority: t.priority || 'normal',
         claimedBy: t.claimedBy ? t.claimedBy.tag : null,
+        claimedById: t.claimedBy ? t.claimedBy.id : null,
         openedAt: t.openedAt,
         closing: Boolean(t.closing),
         tags: Array.isArray(t.tags) ? t.tags : [],
@@ -1806,6 +1807,76 @@ app.post('/api/open-tickets/:channelId/priority', maintenanceGate, requireAuth, 
     res.json({ success: true, priority });
 });
 
+// Claim/unclaim from the website — this was entirely missing, which is
+// exactly why claiming a ticket there failed outright: the button had
+// nothing to call.
+app.post('/api/open-tickets/:channelId/claim', maintenanceGate, requireAuth, requireTabPermission('tickets'), async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const ticket = openTickets.get(req.params.channelId);
+    if (!ticket) return res.status(404).json({ error: 'This ticket is no longer open.' });
+
+    const guildConfig = getGuildConfig(guild.id);
+    if (req.authUser && req.authUser.id && isTicketsSuspended(getStaffRestriction(guildConfig, req.authUser.id))) {
+        return res.status(403).json({ error: 'An Administrator has suspended you from working on tickets.' });
+    }
+    if (ticket.claimedBy) {
+        return res.status(409).json({ error: `Already claimed by ${ticket.claimedBy.tag}. They need to unclaim first.` });
+    }
+
+    const actorName = resolveActorName(req);
+    ticket.claimedBy = { id: req.authUser?.id || null, tag: actorName };
+    openTickets.set(req.params.channelId, ticket);
+    saveOpenTickets();
+
+    try {
+        const channel = await client.channels.fetch(req.params.channelId).catch(() => null);
+        if (channel) {
+            await syncTicketChannelName(channel, ticket);
+            await channel.send(`🙋 **${actorName}** is handling this ticket now (via website).`).catch(() => {});
+        }
+    } catch (err) {
+        console.error('[website claim] sync failed:', err.message);
+    }
+
+    io.to(`ticket_${req.params.channelId}`).emit('ticket_claim_update', { claimedBy: ticket.claimedBy });
+    res.json({ success: true, claimedBy: ticket.claimedBy.tag });
+});
+
+app.post('/api/open-tickets/:channelId/unclaim', maintenanceGate, requireAuth, requireTabPermission('tickets'), async (req, res) => {
+    const guild = getTargetGuild();
+    if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
+    const ticket = openTickets.get(req.params.channelId);
+    if (!ticket) return res.status(404).json({ error: 'This ticket is no longer open.' });
+    if (!ticket.claimedBy) return res.status(409).json({ error: 'This ticket is not currently claimed.' });
+
+    const guildConfig = getGuildConfig(guild.id);
+    const ctx = getViewerContext(req, guild, guildConfig);
+    const isSelf = Boolean(req.authUser && req.authUser.id && ticket.claimedBy.id === req.authUser.id);
+    const isAdminTier = ctx.tier === 'admin' || ctx.tier === 'master';
+    if (!isSelf && !isAdminTier) {
+        return res.status(403).json({ error: `Only ${ticket.claimedBy.tag} (or an Administrator) can unclaim this.` });
+    }
+
+    const actorName = resolveActorName(req);
+    ticket.claimedBy = null;
+    openTickets.set(req.params.channelId, ticket);
+    saveOpenTickets();
+
+    try {
+        const channel = await client.channels.fetch(req.params.channelId).catch(() => null);
+        if (channel) {
+            await syncTicketChannelName(channel, ticket);
+            await channel.send(`↩️ **${actorName}** unclaimed this ticket (via website).`).catch(() => {});
+        }
+    } catch (err) {
+        console.error('[website unclaim] sync failed:', err.message);
+    }
+
+    io.to(`ticket_${req.params.channelId}`).emit('ticket_claim_update', { claimedBy: null });
+    res.json({ success: true });
+});
+
 app.get('/api/open-tickets/:channelId/messages', maintenanceGate, requireAuth, requireTabPermission('tickets'), async (req, res) => {
     const ticket = openTickets.get(req.params.channelId);
     if (!ticket) return res.status(404).json({ error: 'This ticket is no longer open.' });
@@ -1833,6 +1904,7 @@ app.get('/api/open-tickets/:channelId/messages', maintenanceGate, requireAuth, r
                 reason: ticket.reason,
                 priority: ticket.priority || 'normal',
                 claimedBy: ticket.claimedBy ? ticket.claimedBy.tag : null,
+                claimedById: ticket.claimedBy ? ticket.claimedBy.id : null,
                 openedAt: ticket.openedAt,
                 closing: Boolean(ticket.closing),
                 tags: Array.isArray(ticket.tags) ? ticket.tags : []
