@@ -1,4 +1,4 @@
-/* =================================================--------------------------
+/* ===========================================================================
    1. LIGHT MODE OVERRIDES
    =========================================================================== */
 html[data-theme="light"],
@@ -17,60 +17,79 @@ body[data-theme="light"] {
   color: #1a1d24 !important;
 }
 
-/* Force light backgrounds on hardcoded dark headers, tables, & banners */
+/* Force light background on all page shells & containers */
 html[data-theme="light"] body,
 html[data-theme="light"] .app-shell,
 html[data-theme="light"] .container,
 html[data-theme="light"] .main-content,
-html[data-theme="light"] main,
-html[data-theme="light"] div[style*="background: #0a0c11"],
-html[data-theme="light"] div[style*="background:#0a0c11"],
-html[data-theme="light"] div[style*="background: #141722"],
-html[data-theme="light"] div[style*="background:#141722"] {
-  background: #f4f5f8 !important;
-  color: #1a1d24 !important;
-}
-
-/* Fix for top banner & header blocks that have hardcoded black styles */
-html[data-theme="light"] .site-banner,
-html[data-theme="light"] div[style*="background"],
-html[data-theme="light"] header {
+html[data-theme="light"] main {
+  background-color: #f4f5f8 !important;
   color: #1a1d24 !important;
 }
 
 /* Sidebar */
 html[data-theme="light"] .sidebar,
 html[data-theme="light"] aside {
-  background: #ffffff !important;
+  background-color: #ffffff !important;
   border-color: #dde1e8 !important;
 }
 
-/* Cards, Panels, Modals, & Table Rows */
+/* All Cards, Panels, Modals, Containers, and Custom Box Pickers */
 html[data-theme="light"] .card,
 html[data-theme="light"] .panel,
 html[data-theme="light"] .modal,
 html[data-theme="light"] .account-card,
 html[data-theme="light"] .save-bar,
-html[data-theme="light"] table,
-html[data-theme="light"] tr,
-html[data-theme="light"] td,
-html[data-theme="light"] th {
-  background: #ffffff !important;
+html[data-theme="light"] .custom-picker-box,
+html[data-theme="light"] div[style*="background: var(--panel)"],
+html[data-theme="light"] div[style*="background:var(--panel)"],
+html[data-theme="light"] div[style*="background: #141722"],
+html[data-theme="light"] div[style*="background:#141722"],
+html[data-theme="light"] div[style*="background: #0a0c11"],
+html[data-theme="light"] div[style*="background:#0a0c11"] {
+  background-color: #ffffff !important;
   border-color: #dde1e8 !important;
   color: #1a1d24 !important;
 }
 
-/* Inputs & Form Fields */
+/* Sub-panels, Theme Presets, Input Backgrounds */
+html[data-theme="light"] .panel-2,
+html[data-theme="light"] .team-roles,
+html[data-theme="light"] .role-check,
+html[data-theme="light"] .theme-item,
+html[data-theme="light"] .style-toggle {
+  background-color: #eef0f4 !important;
+  border-color: #dde1e8 !important;
+  color: #1a1d24 !important;
+}
+
+/* Active preset highlight in Light Mode */
+html[data-theme="light"] .theme-item.active {
+  background-color: #dde1e8 !important;
+  border-color: var(--accent) !important;
+}
+
+/* Form Inputs & Text Areas */
 html[data-theme="light"] input[type="text"],
 html[data-theme="light"] input[type="password"],
 html[data-theme="light"] select,
 html[data-theme="light"] textarea {
-  background: #eef0f4 !important;
+  background-color: #eef0f4 !important;
   border-color: #dde1e8 !important;
   color: #1a1d24 !important;
 }
 
-/* Text Contrast */
+/* Tables, Rows & Headers */
+html[data-theme="light"] table,
+html[data-theme="light"] tr,
+html[data-theme="light"] td,
+html[data-theme="light"] th {
+  background-color: #ffffff !important;
+  border-color: #dde1e8 !important;
+  color: #1a1d24 !important;
+}
+
+/* Force All Headings & Dark Text to Light Mode Dark Ink */
 html[data-theme="light"] h1,
 html[data-theme="light"] h2,
 html[data-theme="light"] h3,
@@ -78,24 +97,36 @@ html[data-theme="light"] h4,
 html[data-theme="light"] strong,
 html[data-theme="light"] b,
 html[data-theme="light"] .page-title,
-html[data-theme="light"] .account-name {
+html[data-theme="light"] .profile-name,
+html[data-theme="light"] .account-name,
+html[data-theme="light"] .theme-item-name,
+html[data-theme="light"] .card-header h2 {
   color: #1a1d24 !important;
 }
 
+/* Force Muted Text to Proper Slate Gray */
 html[data-theme="light"] p,
 html[data-theme="light"] span,
 html[data-theme="light"] label,
 html[data-theme="light"] .page-sub,
 html[data-theme="light"] .hint,
-html[data-theme="light"] .account-sub {
+html[data-theme="light"] .profile-tag,
+html[data-theme="light"] .account-sub,
+html[data-theme="light"] .appear-note {
   color: #5b6272 !important;
 }
 
+/* Scrollbars */
+html[data-theme="light"] ::-webkit-scrollbar-track {
+  background: #eef0f4 !important;
+}
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+}
 
-/* =================================================--------------------------
-   2. GRADIENT PRESET OVERRIDES
+/* ===========================================================================
+   2. GRADIENT PRESETS
    =========================================================================== */
-/* Preset Gradients (Applied to body[data-theme]) */
 body[data-theme="cosmic-dust"]   { background: linear-gradient(135deg, #0f0c20 0%, #1a0b36 50%, #4a154b 100%) !important; }
 body[data-theme="polar-freeze"]  { background: linear-gradient(135deg, #031020 0%, #002845 50%, #00557a 100%) !important; }
 body[data-theme="super-charge"]  { background: linear-gradient(135deg, #051d13 0%, #003822 50%, #006638 100%) !important; }
@@ -104,7 +135,6 @@ body[data-theme="lava-glow"]    { background: linear-gradient(135deg, #200803 0%
 body[data-theme="star-burst"]   { background: linear-gradient(135deg, #200315 0%, #45002b 50%, #7a0048 100%) !important; }
 body[data-theme="pixel-pop"]    { background: linear-gradient(135deg, #180320 0%, #370045 50%, #61007a 100%) !important; }
 
-/* Dynamic vs Calm Mode adjustments */
 body[data-theme-style="calm"] {
   background-size: 100% 100% !important;
 }
