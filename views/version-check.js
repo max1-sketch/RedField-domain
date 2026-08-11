@@ -1,25 +1,48 @@
 (function () {
     const clientVersion = window.APP_BUILD_VERSION;
-    if (!clientVersion) return;
+    if (!clientVersion) {
+        console.warn('[version-check] window.APP_BUILD_VERSION is not set — the toast can never fire. This means the server-side template injection that sets it is missing on this page.');
+        return;
+    }
+    console.debug('[version-check] running. client build =', clientVersion);
 
     let isOutdated = false;
     let pollTimer = null;
 
     function checkServerVersion() {
         fetch('/api/version')
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    console.warn('[version-check] /api/version returned', res.status, '— can\'t compare versions.');
+                    return null;
+                }
+                return res.json();
+            })
             .then(data => {
-                if (data && data.version && data.version !== clientVersion && !isOutdated) {
+                if (!data) return;
+                if (!data.version) {
+                    console.warn('[version-check] /api/version response had no "version" field:', data);
+                    return;
+                }
+                if (data.version !== clientVersion && !isOutdated) {
+                    console.info('[version-check] mismatch detected — server =', data.version, 'client =', clientVersion, '. Showing update toast.');
                     isOutdated = true;
                     if (pollTimer) clearInterval(pollTimer);
                     renderUpdateToast();
                 }
             })
-            .catch(() => {});
+            .catch(err => {
+                console.warn('[version-check] fetch to /api/version failed:', err.message);
+            });
     }
 
     function renderUpdateToast() {
         if (document.getElementById('updateToast')) return;
+        if (!document.body) {
+            console.warn('[version-check] document.body not available yet — retrying shortly.');
+            setTimeout(renderUpdateToast, 200);
+            return;
+        }
 
         const toast = document.createElement('div');
         toast.id = 'updateToast';
@@ -47,7 +70,6 @@
         `;
         document.body.appendChild(toast);
 
-        // Fade/slide in on next frame so the transition actually plays.
         requestAnimationFrame(() => {
             toast.style.opacity = '1';
             toast.style.transform = 'translateY(0)';
@@ -61,10 +83,6 @@
             if (secondsLeft <= 0) {
                 clearInterval(countdown);
                 toast.textContent = `⟳ Refreshing…`;
-                // Plain reload() is the correct modern call — the old
-                // reload(true) "force" argument was a non-standard Firefox
-                // extension that's deprecated and ignored everywhere else;
-                // it never actually did anything extra in most browsers.
                 window.location.reload();
             } else {
                 toast.textContent = `⟳ Update available — refreshing in ${secondsLeft}s`;
@@ -72,6 +90,6 @@
         }, 1000);
     }
 
-    // Poll every 3 seconds for fast detection.
     pollTimer = setInterval(checkServerVersion, 3000);
+    checkServerVersion(); // also check immediately on load, don't wait 3s for the first one
 })();
