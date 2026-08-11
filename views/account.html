@@ -271,6 +271,7 @@ function render(me) {
           <div class="name">Custom Gradient <span class="badge-beta">Coming Soon</span></div>
         </div>
       </div>
+      <button class="btn btn-accent" id="saveAppearanceBtn" style="margin-top:14px;">Save</button>
       <p class="appear-note" id="appearStatus"></p>
     </div>
 
@@ -287,8 +288,9 @@ function render(me) {
   senderInput.value = getCookie('websiteSenderName') || '';
 
   loadAppearance();
-  document.getElementById('themeOptionDark').addEventListener('click', () => saveAppearance('dark'));
-  document.getElementById('themeOptionLight').addEventListener('click', () => saveAppearance('light'));
+  document.getElementById('themeOptionDark').addEventListener('click', () => selectThemeOption('dark'));
+  document.getElementById('themeOptionLight').addEventListener('click', () => selectThemeOption('light'));
+  document.getElementById('saveAppearanceBtn').addEventListener('click', () => saveAppearance(selectedScheme));
 
   document.getElementById('saveSenderBtn').addEventListener('click', () => {
     const value = senderInput.value.trim();
@@ -299,11 +301,14 @@ function render(me) {
   });
 }
 
+let selectedScheme = 'dark';
+
 async function loadAppearance() {
   try {
     const res = await fetch('/api/site/appearance');
     if (!res.ok) return;
     const data = await res.json();
+    selectedScheme = data.colorScheme;
     setActiveThemeOption(data.colorScheme);
   } catch (err) {
     console.error('[appearance] load failed:', err);
@@ -317,16 +322,27 @@ function setActiveThemeOption(scheme) {
   if (lightEl) lightEl.classList.toggle('active', scheme === 'light');
 }
 
-// Applies the scheme to THIS page right now, instead of only taking effect
-// on the next page load — this is what was missing before: saving worked,
-// but nothing visibly changed until you refreshed.
+// Clicking Dark/Light only selects + instantly previews it on this page —
+// it does NOT save by itself. The Save button below is what actually
+// persists the choice, since a click-to-save-immediately design made it
+// unclear anything had happened at all.
+function selectThemeOption(scheme) {
+  selectedScheme = scheme;
+  setActiveThemeOption(scheme);
+  applyThemeLive(scheme);
+  const statusEl = document.getElementById('appearStatus');
+  if (statusEl) statusEl.textContent = 'Previewing — click Save to keep it.';
+}
+
 function applyThemeLive(scheme) {
   document.body.setAttribute('data-theme', scheme);
 }
 
 async function saveAppearance(scheme) {
   const statusEl = document.getElementById('appearStatus');
+  const btn = document.getElementById('saveAppearanceBtn');
   if (statusEl) statusEl.textContent = 'Saving…';
+  if (btn) btn.disabled = true;
   try {
     const res = await fetch('/api/site/appearance', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -336,13 +352,14 @@ async function saveAppearance(scheme) {
     if (res.ok) {
       setActiveThemeOption(scheme);
       applyThemeLive(scheme);
-      if (statusEl) statusEl.textContent = '✓ Saved and applied — every page updates for everyone from here on.';
+      if (statusEl) statusEl.textContent = '✓ Saved — this browser will stay on this from now on.';
     } else if (statusEl) {
       statusEl.textContent = data.error || 'Could not save — try again.';
     }
   } catch {
     if (statusEl) statusEl.textContent = 'Could not reach the server.';
   }
+  if (btn) btn.disabled = false;
 }
 
 initNav();
