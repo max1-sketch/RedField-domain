@@ -96,20 +96,6 @@ select.tier-select:focus { outline: none; border-color: var(--accent); }
   box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 2px 6px rgba(88,101,242,0.35);
 }
 
-.theme-toggle-row { display: flex; gap: 10px; }
-.theme-option {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 16px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel-2);
-  cursor: pointer; transition: border-color .15s, background .15s;
-}
-.theme-option:hover { border-color: var(--accent); }
-.theme-option.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--panel-2)); }
-.theme-option .swatch { width: 100%; height: 44px; border-radius: 7px; border: 1px solid var(--border); }
-.theme-option .swatch.dark { background: linear-gradient(135deg, #0a0c11, #1a1e2b); }
-.theme-option .swatch.light { background: linear-gradient(135deg, #ffffff, #eef0f4); }
-.theme-option .name { font-size: 12.5px; font-weight: 700; color: var(--ink); }
-.appear-note { font-size: 11.5px; color: var(--faint); margin: 10px 0 0; line-height: 1.6; }
-
 @media (max-width: 860px) {
   .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
   .sidebar.open { transform: translateX(0); }
@@ -139,22 +125,6 @@ select.tier-select:focus { outline: none; border-color: var(--accent); }
   </aside>
 
   <main class="content-area">
-    <div class="card" id="appearanceCard">
-      <div class="card-header" style="margin-bottom:14px;">Site Appearance<span class="badge-new">NEW</span></div>
-      <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.6;">Applies for everyone who visits the site, not just you.</p>
-      <div class="theme-toggle-row">
-        <div class="theme-option" data-scheme="dark" id="themeOptionDark">
-          <div class="swatch dark"></div>
-          <div class="name">Dark</div>
-        </div>
-        <div class="theme-option" data-scheme="light" id="themeOptionLight">
-          <div class="swatch light"></div>
-          <div class="name">Light</div>
-        </div>
-      </div>
-      <p class="appear-note" id="appearStatus"></p>
-    </div>
-
     <div id="main">
       <h1 class="page-title">Bot Commands</h1>
       <div class="loading-line">Loading…</div>
@@ -330,49 +300,9 @@ async function save() {
   btn.disabled = false;
 }
 
-async function loadAppearance() {
-  try {
-    const res = await fetch('/api/site/appearance');
-    if (!res.ok) return;
-    const data = await res.json();
-    setActiveThemeOption(data.colorScheme);
-  } catch (err) {
-    console.error('[appearance] load failed:', err);
-  }
-}
-
-function setActiveThemeOption(scheme) {
-  document.getElementById('themeOptionDark').classList.toggle('active', scheme === 'dark');
-  document.getElementById('themeOptionLight').classList.toggle('active', scheme === 'light');
-}
-
-async function saveAppearance(scheme) {
-  const statusEl = document.getElementById('appearStatus');
-  statusEl.textContent = 'Saving…';
-  try {
-    const res = await fetch('/api/site/appearance', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ colorScheme: scheme })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok) {
-      setActiveThemeOption(scheme);
-      statusEl.textContent = '✓ Saved — refresh any open tab to see it (this page updates on next load).';
-    } else {
-      statusEl.textContent = data.error || 'Could not save — try again.';
-    }
-  } catch {
-    statusEl.textContent = 'Could not reach the server.';
-  }
-}
-
-document.getElementById('themeOptionDark').addEventListener('click', () => saveAppearance('dark'));
-document.getElementById('themeOptionLight').addEventListener('click', () => saveAppearance('light'));
-
 initNav();
 load();
 loadAccountWidget();
-loadAppearance();
 </script>
 </body>
 </html>
