@@ -1904,7 +1904,10 @@ app.post('/api/open-tickets/:channelId/close', maintenanceGate, requireAuth, req
         
         // Archive the transcript and delete the channel immediately — finalizeTicketClose
         // handles the delete itself, there is no "keep it around locked" option anymore.
-        await finalizeTicketClose(channel, guild, guildConfig, asName);
+        const result = await finalizeTicketClose(channel, guild, guildConfig, asName);
+        if (!result.success) {
+            return res.status(207).json({ success: true, warning: `Ticket was archived, but the Discord channel couldn't be deleted (${result.error}). Check the bot's permissions in that channel/category.` });
+        }
 
         res.json({ success: true });
     } catch (err) {
@@ -2872,12 +2875,21 @@ async function fetchAllMessages(channel, maxMessages = 2000) {
 
 async function finalizeTicketClose(channel, guild, guildConfig, closedByTag) {
     clearCloseRequestTimer(channel.id);
-    try {
-        const messagesArray = await fetchAllMessages(channel);
-        const meta = openTickets.get(channel.id) || {};
-        const accessToken = crypto.randomBytes(12).toString('hex');
-        const websiteUrl = getWebsiteUrl();
+    const meta = openTickets.get(channel.id) || {};
 
+    // Step 1: transcript — a failure here (e.g. missing Read Message History
+    // permission) must not block the actual close below. Worst case, the
+    // archive gets saved with zero messages instead of the real transcript.
+    let messagesArray = [];
+    try {
+        messagesArray = await fetchAllMessages(channel);
+    } catch (err) {
+        console.error('[finalizeTicketClose] could not fetch messages:', err.message);
+    }
+
+    const accessToken = crypto.randomBytes(12).toString('hex');
+    const websiteUrl = getWebsiteUrl();
+    try {
         archivedTickets.set(channel.id, {
             id: channel.id,
             channelName: channel.name,
@@ -2896,55 +2908,70 @@ async function finalizeTicketClose(channel, guild, guildConfig, closedByTag) {
             tags: Array.isArray(meta.tags) ? meta.tags : []
         });
         saveArchive();
+    } catch (err) {
+        console.error('[finalizeTicketClose] could not save archive:', err.message);
+    }
 
-        const closeEmbed = new EmbedBuilder()
-            .setAuthor({ name: guild.name, iconURL: guild.iconURL() })
-            .setTitle('Ticket Closed')
-            .setColor(0x2ecc71)
-            .addFields(
-                { name: '# Ticket ID', value: `${channel.id.slice(-6)}`, inline: true },
-                { name: '✅ Opened By', value: `<@${meta.userId || '0'}>`, inline: true },
-                { name: '🚫 Closed By', value: `${closedByTag}`, inline: true },
-                { name: '⏰ Open Time', value: meta.openedAt ? new Date(meta.openedAt).toLocaleString() : 'Recently', inline: true },
-                { name: '👤 Claimed By', value: meta.claimedBy ? `<@${meta.claimedBy.id}>` : 'Unclaimed', inline: true },
-                { name: '🚩 Priority', value: `${PRIORITY_EMOJI[meta.priority || 'normal']} ${PRIORITY_LABEL[meta.priority || 'normal']}`, inline: true },
-                { name: '❓ Reason', value: meta.reason || 'User has been handled, thank you for reporting!' }
-            )
-            .setFooter({ text: new Date().toLocaleString() });
+    const closeEmbed = new EmbedBuilder()
+        .setAuthor({ name: guild.name, iconURL: guild.iconURL() })
+        .setTitle('Ticket Closed')
+        .setColor(0x2ecc71)
+        .addFields(
+            { name: '# Ticket ID', value: `${channel.id.slice(-6)}`, inline: true },
+            { name: '✅ Opened By', value: `<@${meta.userId || '0'}>`, inline: true },
+            { name: '🚫 Closed By', value: `${closedByTag}`, inline: true },
+            { name: '⏰ Open Time', value: meta.openedAt ? new Date(meta.openedAt).toLocaleString() : 'Recently', inline: true },
+            { name: '👤 Claimed By', value: meta.claimedBy ? `<@${meta.claimedBy.id}>` : 'Unclaimed', inline: true },
+            { name: '🚩 Priority', value: `${PRIORITY_EMOJI[meta.priority || 'normal']} ${PRIORITY_LABEL[meta.priority || 'normal']}`, inline: true },
+            { name: '❓ Reason', value: meta.reason || 'User has been handled, thank you for reporting!' }
+        )
+        .setFooter({ text: new Date().toLocaleString() });
 
-        const transcriptRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setLabel('View Online Transcript').setStyle(ButtonStyle.Link).setURL(`${websiteUrl}/transcript/${channel.id}?token=${accessToken}`).setEmoji('📁')
-        );
+    const transcriptRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setLabel('View Online Transcript').setStyle(ButtonStyle.Link).setURL(`${websiteUrl}/transcript/${channel.id}?token=${accessToken}`).setEmoji('📁')
+    );
 
-        const feedbackRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`feedback_1_${channel.id}`).setLabel('1').setStyle(ButtonStyle.Danger).setEmoji('⭐'),
-            new ButtonBuilder().setCustomId(`feedback_2_${channel.id}`).setLabel('2').setStyle(ButtonStyle.Danger).setEmoji('⭐'),
-            new ButtonBuilder().setCustomId(`feedback_3_${channel.id}`).setLabel('3').setStyle(ButtonStyle.Primary).setEmoji('⭐'),
-            new ButtonBuilder().setCustomId(`feedback_4_${channel.id}`).setLabel('4').setStyle(ButtonStyle.Success).setEmoji('⭐'),
-            new ButtonBuilder().setCustomId(`feedback_5_${channel.id}`).setLabel('5').setStyle(ButtonStyle.Success).setEmoji('⭐')
-        );
+    const feedbackRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`feedback_1_${channel.id}`).setLabel('1').setStyle(ButtonStyle.Danger).setEmoji('⭐'),
+        new ButtonBuilder().setCustomId(`feedback_2_${channel.id}`).setLabel('2').setStyle(ButtonStyle.Danger).setEmoji('⭐'),
+        new ButtonBuilder().setCustomId(`feedback_3_${channel.id}`).setLabel('3').setStyle(ButtonStyle.Primary).setEmoji('⭐'),
+        new ButtonBuilder().setCustomId(`feedback_4_${channel.id}`).setLabel('4').setStyle(ButtonStyle.Success).setEmoji('⭐'),
+        new ButtonBuilder().setCustomId(`feedback_5_${channel.id}`).setLabel('5').setStyle(ButtonStyle.Success).setEmoji('⭐')
+    );
 
+    // Step 2: post to the log channel — best-effort, was previously NOT even
+    // wrapped in its own try/catch, so a bot missing Send Messages there
+    // would silently kill the whole close before the channel ever deleted.
+    try {
         if (guildConfig.logChannelId) {
             const logChannel = await guild.channels.fetch(guildConfig.logChannelId).catch(() => null);
             if (logChannel) await logChannel.send({ embeds: [closeEmbed], components: [transcriptRow, feedbackRow] });
         }
+    } catch (err) {
+        console.error('[finalizeTicketClose] could not post to log channel:', err.message);
+    }
 
-        if (meta.userId) {
-            try {
-                const user = await client.users.fetch(meta.userId);
-                await user.send({ embeds: [closeEmbed], components: [transcriptRow, feedbackRow] });
-            } catch (e) {}
-        }
+    // Step 3: DM the opener — best-effort, closed DMs are expected/common.
+    if (meta.userId) {
+        try {
+            const user = await client.users.fetch(meta.userId);
+            await user.send({ embeds: [closeEmbed], components: [transcriptRow, feedbackRow] });
+        } catch (e) { /* DMs closed or user left — not an error worth logging */ }
+    }
 
-        openTickets.delete(channel.id);
-        saveOpenTickets();
+    openTickets.delete(channel.id);
+    saveOpenTickets();
 
-        // Transcript is already saved on the website — the Discord channel itself is
-        // deleted immediately on close. No "lock and keep as an archive category"
-        // option anymore.
-        await channel.delete().catch(() => {});
-    } catch (error) {
-        console.error('Error archiving ticket channel:', error);
+    // Step 4: the actual close. This is the one step staff are waiting on,
+    // so it always runs no matter what failed above, and its outcome is
+    // reported back so a caller can tell the user if it didn't work instead
+    // of leaving "Closing ticket..." on screen forever with no explanation.
+    try {
+        await channel.delete();
+        return { success: true };
+    } catch (err) {
+        console.error('[finalizeTicketClose] could not delete the channel:', err.message);
+        return { success: false, error: err.message };
     }
 }
 
@@ -2964,7 +2991,10 @@ function scheduleCloseRequestAutoClose(channel, guild, guildConfig, hours, reque
         openTickets.set(channel.id, ticket);
         saveOpenTickets();
         await channel.send(`⏱️ No response after ${hours} hour${hours === 1 ? '' : 's'} — auto-closing per **${requestedByTag}**'s close request.`).catch(() => {});
-        await finalizeTicketClose(channel, guild, guildConfig, `Auto-close (requested by ${requestedByTag})`);
+        const result = await finalizeTicketClose(channel, guild, guildConfig, `Auto-close (requested by ${requestedByTag})`);
+        if (!result.success) {
+            await channel.send(`⚠️ This ticket was archived, but I couldn't delete the channel automatically (${result.error}). Please close it manually or check my permissions here.`).catch(() => {});
+        }
     }, ms);
     closeRequestTimers.set(channel.id, timer);
 }
@@ -3592,7 +3622,12 @@ client.on('interactionCreate', async (interaction) => {
                     return interaction.update({ content: '❌ An Administrator has suspended you from working on tickets.', components: [] });
                 }
                 await interaction.update({ content: '🔒 Closing ticket...', components: [] });
-                await finalizeTicketClose(channel, interaction.guild, guildConfig, user.tag);
+                const result = await finalizeTicketClose(channel, interaction.guild, guildConfig, user.tag);
+                if (!result.success) {
+                    // This is exactly what used to leave "Closing ticket..." stuck
+                    // forever with no explanation — now it actually tells you why.
+                    await channel.send(`⚠️ This ticket was archived, but I couldn't delete the channel automatically (${result.error}). Check my permissions here, or delete it manually.`).catch(() => {});
+                }
             }
 
             if (customId === 'cancel_close') {
@@ -3636,7 +3671,10 @@ client.on('interactionCreate', async (interaction) => {
                     return interaction.reply({ content: '❌ An Administrator has suspended you from working on tickets.', ephemeral: true });
                 }
                 await interaction.update({ content: `🔒 **${user.tag}** accepted the close request — closing ticket...`, components: [] });
-                await finalizeTicketClose(channel, interaction.guild, guildConfig, user.tag);
+                const result = await finalizeTicketClose(channel, interaction.guild, guildConfig, user.tag);
+                if (!result.success) {
+                    await channel.send(`⚠️ This ticket was archived, but I couldn't delete the channel automatically (${result.error}). Check my permissions here, or delete it manually.`).catch(() => {});
+                }
                 return;
             }
 
@@ -3730,7 +3768,10 @@ client.on('interactionCreate', async (interaction) => {
                     saveOpenTickets();
                 }
                 await interaction.reply({ content: `🔒 Closing with reason: ${reason}` });
-                await finalizeTicketClose(interaction.channel, interaction.guild, guildConfig, interaction.user.tag);
+                const result = await finalizeTicketClose(interaction.channel, interaction.guild, guildConfig, interaction.user.tag);
+                if (!result.success) {
+                    await interaction.channel.send(`⚠️ This ticket was archived, but I couldn't delete the channel automatically (${result.error}). Check my permissions here, or delete it manually.`).catch(() => {});
+                }
                 return;
             }
         }
