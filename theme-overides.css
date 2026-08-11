@@ -2,12 +2,9 @@
    own dark palette directly in a local :root { ... } block rather than
    importing shared variables, so this file can't just redefine the same
    custom properties at the same specificity — it has to win regardless of
-   page-load order, hence html[data-theme="light"] + !important. That's an
-   intentional, if slightly heavy-handed, choice: it means enabling light
-   mode works immediately across every existing page without editing each
-   one's markup individually. renderTemplate() in index.js is what stamps
-   data-theme onto <body> and links this file in — see there for the toggle. */
+   page-load order, hence html[data-theme="light"] + !important. */
 
+html[data-theme="light"],
 html[data-theme="light"] body,
 body[data-theme="light"] {
   --bg-0: #f4f5f8 !important;
@@ -19,15 +16,92 @@ body[data-theme="light"] {
   --ink: #1a1d24 !important;
   --muted: #5b6272 !important;
   --faint: #7d8494 !important;
+  background-color: #f4f5f8 !important;
+  color: #1a1d24 !important;
 }
 
-/* A handful of pages use --bg instead of --bg-0, or hardcode rgba() darks
-   directly on body/backgrounds rather than through a variable — cover those
-   too so light mode doesn't leave obvious dark patches behind. */
-html[data-theme="light"] body {
-  background: var(--bg-0) !important;
-  color: var(--ink) !important;
+/* Force light background on all page containers, body, and app shells */
+html[data-theme="light"] body,
+html[data-theme="light"] .app-shell,
+html[data-theme="light"] .container,
+html[data-theme="light"] .main-content,
+html[data-theme="light"] main {
+  background-color: #f4f5f8 !important;
+  color: #1a1d24 !important;
 }
+
+/* Force white background on sidebar */
+html[data-theme="light"] .sidebar,
+html[data-theme="light"] aside {
+  background-color: #ffffff !important;
+  border-color: #dde1e8 !important;
+}
+
+/* Force white background on all cards, panels, and modals */
+html[data-theme="light"] .card,
+html[data-theme="light"] .panel,
+html[data-theme="light"] .modal,
+html[data-theme="light"] .account-card,
+html[data-theme="light"] .save-bar {
+  background-color: #ffffff !important;
+  border-color: #dde1e8 !important;
+  color: #1a1d24 !important;
+}
+
+/* Sub-panels and nested containers */
+html[data-theme="light"] .panel-2,
+html[data-theme="light"] .team-roles,
+html[data-theme="light"] .role-check {
+  background-color: #eef0f4 !important;
+  border-color: #dde1e8 !important;
+  color: #1a1d24 !important;
+}
+
+/* Inputs, Textareas, and Selects */
+html[data-theme="light"] input[type="text"],
+html[data-theme="light"] input[type="password"],
+html[data-theme="light"] select,
+html[data-theme="light"] textarea {
+  background-color: #eef0f4 !important;
+  border-color: #dde1e8 !important;
+  color: #1a1d24 !important;
+}
+
+/* Tables & Logs */
+html[data-theme="light"] table,
+html[data-theme="light"] tr,
+html[data-theme="light"] td,
+html[data-theme="light"] th {
+  background-color: #ffffff !important;
+  border-color: #dde1e8 !important;
+  color: #1a1d24 !important;
+}
+
+/* Typography contrast fixes */
+html[data-theme="light"] h1,
+html[data-theme="light"] h2,
+html[data-theme="light"] h3,
+html[data-theme="light"] h4,
+html[data-theme="light"] strong,
+html[data-theme="light"] b,
+html[data-theme="light"] .page-title,
+html[data-theme="light"] .account-name {
+  color: #1a1d24 !important;
+}
+
+html[data-theme="light"] p,
+html[data-theme="light"] span,
+html[data-theme="light"] label,
+html[data-theme="light"] .page-sub,
+html[data-theme="light"] .hint,
+html[data-theme="light"] .account-sub {
+  color: #5b6272 !important;
+}
+
+/* Scrollbars */
 html[data-theme="light"] ::-webkit-scrollbar-track {
-  background: var(--panel-2) !important;
+  background: #eef0f4 !important;
+}
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
 }
