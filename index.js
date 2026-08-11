@@ -247,12 +247,16 @@ function renderTemplate(filePath, req) {
     // cookie (same pattern as the "reply name" preference already uses),
     // never from siteConfig — this used to be a global admin-only setting
     // that changed the site for every visitor, which wasn't the ask.
-    const cookies = req ? parseCookies(req) : {};
-    const scheme = cookies.sitePreferredTheme === 'light' ? 'light' : 'dark';
+  const cookies = req ? parseCookies(req) : {};
+    const scheme = cookies.sitePreferredTheme || siteConfig.colorScheme || 'dark';
+
+    // Inject data-theme on <body> and <html
     if (/<body[\s>]/.test(html)) {
         html = html.replace(/<body(\s[^>]*)?>/, (match, attrs) => `<body data-theme="${scheme}"${attrs || ''}>`);
     }
-    if (html.includes('</head>')) {
+    
+    // Inject the theme-overrides.css link into <head>
+    if (html.includes('</head>') && !html.includes('theme-overrides.css')) {
         html = html.replace('</head>', `<link rel="stylesheet" href="/theme-overrides.css">\n</head>`);
     }
 
@@ -1002,9 +1006,7 @@ app.get('/badges.css', (req, res) => {
 });
 
 app.get('/theme-overrides.css', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'theme-overrides.css'), (err) => {
-        if (err && !res.headersSent) res.status(404).type('text/css').send('/* theme-overrides.css not found on server */');
-    });
+    res.sendFile(path.join(__dirname, 'views', 'theme-overrides.css'));
 });
 
 app.use(express.static(path.join(__dirname, 'views'), { index: false }));
