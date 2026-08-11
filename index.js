@@ -1769,12 +1769,23 @@ app.get('/api/site/appearance', maintenanceGate, requireAuth, (req, res) => {
     res.json({ colorScheme: cookies.sitePreferredTheme === 'light' ? 'light' : 'dark' });
 });
 
-app.post('/api/site/appearance', maintenanceGate, requireAuth, (req, res) => {
-    const scheme = String(req.body?.colorScheme || '').toLowerCase();
-    if (scheme !== 'light' && scheme !== 'dark') {
-        return res.status(400).json({ error: 'colorScheme must be "light" or "dark".' });
+app.get('/badges.css', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'badges.css'), (err) => {
+        if (err && !res.headersSent) res.status(404).type('text/css').send('/* badges.css not found */');
+    });
+});
+
+app.post('/api/site/appearance', maintenanceGate, requireAuth, async (req, res) => {
+    const scheme = String(req.body?.colorScheme || '').trim();
+    if (!scheme) {
+        return res.status(400).json({ error: 'colorScheme is required.' });
     }
-    res.setHeader('Set-Cookie', `sitePreferredTheme=${scheme}; Path=/; Max-Age=${365 * 86400}; SameSite=Lax`);
+    
+    siteConfig.colorScheme = scheme;
+    await saveSiteConfig();
+    
+    // Allow any preset name or custom gradient tag in cookies
+    res.setHeader('Set-Cookie', `sitePreferredTheme=${encodeURIComponent(scheme)}; Path=/; Max-Age=${365 * 86400}; SameSite=Lax`);
     res.json({ success: true, colorScheme: scheme });
 });
 

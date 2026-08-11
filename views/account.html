@@ -110,9 +110,9 @@ input[type=text]:focus { outline: none; border-color: var(--accent); }
 .theme-circle { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.15); }
 .theme-item-name { font-size: 13px; font-weight: 600; color: var(--ink); }
 
-.custom-picker-box { padding: 14px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 10px; }
-.color-inputs { display: flex; align-items: center; gap: 12px; }
-input[type=color] { width: 36px; height: 36px; padding: 0; border: none; border-radius: 6px; background: transparent; cursor: pointer; }
+.custom-picker-box { padding: 14px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 12px; }
+.hex-input-row { display: flex; align-items: center; gap: 10px; }
+.hex-input-row span { font-size: 12px; font-weight: 600; color: var(--faint); width: 55px; }
 
 .appear-note { font-size: 11.5px; color: var(--faint); margin: 10px 0 0; line-height: 1.6; }
 
@@ -255,7 +255,7 @@ function render(me) {
         <button class="style-btn ${selectedStyle === 'calm' ? 'active' : ''}" id="styleCalmBtn" onclick="setStyleMode('calm')">Calm</button>
       </div>
 
-      <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.6;">Select a theme preset or customize a 2-color gradient for your background.</p>
+      <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.6;">Select a theme preset or enter custom hex codes for your background gradient.</p>
 
       <div class="presets-grid">
         <div class="theme-item" data-theme-id="dark" onclick="selectTheme('dark')">
@@ -298,11 +298,20 @@ function render(me) {
 
       <div class="custom-picker-box">
         <label style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--faint);">Custom 2-Color Gradient</label>
-        <div class="color-inputs">
+        
+        <div class="hex-input-row">
+          <span>Color 1</span>
           <input type="color" id="gradColor1" value="#0a0c11">
-          <input type="color" id="gradColor2" value="#5865f2">
-          <button class="btn btn-ghost" type="button" onclick="applyCustomGradient()">Apply Custom</button>
+          <input type="text" id="gradHex1" value="#0A0C11" maxlength="7" placeholder="#0A0C11" style="width:110px; font-family:'IBM Plex Mono', monospace; text-transform:uppercase;">
         </div>
+
+        <div class="hex-input-row">
+          <span>Color 2</span>
+          <input type="color" id="gradColor2" value="#5865f2">
+          <input type="text" id="gradHex2" value="#5865F2" maxlength="7" placeholder="#5865F2" style="width:110px; font-family:'IBM Plex Mono', monospace; text-transform:uppercase;">
+        </div>
+
+        <button class="btn btn-ghost" type="button" onclick="applyCustomGradient()" style="align-self:flex-start; margin-top:4px;">Apply Custom Gradient</button>
       </div>
 
       <button class="btn btn-accent" id="saveAppearanceBtn">Save Appearance</button>
@@ -321,6 +330,7 @@ function render(me) {
   const senderInput = document.getElementById('senderName');
   senderInput.value = getCookie('websiteSenderName') || '';
 
+  wireHexSync();
   loadAppearance();
 
   document.getElementById('saveAppearanceBtn').addEventListener('click', () => saveAppearance(selectedTheme));
@@ -331,6 +341,27 @@ function render(me) {
     const status = document.getElementById('saveStatus');
     status.classList.add('show');
     setTimeout(() => status.classList.remove('show'), 1800);
+  });
+}
+
+function wireHexSync() {
+  const p1 = document.getElementById('gradColor1');
+  const h1 = document.getElementById('gradHex1');
+  const p2 = document.getElementById('gradColor2');
+  const h2 = document.getElementById('gradHex2');
+
+  p1.addEventListener('input', () => { h1.value = p1.value.toUpperCase(); });
+  p2.addEventListener('input', () => { h2.value = p2.value.toUpperCase(); });
+
+  h1.addEventListener('input', () => {
+    let val = h1.value.trim();
+    if (val && !val.startsWith('#')) val = '#' + val;
+    if (/^#[0-9A-Fa-f]{6}$/.test(val)) p1.value = val;
+  });
+  h2.addEventListener('input', () => {
+    let val = h2.value.trim();
+    if (val && !val.startsWith('#')) val = '#' + val;
+    if (/^#[0-9A-Fa-f]{6}$/.test(val)) p2.value = val;
   });
 }
 
@@ -353,8 +384,16 @@ function selectTheme(themeName) {
 }
 
 function applyCustomGradient() {
-  const c1 = document.getElementById('gradColor1').value;
-  const c2 = document.getElementById('gradColor2').value;
+  let c1 = document.getElementById('gradHex1').value.trim();
+  let c2 = document.getElementById('gradHex2').value.trim();
+  if (c1 && !c1.startsWith('#')) c1 = '#' + c1;
+  if (c2 && !c2.startsWith('#')) c2 = '#' + c2;
+
+  if (!/^#[0-9A-Fa-f]{6}$/.test(c1) || !/^#[0-9A-Fa-f]{6}$/.test(c2)) {
+    alert('Please enter valid 6-digit hex color codes (e.g. #0A0C11)');
+    return;
+  }
+
   selectedTheme = 'custom';
   document.querySelectorAll('.theme-item').forEach(el => el.classList.remove('active'));
   document.body.setAttribute('data-theme', 'custom');
@@ -380,10 +419,23 @@ async function saveAppearance(scheme) {
   const btn = document.getElementById('saveAppearanceBtn');
   if (statusEl) statusEl.textContent = 'Saving…';
   if (btn) btn.disabled = true;
+
+  let themeValue = scheme;
+  
+  // If custom gradient is active, save the actual linear-gradient CSS string or colors
+  if (scheme === 'custom') {
+    let c1 = document.getElementById('gradHex1').value.trim();
+    let c2 = document.getElementById('gradHex2').value.trim();
+    if (c1 && !c1.startsWith('#')) c1 = '#' + c1;
+    if (c2 && !c2.startsWith('#')) c2 = '#' + c2;
+    themeValue = `custom_${c1}_${c2}`;
+  }
+
   try {
     const res = await fetch('/api/site/appearance', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ colorScheme: scheme })
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ colorScheme: themeValue })
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
@@ -396,7 +448,6 @@ async function saveAppearance(scheme) {
   }
   if (btn) btn.disabled = false;
 }
-
 initNav();
 load();
 </script>
