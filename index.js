@@ -44,8 +44,18 @@ if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) 
 const GUILD_ID = process.env.GUILD_ID || null;
 
 function getWebsiteUrl() {
-    const url = process.env.WEBSITE_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:3002';
-    return url.replace(/\/+$/, '');
+    let url = (process.env.WEBSITE_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:3002').trim();
+    url = url.replace(/\/+$/, '');
+    // Discord's Link-button URL validator rejects anything without a
+    // protocol outright — if WEBSITE_URL is set to something like
+    // "localhost:3000" (missing the scheme), every "View Online Transcript"
+    // button crashes finalizeTicketClose before the channel ever deletes.
+    // Guard against that regardless of how the env var ends up set.
+    if (!/^https?:\/\//i.test(url)) {
+        const isLocal = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(url.split('/')[0]);
+        url = `${isLocal ? 'http' : 'https'}://${url}`;
+    }
+    return url;
 }
 
 // ---------------------------------------------------------------------------
@@ -2912,38 +2922,46 @@ async function finalizeTicketClose(channel, guild, guildConfig, closedByTag) {
         console.error('[finalizeTicketClose] could not save archive:', err.message);
     }
 
-    const closeEmbed = new EmbedBuilder()
-        .setAuthor({ name: guild.name, iconURL: guild.iconURL() })
-        .setTitle('Ticket Closed')
-        .setColor(0x2ecc71)
-        .addFields(
-            { name: '# Ticket ID', value: `${channel.id.slice(-6)}`, inline: true },
-            { name: '✅ Opened By', value: `<@${meta.userId || '0'}>`, inline: true },
-            { name: '🚫 Closed By', value: `${closedByTag}`, inline: true },
-            { name: '⏰ Open Time', value: meta.openedAt ? new Date(meta.openedAt).toLocaleString() : 'Recently', inline: true },
-            { name: '👤 Claimed By', value: meta.claimedBy ? `<@${meta.claimedBy.id}>` : 'Unclaimed', inline: true },
-            { name: '🚩 Priority', value: `${PRIORITY_EMOJI[meta.priority || 'normal']} ${PRIORITY_LABEL[meta.priority || 'normal']}`, inline: true },
-            { name: '❓ Reason', value: meta.reason || 'User has been handled, thank you for reporting!' }
-        )
-        .setFooter({ text: new Date().toLocaleString() });
+    // Building these can fail too (this is exactly what just happened — an
+    // invalid transcript URL threw inside .setURL()) — wrapped so a bad
+    // embed/button never blocks the actual channel deletion below either.
+    let closeEmbed = null, transcriptRow = null, feedbackRow = null;
+    try {
+        closeEmbed = new EmbedBuilder()
+            .setAuthor({ name: guild.name, iconURL: guild.iconURL() })
+            .setTitle('Ticket Closed')
+            .setColor(0x2ecc71)
+            .addFields(
+                { name: '# Ticket ID', value: `${channel.id.slice(-6)}`, inline: true },
+                { name: '✅ Opened By', value: `<@${meta.userId || '0'}>`, inline: true },
+                { name: '🚫 Closed By', value: `${closedByTag}`, inline: true },
+                { name: '⏰ Open Time', value: meta.openedAt ? new Date(meta.openedAt).toLocaleString() : 'Recently', inline: true },
+                { name: '👤 Claimed By', value: meta.claimedBy ? `<@${meta.claimedBy.id}>` : 'Unclaimed', inline: true },
+                { name: '🚩 Priority', value: `${PRIORITY_EMOJI[meta.priority || 'normal']} ${PRIORITY_LABEL[meta.priority || 'normal']}`, inline: true },
+                { name: '❓ Reason', value: meta.reason || 'User has been handled, thank you for reporting!' }
+            )
+            .setFooter({ text: new Date().toLocaleString() });
 
-    const transcriptRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setLabel('View Online Transcript').setStyle(ButtonStyle.Link).setURL(`${websiteUrl}/transcript/${channel.id}?token=${accessToken}`).setEmoji('📁')
-    );
+        transcriptRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setLabel('View Online Transcript').setStyle(ButtonStyle.Link).setURL(`${websiteUrl}/transcript/${channel.id}?token=${accessToken}`).setEmoji('📁')
+        );
 
-    const feedbackRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`feedback_1_${channel.id}`).setLabel('1').setStyle(ButtonStyle.Danger).setEmoji('⭐'),
-        new ButtonBuilder().setCustomId(`feedback_2_${channel.id}`).setLabel('2').setStyle(ButtonStyle.Danger).setEmoji('⭐'),
-        new ButtonBuilder().setCustomId(`feedback_3_${channel.id}`).setLabel('3').setStyle(ButtonStyle.Primary).setEmoji('⭐'),
-        new ButtonBuilder().setCustomId(`feedback_4_${channel.id}`).setLabel('4').setStyle(ButtonStyle.Success).setEmoji('⭐'),
-        new ButtonBuilder().setCustomId(`feedback_5_${channel.id}`).setLabel('5').setStyle(ButtonStyle.Success).setEmoji('⭐')
-    );
+        feedbackRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`feedback_1_${channel.id}`).setLabel('1').setStyle(ButtonStyle.Danger).setEmoji('⭐'),
+            new ButtonBuilder().setCustomId(`feedback_2_${channel.id}`).setLabel('2').setStyle(ButtonStyle.Danger).setEmoji('⭐'),
+            new ButtonBuilder().setCustomId(`feedback_3_${channel.id}`).setLabel('3').setStyle(ButtonStyle.Primary).setEmoji('⭐'),
+            new ButtonBuilder().setCustomId(`feedback_4_${channel.id}`).setLabel('4').setStyle(ButtonStyle.Success).setEmoji('⭐'),
+            new ButtonBuilder().setCustomId(`feedback_5_${channel.id}`).setLabel('5').setStyle(ButtonStyle.Success).setEmoji('⭐')
+        );
+    } catch (err) {
+        console.error('[finalizeTicketClose] could not build the close embed/components:', err.message);
+    }
 
     // Step 2: post to the log channel — best-effort, was previously NOT even
     // wrapped in its own try/catch, so a bot missing Send Messages there
     // would silently kill the whole close before the channel ever deleted.
     try {
-        if (guildConfig.logChannelId) {
+        if (guildConfig.logChannelId && closeEmbed) {
             const logChannel = await guild.channels.fetch(guildConfig.logChannelId).catch(() => null);
             if (logChannel) await logChannel.send({ embeds: [closeEmbed], components: [transcriptRow, feedbackRow] });
         }
@@ -2952,7 +2970,7 @@ async function finalizeTicketClose(channel, guild, guildConfig, closedByTag) {
     }
 
     // Step 3: DM the opener — best-effort, closed DMs are expected/common.
-    if (meta.userId) {
+    if (meta.userId && closeEmbed) {
         try {
             const user = await client.users.fetch(meta.userId);
             await user.send({ embeds: [closeEmbed], components: [transcriptRow, feedbackRow] });
