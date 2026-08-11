@@ -113,15 +113,15 @@
     border-radius: 6px;
   }
 
-  .cube-face.front  { transform: rotateY(0deg) translateZ(24px); }
-  .cube-face.back   { transform: rotateY(180deg) translateZ(24px); }
-  .cube-face.right  { transform: rotateY(90deg) translateZ(24px); }
-  .cube-face.left   { transform: rotateY(-90deg) translateZ(24px); }
-  .cube-face.top    { transform: rotateX(90deg) translateZ(24px); }
-  .cube-face.bottom { transform: rotateX(-90deg) translateZ(24px); }
+  .cube-face.front   { transform: rotateY(0deg) translateZ(24px); }
+  .cube-face.back    { transform: rotateY(180deg) translateZ(24px); }
+  .cube-face.right   { transform: rotateY(90deg) translateZ(24px); }
+  .cube-face.left    { transform: rotateY(-90deg) translateZ(24px); }
+  .cube-face.top     { transform: rotateX(90deg) translateZ(24px); }
+  .cube-face.bottom  { transform: rotateX(-90deg) translateZ(24px); }
 
   @keyframes rotate3dCube {
-    0%   { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+    0%    { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
     100% { transform: rotateX(360deg) rotateY(360deg) rotateZ(360deg); }
   }
 
@@ -188,8 +188,7 @@
   .leaderboard-empty { font-size: 12.5px; color: var(--faint); text-align: center; padding: 24px 12px; }
   .leaderboard-window { font-size: 10.5px; color: var(--faint); font-weight: 500; margin-left: auto; }
 
-  /* Badge fallback — same rule as /badges.css, kept inline too so the badge
-     still renders correctly even if that shared file isn't deployed yet. */
+  /* Badge fallback */
   .badge-new {
     display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .04em;
     padding: 3px 9px; border-radius: 99px; background: linear-gradient(135deg, #5865f2, #7289ff);
@@ -381,7 +380,6 @@
 
 <script src="/theme.js"></script>
 <script>
-// Safely run session clock
 if (typeof RF !== 'undefined' && typeof RF.startSessionClock === 'function') {
   RF.startSessionClock(document.getElementById('sessionClock'));
 }
@@ -407,7 +405,7 @@ async function loadAccountWidget() {
     }
     if (nameEl) nameEl.textContent = me.displayName || me.tag || 'My Account';
     if (subEl) subEl.textContent = tierLabels[me.tier] || 'View profile';
-  } catch { /* leave the default placeholder in place */ }
+  } catch { /* leave default placeholder */ }
 }
 
 let allTickets = [];
@@ -417,7 +415,6 @@ async function initNav() {
     const res = await fetch('/api/guild');
     const g = res.ok ? await res.json() : {};
 
-    // Only apply tab filtering for standard staff roles; Admins and Master logins see ALL tabs
     let allowedTabs = null;
     if (g.viewerTier === 'staff' && g.staffPermissions && Array.isArray(g.staffPermissions.allowedTabs)) {
       allowedTabs = g.staffPermissions.allowedTabs;
@@ -497,12 +494,6 @@ function setCookie(name, value, days) {
   document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${days * 86400}`;
 }
 
-// target: null means a centered slide with no spotlight (welcome/closing).
-// Anything else is a CSS selector — if it doesn't exist on the page (most
-// commonly because the sidebar nav doesn't have that link for this viewer's
-// permission level), the step is dropped automatically. No separate
-// permission check needed — the same rendered nav that already respects
-// staff/admin tab access IS the source of truth here.
 const TOUR_STEPS = [
   { target: null, icon: '👋', title: 'Welcome to {{SITE_TITLE}}', body: "A real tour of the actual dashboard — not just a wall of text. It only shows you what you actually have access to." },
   { target: '#statGrid', eyebrow: 'This Page', title: 'Your dashboard at a glance', body: 'Open tickets, closes this week, average rating, and average resolution time — pulled live as your team works.' },
@@ -544,9 +535,6 @@ function positionTourStep(step) {
   spotlight.style.height = `${rect.height + pad * 2}px`;
   spotlight.classList.add('visible');
 
-  // Prefer the caption to the right of the target (true for every sidebar
-  // nav item, since the main content area is wide open there); fall back to
-  // below, then above, always kept fully on-screen.
   const captionWidth = 300;
   const margin = 16;
   let top, left;
@@ -589,9 +577,6 @@ function renderTourStep() {
   positionTourStep(step);
 }
 
-// Fades the current spotlight/caption out, waits for that to finish, then
-// moves and fades the next one in — this is the "fades to the page it's
-// talking about" presentation feel, rather than an abrupt jump-cut.
 function goToTourStep(i) {
   if (i < 0 || i >= tourSteps.length) return;
   document.getElementById('tourCaption').classList.remove('visible');
@@ -610,7 +595,8 @@ function endTour() {
 }
 
 function initTour() {
-  if (getCookie('onboardingSeen')) return;
+  // UPDATED COOKIE KEY: onboardingSeen_v2 forces the tutorial to run for everyone on next login!
+  if (getCookie('onboardingSeen_v2')) return;
   buildTourSteps();
   if (!tourSteps.length) return;
 
@@ -622,7 +608,7 @@ function initTour() {
   document.getElementById('tourBack').addEventListener('click', () => goToTourStep(tourIndex - 1));
   document.getElementById('tourNext').addEventListener('click', () => {
     if (tourIndex === tourSteps.length - 1) {
-      setCookie('onboardingSeen', '1', 365);
+      setCookie('onboardingSeen_v2', '1', 365);
       endTour();
       return;
     }
@@ -687,9 +673,6 @@ function formatMinutes(mins) {
   return remHours ? `${days}d ${remHours}h` : `${days}d`;
 }
 
-// The tour reads which sidebar links actually exist to decide which steps
-// to show, so it has to wait for initNav()'s fetch to finish populating
-// them — starting it any earlier would see an empty nav and skip everything.
 initNav().then(initTour);
 loadTickets();
 loadAccountWidget();
