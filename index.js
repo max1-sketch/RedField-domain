@@ -2777,6 +2777,67 @@ function isSuspendedFromTickets(guildConfig, userId) {
 }
 
 // ---------------------------------------------------------------------------
+// TICKET REASON AUTO-TRIAGE
+// ---------------------------------------------------------------------------
+// Not a literal AI model — this is deliberately a plain keyword/heuristic
+// check against the "reason" text someone typed when opening their ticket.
+// It's fast, free, has no external dependency, and is reliable for the
+// specific job of "does this look like a report/bug, and is anything
+// obviously missing" — a real AI call would need an API key that isn't
+// configured anywhere in this project, cost money per ticket, and add a
+// network dependency for something this heuristic already handles well.
+const TRIAGE_REPORT_KEYWORDS = ['report', 'reporting', 'cheat', 'cheater', 'cheating', 'hack', 'hacker', 'hacking', 'exploit', 'exploiting', 'exploiter', 'abuse', 'abusing', 'abuser', 'scam', 'scammer', 'scamming', 'harass', 'harassing', 'harassment', 'bully', 'bullying', 'toxic', 'grief', 'griefing', 'griefer', 'breaking the rules', 'rule break', 'rulebreak'];
+const TRIAGE_BUG_KEYWORDS = ['bug', 'glitch', 'glitchy', 'broken', 'crash', 'crashing', 'crashed', "isn't working", "doesn't work", 'not working', 'malfunction', 'malfunctioning', 'error', 'stuck', 'freeze', 'freezing', 'frozen'];
+const TRIAGE_PROOF_SIGNALS = ['http://', 'https://', 'proof', 'evidence', 'screenshot', 'screen shot', 'screen-shot', 'video', 'clip', 'recording', 'vod', 'imgur', 'youtube', 'youtu.be', 'streamable', 'medal.tv', 'gyazo', 'discord.com/channels', 'cdn.discordapp.com'];
+
+function classifyTicketReason(reasonText) {
+    const lower = (reasonText || '').toLowerCase();
+    const wordCount = (reasonText || '').trim().split(/\s+/).filter(Boolean).length;
+    return {
+        looksLikeBug: TRIAGE_BUG_KEYWORDS.some(k => lower.includes(k)),
+        looksLikeReport: TRIAGE_REPORT_KEYWORDS.some(k => lower.includes(k)),
+        hasProofSignal: TRIAGE_PROOF_SIGNALS.some(k => lower.includes(k)),
+        wordCount
+    };
+}
+
+// Sends at most one follow-up nudge right after a ticket opens — bug details
+// requested take priority over the report/proof check, which takes priority
+// over the generic "say more" nudge, so a ticket never gets double-pinged.
+async function sendTicketTriageFollowUp(channel, user, reasonText) {
+    try {
+        const { looksLikeBug, looksLikeReport, hasProofSignal, wordCount } = classifyTicketReason(reasonText);
+
+        if (looksLikeBug) {
+            const embed = new EmbedBuilder()
+                .setColor(0xf1c40f)
+                .setTitle('🐛 A few details help us fix this faster')
+                .setDescription([
+                    'This looks like a bug report — if you can, please share:',
+                    '**• Steps to reproduce** — exactly what you did, in order',
+                    '**• Expected result** — what should have happened',
+                    '**• Actual result** — what happened instead',
+                    '**• Device/platform** — PC, mobile, Xbox, etc.',
+                    '**• A screenshot or video**, if you have one'
+                ].join('\n'));
+            await channel.send({ content: `<@${user.id}>`, embeds: [embed] });
+            return;
+        }
+
+        if (looksLikeReport && !hasProofSignal) {
+            await channel.send(`<@${user.id}> Since this looks like a report, please share any **proof** you have — a screenshot, video clip, or recording — so staff can look into it properly. Reports without evidence are much harder to act on.`);
+            return;
+        }
+
+        if (wordCount > 0 && wordCount < 6) {
+            await channel.send(`<@${user.id}> Could you add a bit more detail about what's going on? A sentence or two on what happened and what you need help with will help staff get to this faster.`);
+        }
+    } catch (err) {
+        console.error('[ticket triage] failed:', err.message);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // TICKET PRIORITY — helpers
 // ---------------------------------------------------------------------------
 const PRIORITY_LEVELS = ['low', 'normal', 'high', 'urgent'];
@@ -3143,6 +3204,10 @@ async function createTicketChannel(guild, user, typeKey, reason, robloxUsername,
     const ticketRecord = openTickets.get(ticketChannel.id);
     if (ticketRecord) ticketRecord.welcomeMessageId = welcomeMessage.id;
     saveOpenTickets();
+
+    // Fire-and-forget — has its own try/catch internally, so a failure here
+    // can never break ticket creation itself.
+    sendTicketTriageFollowUp(ticketChannel, user, reason);
 
     return ticketChannel;
 }
