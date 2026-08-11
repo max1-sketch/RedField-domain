@@ -191,7 +191,6 @@ function defaultSiteConfig() {
         siteTitle: 'Redfield Archives',
         bannerText: '',
         accentColor: '#d69a4e',
-        colorScheme: 'dark', // 'dark' | 'light' — applies site-wide, for everyone
         footerNote: '',
         maintenanceMode: false,
         maintenanceMessage: "We're doing some maintenance on the portal. Back shortly."
@@ -224,7 +223,7 @@ function escapeHtml(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function renderTemplate(filePath) {
+function renderTemplate(filePath, req) {
     let html = fs.readFileSync(filePath, 'utf8');
     const validAccent = /^#[0-9A-Fa-f]{6}$/.test(siteConfig.accentColor) ? siteConfig.accentColor : '#d69a4e';
     const bannerHtml = siteConfig.bannerText ? `<div class="site-banner">📢 ${escapeHtml(siteConfig.bannerText)}</div>` : '';
@@ -244,12 +243,12 @@ function renderTemplate(filePath) {
         html += versionScript;
     }
 
-    // Site-wide light/dark mode — applied here in the shared template
-    // pipeline, rather than needing every individual view file edited, by
-    // (a) stamping a data-theme attribute on <body> and (b) linking an
-    // override stylesheet that punches through each page's own hardcoded
-    // :root variables with !important.
-    const scheme = siteConfig.colorScheme === 'light' ? 'light' : 'dark';
+    // Light/dark mode — personal, per-browser, NOT site-wide. Read from a
+    // cookie (same pattern as the "reply name" preference already uses),
+    // never from siteConfig — this used to be a global admin-only setting
+    // that changed the site for every visitor, which wasn't the ask.
+    const cookies = req ? parseCookies(req) : {};
+    const scheme = cookies.sitePreferredTheme === 'light' ? 'light' : 'dark';
     if (/<body[\s>]/.test(html)) {
         html = html.replace(/<body(\s[^>]*)?>/, (match, attrs) => `<body data-theme="${scheme}"${attrs || ''}>`);
     }
@@ -274,7 +273,7 @@ function sendTemplate(req, res, filePath) {
         );
     }
     try {
-        res.send(renderTemplate(filePath));
+        res.send(renderTemplate(filePath, req));
     } catch (err) {
         console.error(`[view render error] ${filePath}:`, err);
         res.status(500).send(`<pre style="font-family:monospace;padding:24px;color:#e05a3a;white-space:pre-wrap;">Error rendering ${escapeHtml(filePath)}:\n${escapeHtml(err.message)}</pre>`);
@@ -985,19 +984,27 @@ app.use((req, res, next) => {
 });
 
 app.get('/theme.js', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'theme.js'));
+    res.sendFile(path.join(__dirname, 'views', 'theme.js'), (err) => {
+        if (err && !res.headersSent) res.status(404).type('application/javascript').send('// theme.js not found on server');
+    });
 });
 
 app.get('/version-check.js', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'version-check.js'));
+    res.sendFile(path.join(__dirname, 'views', 'version-check.js'), (err) => {
+        if (err && !res.headersSent) res.status(404).type('application/javascript').send('// version-check.js not found on server');
+    });
 });
 
 app.get('/badges.css', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'badges.css'));
+    res.sendFile(path.join(__dirname, 'views', 'badges.css'), (err) => {
+        if (err && !res.headersSent) res.status(404).type('text/css').send('/* badges.css not found on server */');
+    });
 });
 
 app.get('/theme-overrides.css', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'theme-overrides.css'));
+    res.sendFile(path.join(__dirname, 'views', 'theme-overrides.css'), (err) => {
+        if (err && !res.headersSent) res.status(404).type('text/css').send('/* theme-overrides.css not found on server */');
+    });
 });
 
 app.use(express.static(path.join(__dirname, 'views'), { index: false }));
@@ -1748,20 +1755,19 @@ app.get('/api/guild/commands', maintenanceGate, requireAuth, requireTabPermissio
     res.json({ commandSettings: guildConfig.commandSettings });
 });
 
-// Site-wide appearance — currently just light/dark, kept separate from the
-// per-guild config since it's a site (not Discord-server) level setting.
+// Appearance is personal, per-browser — a cookie, not site config. Anyone
+// signed in can set their own; it never affects what anyone else sees.
 app.get('/api/site/appearance', maintenanceGate, requireAuth, (req, res) => {
-    res.json({ colorScheme: siteConfig.colorScheme === 'light' ? 'light' : 'dark' });
+    const cookies = parseCookies(req);
+    res.json({ colorScheme: cookies.sitePreferredTheme === 'light' ? 'light' : 'dark' });
 });
 
-app.post('/api/site/appearance', maintenanceGate, requireAuth, requireHardAdmin, (req, res) => {
+app.post('/api/site/appearance', maintenanceGate, requireAuth, (req, res) => {
     const scheme = String(req.body?.colorScheme || '').toLowerCase();
     if (scheme !== 'light' && scheme !== 'dark') {
         return res.status(400).json({ error: 'colorScheme must be "light" or "dark".' });
     }
-    siteConfig.colorScheme = scheme;
-    saveSiteConfig();
-    logAudit('UPDATE_APPEARANCE', resolveActorName(req), `Set site color scheme to ${scheme}`);
+    res.setHeader('Set-Cookie', `sitePreferredTheme=${scheme}; Path=/; Max-Age=${365 * 86400}; SameSite=Lax`);
     res.json({ success: true, colorScheme: scheme });
 });
 

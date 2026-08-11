@@ -252,10 +252,9 @@ function render(me) {
       <span class="save-status" id="saveStatus">Saved ✓</span>
     </div>
 
-    ${(me.tier === 'admin' || me.tier === 'master') ? `
     <div class="card">
       <div class="card-header"><h2>Site Appearance<span class="badge-new">NEW</span></h2></div>
-      <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.6;">Applies for everyone who visits the site, not just you.</p>
+      <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.6;">Just for you — this only changes what you see on this browser, not what anyone else sees.</p>
       <div class="theme-toggle-row">
         <div class="theme-option" data-scheme="dark" id="themeOptionDark">
           <div class="swatch dark"></div>
@@ -273,7 +272,7 @@ function render(me) {
         </div>
       </div>
       <p class="appear-note" id="appearStatus"></p>
-    </div>` : ''}
+    </div>
 
     <div class="card">
       <div class="card-header"><h2>Session</h2></div>
@@ -287,11 +286,9 @@ function render(me) {
   const senderInput = document.getElementById('senderName');
   senderInput.value = getCookie('websiteSenderName') || '';
 
-  if (me.tier === 'admin' || me.tier === 'master') {
-    loadAppearance();
-    document.getElementById('themeOptionDark').addEventListener('click', () => saveAppearance('dark'));
-    document.getElementById('themeOptionLight').addEventListener('click', () => saveAppearance('light'));
-  }
+  loadAppearance();
+  document.getElementById('themeOptionDark').addEventListener('click', () => saveAppearance('dark'));
+  document.getElementById('themeOptionLight').addEventListener('click', () => saveAppearance('light'));
 
   document.getElementById('saveSenderBtn').addEventListener('click', () => {
     const value = senderInput.value.trim();
