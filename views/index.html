@@ -78,40 +78,17 @@
     pointer-events: none;
   }
 
-  .art-canvas-wrap {
-    width: 85px; height: 85px;
-    position: relative; flex-shrink: 0;
-  }
-
-  .cyber-core {
-    width: 100%; height: 100%;
-    position: relative; display: flex; align-items: center; justify-content: center;
-    perspective: 600px;
-  }
-
-  .core-ring {
-    position: absolute; border-radius: 50%;
-    border: 1px dashed rgba(245, 158, 11, 0.4); pointer-events: none;
-  }
+  .art-canvas-wrap { width: 85px; height: 85px; position: relative; flex-shrink: 0; }
+  .cyber-core { width: 100%; height: 100%; position: relative; display: flex; align-items: center; justify-content: center; perspective: 600px; }
+  .core-ring { position: absolute; border-radius: 50%; border: 1px dashed rgba(245, 158, 11, 0.4); pointer-events: none; }
   .ring-1 { width: 85px; height: 85px; animation: spinClockwise 12s linear infinite; }
   .ring-2 { width: 105px; height: 105px; border-style: dotted; border-color: rgba(245, 158, 11, 0.2); animation: spinCounter 16s linear infinite; }
 
   @keyframes spinClockwise { 100% { transform: rotate(360deg); } }
   @keyframes spinCounter { 100% { transform: rotate(-360deg); } }
 
-  .cube-3d {
-    width: 48px; height: 48px;
-    position: relative; transform-style: preserve-3d;
-    animation: rotate3dCube 7s infinite linear;
-  }
-
-  .cube-face {
-    position: absolute; width: 48px; height: 48px;
-    border: 1.5px solid var(--accent);
-    background: rgba(245, 158, 11, 0.12);
-    box-shadow: 0 0 12px rgba(245, 158, 11, 0.25) inset;
-    border-radius: 6px;
-  }
+  .cube-3d { width: 48px; height: 48px; position: relative; transform-style: preserve-3d; animation: rotate3dCube 7s infinite linear; }
+  .cube-face { position: absolute; width: 48px; height: 48px; border: 1.5px solid var(--accent); background: rgba(245, 158, 11, 0.12); box-shadow: 0 0 12px rgba(245, 158, 11, 0.25) inset; border-radius: 6px; }
 
   .cube-face.front   { transform: rotateY(0deg) translateZ(24px); }
   .cube-face.back    { transform: rotateY(180deg) translateZ(24px); }
@@ -126,30 +103,12 @@
   }
 
   .hero-text-wrap { z-index: 1; }
-
   .hero-badge-row { margin-bottom: 6px; }
-  .system-status {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 11px; font-weight: 700; color: #22c55e;
-    background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.25);
-    padding: 2px 8px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.05em;
-  }
+  .system-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #22c55e; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.25); padding: 2px 8px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
   .status-pulse { width: 6px; height: 6px; border-radius: 50%; background-color: #22c55e; box-shadow: 0 0 6px #22c55e; }
-
-  .bot-3d-title {
-    font-size: 30px; font-weight: 900; margin: 0 0 6px;
-    color: var(--ink); letter-spacing: -0.02em;
-  }
-
+  .bot-3d-title { font-size: 30px; font-weight: 900; margin: 0 0 6px; color: var(--ink); letter-spacing: -0.02em; }
   .bot-credits { font-size: 13.5px; color: var(--muted); margin: 0; font-weight: 500; }
-
-  .creator-tag {
-    color: #fbbf24; font-weight: 800;
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.08));
-    border: 1px solid rgba(245, 158, 11, 0.4);
-    padding: 3px 10px; border-radius: 20px; display: inline-block; margin-left: 4px;
-    box-shadow: 0 0 10px rgba(245, 158, 11, 0.15);
-  }
+  .creator-tag { color: #fbbf24; font-weight: 800; background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.08)); border: 1px solid rgba(245, 158, 11, 0.4); padding: 3px 10px; border-radius: 20px; display: inline-block; margin-left: 4px; box-shadow: 0 0 10px rgba(245, 158, 11, 0.15); }
 
   /* Table & Controls */
   .controls-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -195,19 +154,9 @@
     color: #fff; vertical-align: middle; margin-left: 8px; text-transform: uppercase; line-height: 1.4;
     box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 2px 6px rgba(88,101,242,0.35);
   }
-  .badge-beta {
-    display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .04em;
-    padding: 3px 9px; border-radius: 99px; background: rgba(245,158,11,0.15); color: #f59e0b;
-    border: 1px solid rgba(245,158,11,0.4); vertical-align: middle; margin-left: 8px;
-    text-transform: uppercase; line-height: 1.4;
-  }
 
   /* Onboarding — guided spotlight tour */
-  .tour-overlay {
-    position: fixed; inset: 0; z-index: 200; display: none;
-    background: rgba(5,6,9,.72);
-    opacity: 0; transition: opacity .35s ease;
-  }
+  .tour-overlay { position: fixed; inset: 0; z-index: 200; display: none; background: rgba(5,6,9,.72); opacity: 0; transition: opacity .35s ease; }
   .tour-overlay.show { display: block; }
   .tour-overlay.visible { opacity: 1; }
 
@@ -225,13 +174,10 @@
     content: ''; position: absolute; inset: -6px; border-radius: 16px;
     border: 2px solid var(--accent); animation: tourPulse 1.8s ease-out infinite;
   }
-  @keyframes tourPulse {
-    0% { transform: scale(1); opacity: .9; }
-    100% { transform: scale(1.15); opacity: 0; }
-  }
+  @keyframes tourPulse { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(1.15); opacity: 0; } }
 
   .tour-caption {
-    position: fixed; z-index: 202; width: 300px; max-width: calc(100vw - 40px);
+    position: fixed; z-index: 202; width: 320px; max-width: calc(100vw - 40px);
     background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
     padding: 20px 20px 16px; box-shadow: 0 24px 60px rgba(0,0,0,.5);
     opacity: 0; transform: translateY(10px); transition: opacity .3s ease, transform .3s ease;
@@ -239,7 +185,7 @@
   }
   .tour-caption.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
   .tour-caption.centered {
-    width: 420px; max-width: calc(100vw - 40px);
+    width: 440px; max-width: calc(100vw - 40px);
     top: 50% !important; left: 50% !important;
     transform: translate(-50%, -50%) !important;
     padding: 40px 32px 28px; text-align: center;
@@ -494,21 +440,25 @@ function setCookie(name, value, days) {
   document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${days * 86400}`;
 }
 
+// Full interactive tour with deep button descriptions & moderation steps!
 const TOUR_STEPS = [
-  { target: null, icon: '👋', title: 'Welcome to {{SITE_TITLE}}', body: "A real tour of the actual dashboard — not just a wall of text. It only shows you what you actually have access to." },
-  { target: '#statGrid', eyebrow: 'This Page', title: 'Your dashboard at a glance', body: 'Open tickets, closes this week, average rating, and average resolution time — pulled live as your team works.' },
-  { target: 'a[href="/tickets"]', eyebrow: 'Open Tickets', title: 'Work tickets live', body: "Claim a ticket, reply from the browser, and set its priority — the channel name updates automatically so the rest of the team can see who's on it." },
-  { target: 'a[href="/panels"]', eyebrow: 'Panel Configs', title: 'Set up how players reach you', body: "Edit what each ticket type says, its color, who gets pinged. Post each one as its own button, or combine them into a single dropdown — no Discord commands needed." },
-  { target: 'a[href="/moderation"]', eyebrow: 'Moderation', title: 'Staff tools', body: "Warn, timeout, or fully restrict a staff member's access — right from here." },
-  { target: 'a[href="/audit-log"]', eyebrow: 'Logging', title: 'Everything is tracked', body: 'Every action anyone takes on this dashboard — staff or admin — shows up here. Nothing happens silently.' },
-  { target: '.account-card', eyebrow: 'My Account', title: 'Make it yours', body: 'Set your reply name and your light/dark preference here, any time.' },
-  { target: null, icon: '🚀', title: "You're set", body: "That's the tour — come back to any of this whenever, nothing here was one-time." }
+  { target: null, icon: '👋', title: 'Welcome to {{SITE_TITLE}}', body: "Here is a complete walkthrough of your staff dashboard and controls!" },
+  { target: '#statGrid', eyebrow: 'Dashboard', title: 'Live Server Analytics', body: 'Tracks real-time ticket stats, weekly resolves, average response speed, and rating scores.' },
+  { target: 'a[href="/tickets"]', eyebrow: 'Navigation', title: 'Live Ticket Workspace', body: 'Where staff talk with users. Features live chat, Claiming controls, and Priority toggles (Low, Normal, High, Urgent).' },
+  { target: 'a[href="/panels"]', eyebrow: 'Navigation', title: 'Support Panels', body: 'Create new ticket panels, set custom emojis, and click "Post to Discord" to update your server buttons instantly.' },
+  { target: 'a[href="/moderation"]', eyebrow: 'Navigation', title: 'Moderation Portal', body: 'Search members, issue notes or warnings, and apply direct actions like Nicknames, Roles, Timeouts, Kicks, or Bans.' },
+  { target: 'a[href="/blacklist"]', eyebrow: 'Navigation', title: 'Ticket Blacklist', body: 'Block abusive users from opening tickets without banning them from the Discord server.' },
+  { target: 'a[href="/shift-roster"]', eyebrow: 'Navigation', title: 'Staff Shift Duty', body: 'Clock on and off duty using the /duty command or dashboard button to track active staff hours.' },
+  { target: 'a[href="/audit-log"]', eyebrow: 'Navigation', title: 'Staff Audit Log', body: 'Tracks all administrative actions taken on the site for full staff accountability.' },
+  { target: '.account-card', eyebrow: 'Profile', title: 'Account & Appearance Settings', body: 'Set your reply name and choose custom gradient themes or Light/Dark mode.' },
+  { target: null, icon: '🚀', title: "You're all set!", body: "You now know where every button lives and what it does. Happy supporting!" }
 ];
 
 let tourSteps = [];
 let tourIndex = 0;
 
 function buildTourSteps() {
+  // Finds every valid target step, falling back gracefully if a tab is restricted
   tourSteps = TOUR_STEPS.filter(step => !step.target || document.querySelector(step.target));
 }
 
@@ -535,7 +485,7 @@ function positionTourStep(step) {
   spotlight.style.height = `${rect.height + pad * 2}px`;
   spotlight.classList.add('visible');
 
-  const captionWidth = 300;
+  const captionWidth = 320;
   const margin = 16;
   let top, left;
   const spaceRight = window.innerWidth - rect.right;
@@ -572,7 +522,7 @@ function renderTourStep() {
   ).join('');
 
   document.getElementById('tourBack').style.visibility = tourIndex === 0 ? 'hidden' : 'visible';
-  document.getElementById('tourNext').textContent = tourIndex === tourSteps.length - 1 ? 'Get Started' : 'Next';
+  document.getElementById('tourNext').textContent = tourIndex === tourSteps.length - 1 ? 'Finish Tour' : 'Next';
 
   positionTourStep(step);
 }
@@ -595,8 +545,8 @@ function endTour() {
 }
 
 function initTour() {
-  // UPDATED COOKIE KEY: onboardingSeen_v2 forces the tutorial to run for everyone on next login!
-  if (getCookie('onboardingSeen_v2')) return;
+  // Incremented cookie version forces the tour to reset for everyone on next login
+  if (getCookie('onboardingSeen_v3')) return;
   buildTourSteps();
   if (!tourSteps.length) return;
 
@@ -604,11 +554,14 @@ function initTour() {
   overlay.classList.add('show');
   requestAnimationFrame(() => overlay.classList.add('visible'));
 
-  document.getElementById('tourSkip').addEventListener('click', endTour);
+  document.getElementById('tourSkip').addEventListener('click', () => {
+    setCookie('onboardingSeen_v3', '1', 365);
+    endTour();
+  });
   document.getElementById('tourBack').addEventListener('click', () => goToTourStep(tourIndex - 1));
   document.getElementById('tourNext').addEventListener('click', () => {
     if (tourIndex === tourSteps.length - 1) {
-      setCookie('onboardingSeen_v2', '1', 365);
+      setCookie('onboardingSeen_v3', '1', 365);
       endTour();
       return;
     }
@@ -673,7 +626,10 @@ function formatMinutes(mins) {
   return remHours ? `${days}d ${remHours}h` : `${days}d`;
 }
 
-initNav().then(initTour);
+// Executes initNav first so all sidebar links render before building the tour steps!
+initNav().then(() => {
+  initTour();
+});
 loadTickets();
 loadAccountWidget();
 loadDashboardStats();
