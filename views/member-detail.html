@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{SITE_TITLE}} — Member</title>
+<title>{{SITE_TITLE}} — Member Details</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
@@ -37,13 +37,9 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .nav-item:hover { background: var(--panel-2); color: var(--ink); }
 .nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
 .nav-item .ic { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; opacity: .85; }
-.nav-item .ic svg { width: 100%; height: 100%; }
-.nav-item.active .ic { opacity: 1; }
-.badge-beta { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b44; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-left: auto; text-transform: uppercase; }
 
 .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
 .session-line { padding: 0 13px; font-size: 11px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
-.session-line.warn { color: var(--red); }
 
 .content-area { flex: 1; min-width: 0; padding: 26px 30px 60px; max-width: 800px; }
 .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); margin-bottom: 16px; }
@@ -54,26 +50,22 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .card-header h2 { font-size: 15.5px; font-weight: 700; color: var(--ink); margin: 0; display: flex; align-items: center; }
 
 .profile-top { display: flex; align-items: center; gap: 14px; }
-.avatar-big { width: 52px; height: 52px; border-radius: 50%; }
+.avatar-big { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; }
 .profile-name { font-size: 18px; font-weight: 800; color: var(--ink); margin: 0; }
 .profile-tag { font-size: 12.5px; color: var(--faint); font-family: 'IBM Plex Mono', monospace; }
 .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px; margin-left: 6px; vertical-align: middle; }
-.badge.timeout { background: var(--red)22; color: var(--red); }
-.badge.owner { background: #fbbf2422; color: #fbbf24; }
-.badge.access { background: var(--green)22; color: var(--green); }
-.badge.siteban { background: var(--red)22; color: var(--red); }
-.badge.loginblock { background: var(--amber)22; color: var(--amber); }
-.badge.modban { background: #a78bfa22; color: #a78bfa; }
-.badge.ticketban { background: #38bdf822; color: #38bdf8; }
-.badge-new { display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .05em; padding: 2px 7px; border-radius: 99px; background: var(--accent); color: #0a0c11; vertical-align: middle; margin-left: 8px; text-transform: uppercase; }
+.badge.timeout { background: rgba(239, 68, 68, 0.15); color: var(--red); }
+.badge.owner { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+.badge.access { background: rgba(34, 197, 94, 0.15); color: var(--green); }
+.badge.siteban { background: rgba(239, 68, 68, 0.15); color: var(--red); }
+.badge.loginblock { background: rgba(245, 158, 11, 0.15); color: var(--amber); }
 
 .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px 16px; font-size: 12px; color: var(--faint); margin-top: 16px; }
-.meta-grid span b { display: block; color: var(--muted); font-weight: 600; margin-bottom: 2px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; }
-.role-chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-.role-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; padding: 3px 6px 3px 9px; border-radius: 99px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); }
+.meta-grid span b { display: block; color: var(--muted); font-weight: 600; margin-bottom: 2px; font-size: 10.5px; text-transform: uppercase; }
+.role-chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.role-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 99px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); }
 .role-chip .role-x { background: none; border: none; color: inherit; opacity: .6; cursor: pointer; font-size: 12px; line-height: 1; padding: 0 2px; }
 .role-chip .role-x:hover { opacity: 1; color: var(--red); }
-.role-chip.admin { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.08); }
 
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; border-radius: 8px; padding: 9px 15px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; min-height: 36px; transition: opacity .15s; }
 .btn-accent { background: var(--accent); color: #0a0c11; }
@@ -85,22 +77,14 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .btn-danger { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
 .btn-danger:hover { background: rgba(239,68,68,0.2); }
 .btn-danger.solid { background: var(--red); color: #fff; border: none; }
-.btn-danger.solid:hover { opacity: .9; }
 .btn-green.solid { background: var(--green); color: #06210f; border: none; }
-.btn-green.solid:hover { opacity: .9; }
-.btn:disabled { opacity: .6; cursor: not-allowed; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
 .action-row { display: flex; gap: 10px; flex-wrap: wrap; }
-
-.dot-loader { display: inline-flex; gap: 4px; align-items: center; }
-.dot-loader span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: dotbounce 1s infinite ease-in-out; }
-.dot-loader span:nth-child(2) { animation-delay: .15s; }
-.dot-loader span:nth-child(3) { animation-delay: .3s; }
-@keyframes dotbounce { 0%, 80%, 100% { transform: scale(.5); opacity: .35; } 40% { transform: scale(1); opacity: 1; } }
 
 .note-item { padding: 12px; background: var(--panel-2); border-radius: 8px; margin-bottom: 8px; border-left: 3px solid var(--faint); }
 .note-item.warning { border-left-color: var(--amber); }
 .note-item .note-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.note-item .note-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--faint); }
+.note-item .note-type { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--faint); }
 .note-item.warning .note-type { color: var(--amber); }
 .note-item .note-meta { font-size: 10.5px; color: var(--faint); }
 .note-item .note-content { font-size: 13px; color: var(--ink); margin-top: 6px; white-space: pre-wrap; }
@@ -108,10 +92,7 @@ nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .note-item .note-del:hover { color: var(--red); }
 .empty-note { font-size: 12.5px; color: var(--faint); text-align: center; padding: 16px; }
 
-input[type=text], select, textarea {
-  background: var(--panel-2); border: 1px solid var(--border); color: var(--ink);
-  padding: 9px 12px; border-radius: 7px; font-family: inherit; font-size: 13px; width: 100%;
-}
+input[type=text], select, textarea { background: var(--panel-2); border: 1px solid var(--border); color: var(--ink); padding: 9px 12px; border-radius: 7px; font-family: inherit; font-size: 13px; width: 100%; }
 textarea { resize: vertical; min-height: 60px; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
 .field { margin-bottom: 12px; }
@@ -119,15 +100,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .inline-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
 .inline-row .field { flex: 1; margin-bottom: 0; min-width: 160px; }
 
-.loading-line, .error-state { font-size: 13px; color: var(--faint); padding: 30px 0; text-align: center; }
-.sender-name-note { font-size: 10.5px; color: var(--faint); margin-top: 6px; }
-
-.restrict-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.restrict-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
 .checkbox-card { display: flex; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid var(--border); padding: 10px 12px; border-radius: 7px; cursor: pointer; font-size: 13px; }
-.checkbox-card input { cursor: pointer; }
-.restrict-status-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
-.restrict-note { font-size: 12.5px; color: var(--muted); margin: 0 0 14px; line-height: 1.6; }
-.temp-ban-active { font-size: 11.5px; color: var(--red); font-weight: 600; margin-top: 4px; }
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(5,6,9,.75); display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
 .modal-overlay.show { display: flex; }
@@ -137,27 +111,11 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .modal-error { font-size: 12px; color: var(--red); margin-bottom: 10px; min-height: 1em; }
 .modal-actions { display: flex; gap: 10px; margin-top: 4px; }
 .modal-actions .btn { flex: 1; }
-
-#toastStack { position: fixed; top: 18px; right: 18px; z-index: 200; display: flex; flex-direction: column; gap: 10px; max-width: 320px; }
-.toast { background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--green); border-radius: 6px; padding: 12px 14px; font-size: 12.5px; color: var(--ink); box-shadow: 0 12px 34px rgba(0,0,0,.45); animation: toastin .2s ease; }
-.toast.error { border-left-color: var(--red); }
-.toast .toast-title { font-weight: 700; }
-.toast.fading { animation: toastout .25s ease forwards; }
-@keyframes toastin { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
-@keyframes toastout { to { opacity: 0; transform: translateX(24px); } }
-
-@media (max-width: 860px) {
-  .sidebar { position: fixed; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
-  .sidebar.open { transform: translateX(0); }
-  .content-area { padding: 16px 14px 20px; }
-}
 </style>
 </head>
 <body>
 
 {{BANNER_HTML}}
-
-<div id="toastStack"></div>
 
 <div class="app-shell">
   <aside class="sidebar">
@@ -172,12 +130,13 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
   <main class="content-area">
     <a href="/moderation" class="back-link">← Back to members</a>
     <div id="content">
-      <div class="loading-line">Loading…</div>
+      <div class="loading-line" style="text-align:center; padding:30px; color:var(--faint);">Loading…</div>
     </div>
     {{FOOTER_NOTE_HTML}}
   </main>
 </div>
 
+<!-- Modals -->
 <div class="modal-overlay" id="kickOverlay">
   <div class="modal">
     <h3>Kick <span id="kickTarget" class="mono"></span>?</h3>
@@ -194,11 +153,11 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 <div class="modal-overlay" id="banOverlay">
   <div class="modal">
     <h3>Ban <span id="banTarget" class="mono"></span>?</h3>
-    <p class="warn-text">This is permanent until someone manually unbans them. This is logged.</p>
+    <p class="warn-text">This is permanent until manually removed. This is logged.</p>
     <div class="field"><label>Reason (required)</label><textarea id="banReason" maxlength="400"></textarea></div>
-    <div class="field"><label>Also delete their recent messages</label>
+    <div class="field"><label>Delete recent messages</label>
       <select id="banDeleteDays">
-        <option value="0">Don't delete any</option>
+        <option value="0">Don't delete</option>
         <option value="1">Last 24 hours</option>
         <option value="3">Last 3 days</option>
         <option value="7">Last 7 days</option>
@@ -224,25 +183,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
   </div>
 </div>
 
-<div class="modal-overlay" id="adminRoleOverlay">
-  <div class="modal">
-    <h3>Give <span id="adminRoleTarget" class="mono"></span> an admin role?</h3>
-    <p class="warn-text">"<span id="adminRoleName"></span>" grants full Administrator permissions in this server — same as an owner, including the ability to manage every channel, role, and member. Only add this if you mean it.</p>
-    <div class="modal-error" id="adminRoleError"></div>
-    <div class="modal-actions">
-      <button class="btn btn-danger solid" id="confirmAdminRole">Yes, add it</button>
-      <button class="btn btn-ghost" id="cancelAdminRole">Cancel</button>
-    </div>
-  </div>
-</div>
-
 <script src="/theme.js"></script>
 <script>
 RF.startSessionClock(document.getElementById('sessionClock'));
 
 const userId = window.location.pathname.split('/').pop();
 let lastMember = null;
-let pendingAdminRoleId = null;
 let viewerTier = 'none';
 
 async function initNav() {
@@ -253,14 +199,10 @@ async function initNav() {
       viewerTier = g.viewerTier || 'none';
       const allowedTabs = viewerTier === 'staff' ? g.staffPermissions?.allowedTabs : null;
       document.getElementById('navTabs').innerHTML = RF.renderNav('/moderation', allowedTabs);
-    } else {
-      document.getElementById('navTabs').innerHTML = RF.renderNav('/moderation', null);
     }
   } catch {
     document.getElementById('navTabs').innerHTML = RF.renderNav('/moderation', null);
   }
-  const logoutIconEl = document.getElementById('logoutIcon');
-  if (logoutIconEl && RF.ICONS?.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
 }
 
 async function load() {
@@ -269,163 +211,98 @@ async function load() {
     lastMember = data;
     render();
   } catch (err) {
-    document.getElementById('content').innerHTML = `<div class="card error-state">${RF.esc(err.message)}</div>`;
+    document.getElementById('content').innerHTML = `<div class="card" style="color:var(--red); text-align:center;">${RF.esc(err.message)}</div>`;
   }
 }
 
 function render() {
   const m = lastMember;
   const canAdmin = viewerTier === 'admin' || viewerTier === 'master';
-  const protectedRoleIds = new Set([...(m.staffRoleIds || []), ...(m.adminRoleIds || [])]);
   const restr = m.restriction || {};
-  const tempBanActive = Boolean(restr.bannedUntil && new Date(restr.bannedUntil).getTime() > Date.now());
-  const siteBannedNow = Boolean(restr.siteBanned || tempBanActive);
-
-  const roleChips = m.roles.length
-    ? m.roles.map(r => {
-        const isProtected = protectedRoleIds.has(r.id);
-        const removeButton = isProtected && !canAdmin ? '' : `<button class="role-x" onclick="removeRole('${r.id}')" title="Remove role">×</button>`;
-        return `<span class="role-chip${r.isAdmin ? ' admin' : ''}" style="color:${r.color || 'var(--muted)'};">${r.isAdmin ? '⚡ ' : ''}${RF.esc(r.name)}${removeButton}</span>`;
-      }).join('')
-    : '<span class="role-chip">No roles</span>';
-
-  const availableRoles = m.allGuildRoles.filter(r => !m.roles.some(mr => mr.id === r.id));
-  const addRoleOptions = availableRoles.length
-    ? `<option value="">+ Add a role…</option>${availableRoles.map(r => {
-        const isProtected = protectedRoleIds.has(r.id);
-        if (isProtected && !canAdmin) return '';
-        return `<option value="${r.id}" data-admin="${r.isAdmin ? '1' : '0'}">${r.isAdmin ? '⚡ ' : ''}${RF.esc(r.name)}</option>`;
-      }).join('')}`
-    : `<option value="">No more roles to add</option>`;
-
   const hasAccess = Boolean(m.isStaff);
 
-  const restrictionBadges = [
-    siteBannedNow ? '<span class="badge siteban">Site Banned</span>' : '',
-    (restr.loginBlocked && !siteBannedNow) ? '<span class="badge loginblock">Login Blocked</span>' : '',
-    (restr.moderationBanned && !siteBannedNow) ? '<span class="badge modban">Mod Banned</span>' : '',
-    (restr.ticketsSuspended && !siteBannedNow) ? '<span class="badge ticketban">Tickets Suspended</span>' : ''
-  ].join('');
+  const roleChips = m.roles.length
+    ? m.roles.map(r => `<span class="role-chip" style="color:${r.color || 'var(--muted)'}">${RF.esc(r.name)} <button class="role-x" onclick="removeRole('${r.id}')">×</button></span>`).join('')
+    : '<span class="role-chip">No roles</span>';
+
+  const availableRoles = (m.allGuildRoles || []).filter(r => !m.roles.some(mr => mr.id === r.id));
+  const addRoleOptions = availableRoles.length
+    ? `<option value="">+ Add a role…</option>` + availableRoles.map(r => `<option value="${r.id}">${RF.esc(r.name)}</option>`).join('')
+    : `<option value="">No roles available</option>`;
 
   document.getElementById('content').innerHTML = `
     <div class="card">
       <div class="profile-top">
         <img class="avatar-big" src="${RF.esc(m.avatarURL)}" alt="">
         <div>
-          <h2 class="profile-name">${RF.esc(m.displayName)}${m.isOwner ? '<span class="badge owner">Owner</span>' : ''}${m.isTimedOut ? '<span class="badge timeout">Timed out</span>' : ''}${hasAccess ? '<span class="badge access">Dashboard access</span>' : ''}${restrictionBadges}</h2>
+          <h2 class="profile-name">${RF.esc(m.displayName)} ${hasAccess ? '<span class="badge access">Dashboard Access</span>' : ''}</h2>
           <div class="profile-tag">${RF.esc(m.tag)} · ${RF.esc(m.id)}</div>
         </div>
       </div>
       <div class="meta-grid">
-        <span><b>Joined server</b>${RF.esc(m.joinedAt || 'Unknown')}</span>
-        <span><b>Account created</b>${RF.esc(m.createdAt || 'Unknown')}</span>
-        <span><b>Timeout until</b>${m.timeoutUntil ? RF.esc(m.timeoutUntil) : '—'}</span>
+        <span><b>Joined</b>${RF.esc(m.joinedAt || 'Unknown')}</span>
+        <span><b>Created</b>${RF.esc(m.createdAt || 'Unknown')}</span>
       </div>
       <div class="role-chip-row">${roleChips}</div>
     </div>
 
     <div class="card">
-      <div class="card-header"><h2>Dashboard access</h2></div>
-      <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.6;">${hasAccess
-        ? 'This member already has a Staff or Admin role, so they can log in with Discord (once configured) and use the dashboard per your Settings permissions.'
-        : "This member has no Staff or Admin role — they can't log into the dashboard. Granting access assigns your first configured Staff role (or Admin role if no Staff role is set)."}</p>
-      ${canAdmin ? `<button class="btn ${hasAccess ? 'btn-danger' : 'btn-green solid'}" id="toggleAccessBtn">${hasAccess ? 'Revoke Access' : 'Grant Access'}</button>` : '<p style="font-size:12.5px;color:var(--muted);margin:0;">Only Administrators can grant or revoke dashboard access.</p>'}
+      <div class="card-header"><h2>Dashboard Access</h2></div>
+      <p style="font-size:12.5px; color:var(--muted); margin-bottom:14px;">
+        ${hasAccess ? 'This user currently has staff access to the dashboard.' : 'This user does not have staff access to the dashboard.'}
+      </p>
+      ${canAdmin ? `<button class="btn ${hasAccess ? 'btn-danger' : 'btn-green solid'}" id="toggleAccessBtn">${hasAccess ? 'Revoke Access' : 'Grant Access'}</button>` : ''}
     </div>
 
     ${canAdmin ? `
     <div class="card">
-      <div class="card-header"><h2>Staff Access Controls<span class="badge-new">NEW</span></h2></div>
-      <p class="restrict-note">Override standard role permissions to restrict web access or ticketing for this user.</p>
+      <div class="card-header"><h2>Staff Access Controls</h2></div>
       <div class="restrict-grid">
-        <label class="checkbox-card"><input type="checkbox" id="r-loginBlocked" ${restr.loginBlocked ? 'checked' : ''}> Block sign-in</label>
-        <label class="checkbox-card"><input type="checkbox" id="r-siteBanned" ${restr.siteBanned ? 'checked' : ''}> Ban from website entirely</label>
-        <label class="checkbox-card"><input type="checkbox" id="r-moderationBanned" ${restr.moderationBanned ? 'checked' : ''}> Ban from moderating users</label>
-        <label class="checkbox-card"><input type="checkbox" id="r-ticketsSuspended" ${restr.ticketsSuspended ? 'checked' : ''}> Suspend from tickets</label>
-      </div>
-      <div class="inline-row" style="margin-top:14px;">
-        <div class="field">
-          <label>Temporary full ban</label>
-          <select id="r-tempMinutes">
-            <option value="60">1 hour</option>
-            <option value="360">6 hours</option>
-            <option value="1440">1 day</option>
-            <option value="10080">1 week</option>
-            <option value="43200">30 days</option>
-          </select>
-          ${tempBanActive ? `<div class="temp-ban-active">Active until ${RF.esc(restr.bannedUntil)}</div>` : ''}
-        </div>
-        <button class="btn btn-amber" id="applyTempBanBtn">Apply temp ban</button>
-        ${restr.bannedUntil ? '<button class="btn btn-ghost" id="clearTempBanBtn">Clear temp ban</button>' : ''}
+        <label class="checkbox-card"><input type="checkbox" id="r-loginBlocked" ${restr.loginBlocked ? 'checked' : ''}> Block Sign-in</label>
+        <label class="checkbox-card"><input type="checkbox" id="r-siteBanned" ${restr.siteBanned ? 'checked' : ''}> Ban from Site</label>
+        <label class="checkbox-card"><input type="checkbox" id="r-moderationBanned" ${restr.moderationBanned ? 'checked' : ''}> Restrict Moderation</label>
+        <label class="checkbox-card"><input type="checkbox" id="r-ticketsSuspended" ${restr.ticketsSuspended ? 'checked' : ''}> Suspend Tickets</label>
       </div>
       <div class="field" style="margin-top:14px;">
-        <label>Reason</label>
-        <input type="text" id="r-reason" maxlength="300" value="${RF.esc(restr.reason || '')}" placeholder="Enter restriction reason...">
+        <label>Reason (sent via DM if notifying)</label>
+        <input type="text" id="r-reason" value="${RF.esc(restr.reason || '')}" placeholder="Reason for action...">
       </div>
       <div class="action-row" style="margin-top:14px;">
-        <button class="btn btn-accent" id="saveRestrictionsBtn">Save restrictions</button>
-        <button class="btn btn-ghost" id="clearAllRestrictionsBtn">Clear all restrictions</button>
+        <button class="btn btn-accent" id="saveRestrictionsBtn">Save Controls & Notify</button>
+        <button class="btn btn-ghost" id="clearAllRestrictionsBtn">Clear Restrictions</button>
       </div>
-      ${restr.byName ? `<p style="font-size:11px;color:var(--faint);margin:12px 0 0;">Last changed by ${RF.esc(restr.byName)} · ${RF.esc(restr.at)}</p>` : ''}
     </div>` : ''}
 
     <div class="card">
-      <div class="card-header"><h2>Nickname &amp; roles</h2></div>
+      <div class="card-header"><h2>Roles & Nickname</h2></div>
       <div class="inline-row" style="margin-bottom:14px;">
-        <div class="field">
-          <label>Nickname ${m.isOwner ? '(unavailable for the owner)' : ''}</label>
-          <input type="text" id="nicknameInput" maxlength="32" placeholder="${RF.esc(m.displayName)}" value="" ${m.isOwner ? 'disabled' : ''}>
-        </div>
-        <button class="btn btn-ghost" id="setNicknameBtn" ${m.isOwner ? 'disabled' : ''}>Set</button>
+        <div class="field"><label>Nickname</label><input type="text" id="nicknameInput" placeholder="${RF.esc(m.displayName)}"></div>
+        <button class="btn btn-ghost" id="setNicknameBtn">Set Nickname</button>
       </div>
       <div class="inline-row">
-        <div class="field">
-          <label>Add role</label>
-          <select id="addRoleSelect">${addRoleOptions}</select>
-        </div>
-        <button class="btn btn-ghost" id="addRoleBtn" ${availableRoles.length ? '' : 'disabled'}>Add</button>
+        <div class="field"><label>Add Role</label><select id="addRoleSelect">${addRoleOptions}</select></div>
+        <button class="btn btn-ghost" id="addRoleBtn" ${availableRoles.length ? '' : 'disabled'}>Add Role</button>
       </div>
     </div>
 
     <div class="card">
       <div class="card-header"><h2>Actions</h2></div>
-
-      <div class="field">
-        <label>Send as (your name — shown on notes and in the mod log)</label>
-        <input type="text" id="senderName" maxlength="40" value="${RF.esc(RF.getCookie('websiteSenderName') || '')}">
+      <div class="action-row">
+        <button class="btn btn-amber" id="applyTimeoutBtn">Timeout</button>
+        <button class="btn btn-danger" id="kickBtn">Kick</button>
+        <button class="btn btn-danger" id="banBtn">Ban</button>
       </div>
-
-      <div class="field">
-        <label>Timeout</label>
-        <div class="inline-row">
-          <select id="timeoutMinutes">
-            <option value="10">10 minutes</option>
-            <option value="60">1 hour</option>
-            <option value="360">6 hours</option>
-            <option value="1440">1 day</option>
-            <option value="10080">1 week</option>
-          </select>
-          <input type="text" id="timeoutReason" placeholder="Reason (optional)" style="flex:2;">
-          <button class="btn btn-amber" id="applyTimeoutBtn" ${m.isOwner ? 'disabled' : ''}>Apply</button>
-        </div>
-        ${m.isTimedOut ? '<button class="btn btn-ghost" id="clearTimeoutBtn" style="margin-top:8px;">Clear timeout</button>' : ''}
-      </div>
-
-      <div class="action-row" style="margin-top:16px;">
-        <button class="btn btn-danger" id="kickBtn" ${m.isOwner ? 'disabled' : ''}>Kick</button>
-        <button class="btn btn-danger" id="banBtn" ${m.isOwner ? 'disabled' : ''}>Ban</button>
-      </div>
-      ${m.isOwner ? '<p class="sender-name-note">This member owns the server — kick, ban, and timeout are not available for them.</p>' : ''}
     </div>
 
     <div class="card">
-      <div class="card-header"><h2>Notes &amp; warnings</h2></div>
+      <div class="card-header"><h2>Notes & Warnings</h2></div>
       <div class="inline-row" style="margin-bottom:14px;">
         <select id="noteType" style="flex:0 0 120px;">
           <option value="note">Note</option>
           <option value="warning">Warning</option>
         </select>
-        <input type="text" id="noteContent" placeholder="Add details about this note..." maxlength="500">
-        <button class="btn btn-accent" id="addNoteBtn">Add</button>
+        <input type="text" id="noteContent" placeholder="Enter note details...">
+        <button class="btn btn-accent" id="addNoteBtn">Add Note</button>
       </div>
       <div id="notesList"></div>
     </div>
@@ -451,9 +328,14 @@ function renderNotes() {
   `).join('');
 }
 
-function currentSenderName() {
-  const el = document.getElementById('senderName');
-  return el ? el.value.trim() : (RF.getCookie('websiteSenderName') || '');
+async function removeRole(roleId) {
+  try {
+    await RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/roles`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remove: roleId })
+    });
+    RF.toast('Role removed', true);
+    load();
+  } catch (err) { RF.toast(err.message, false); }
 }
 
 async function deleteNote(noteId) {
@@ -465,236 +347,156 @@ async function deleteNote(noteId) {
   } catch (err) { RF.toast(err.message, false); }
 }
 
-async function removeRole(roleId) {
-  const btn = event.target;
-  try {
-    await RF.withLoading(btn, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/roles`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remove: roleId, byName: currentSenderName() })
-    }), { okMessage: 'Role removed', failMessage: "Couldn't remove role" });
-    load();
-  } catch { /* toast already shown */ }
-}
-
 function wireActions() {
-  document.getElementById('senderName').addEventListener('change', (e) => RF.setCookie('websiteSenderName', e.target.value.trim(), 90));
-
   const toggleBtn = document.getElementById('toggleAccessBtn');
   if (toggleBtn) {
-    toggleBtn.addEventListener('click', async (e) => {
+    toggleBtn.onclick = async () => {
       const hasAccess = Boolean(lastMember.isStaff);
       try {
-        if (hasAccess) {
-          const rolesToStrip = lastMember.roles.filter(r => lastMember.staffRoleIds.includes(r.id) || lastMember.adminRoleIds.includes(r.id));
-          await RF.withLoading(e.currentTarget, async () => {
-            for (const r of rolesToStrip) {
-              await RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/roles`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ remove: r.id, byName: currentSenderName() })
-              });
-            }
-          }, { okMessage: 'Dashboard access revoked', failMessage: "Couldn't revoke access" });
-        } else {
-          const grantRoleId = lastMember.staffRoleIds[0] || lastMember.adminRoleIds[0];
-          if (!grantRoleId) { RF.toast('No Staff or Admin role is configured yet — set one up in Settings first', false); return; }
-          await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/roles`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ add: grantRoleId, byName: currentSenderName() })
-          }), { okMessage: 'Dashboard access granted', failMessage: "Couldn't grant access" });
-        }
+        const action = hasAccess ? 'revoke' : 'grant';
+        await RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/access`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action })
+        });
+        RF.toast(`Access ${hasAccess ? 'revoked' : 'granted'} & DM sent`, true);
         load();
-      } catch { /* toast already shown */ }
-    });
+      } catch (err) { RF.toast(err.message, false); }
+    };
   }
-
-  document.getElementById('setNicknameBtn').addEventListener('click', async (e) => {
-    const nickname = document.getElementById('nicknameInput').value.trim();
-    try {
-      await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/nickname`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname, byName: currentSenderName() })
-      }), { okMessage: nickname ? `Nickname set to "${nickname}"` : 'Nickname cleared', failMessage: "Couldn't set nickname" });
-      load();
-    } catch { /* toast already shown */ }
-  });
-
-  document.getElementById('addRoleBtn').addEventListener('click', async (e) => {
-    const select = document.getElementById('addRoleSelect');
-    const roleId = select.value;
-    if (!roleId) return;
-    const selectedOption = select.options[select.selectedIndex];
-    const isAdminRole = selectedOption.getAttribute('data-admin') === '1';
-
-    if (isAdminRole && !(viewerTier === 'admin' || viewerTier === 'master')) {
-      RF.toast('Only Administrators can assign Admin roles.', false);
-      return;
-    }
-
-    try {
-      await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/roles`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ add: roleId, byName: currentSenderName() })
-      }), { okMessage: 'Role added', failMessage: "Couldn't add role" });
-      load();
-    } catch { /* toast already shown */ }
-  });
-
-  document.getElementById('addNoteBtn').addEventListener('click', async (e) => {
-    const type = document.getElementById('noteType').value;
-    const content = document.getElementById('noteContent').value.trim();
-    if (!content) return;
-    try {
-      const data = await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/notes`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, content, byName: currentSenderName() })
-      }), { okMessage: type === 'warning' ? 'Warning added' : 'Note added', failMessage: "Couldn't add that" });
-      lastMember.notes = (lastMember.notes || []).concat([data.note]);
-      document.getElementById('noteContent').value = '';
-      renderNotes();
-    } catch { /* toast already shown */ }
-  });
-
-  document.getElementById('applyTimeoutBtn').addEventListener('click', () => {
-    const label = document.getElementById('timeoutMinutes').selectedOptions[0].textContent;
-    document.getElementById('timeoutTarget').textContent = lastMember.tag;
-    document.getElementById('timeoutSummary').textContent = `They won't be able to send messages, react, or join voice channels for ${label.toLowerCase()}. This is logged.`;
-    document.getElementById('timeoutError').textContent = '';
-    document.getElementById('timeoutOverlay').classList.add('show');
-  });
-
-  const clearBtn = document.getElementById('clearTimeoutBtn');
-  if (clearBtn) clearBtn.addEventListener('click', async (e) => {
-    try {
-      await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/timeout`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ minutes: null, reason: 'Cleared from website', byName: currentSenderName() })
-      }), { okMessage: 'Timeout cleared', failMessage: "Couldn't clear timeout" });
-      load();
-    } catch { /* toast already shown */ }
-  });
-
-  document.getElementById('kickBtn').addEventListener('click', () => {
-    document.getElementById('kickTarget').textContent = lastMember.tag;
-    document.getElementById('kickReason').value = '';
-    document.getElementById('kickError').textContent = '';
-    document.getElementById('kickOverlay').classList.add('show');
-  });
-  document.getElementById('banBtn').addEventListener('click', () => {
-    document.getElementById('banTarget').textContent = lastMember.tag;
-    document.getElementById('banReason').value = '';
-    document.getElementById('banDeleteDays').value = '0';
-    document.getElementById('banError').textContent = '';
-    document.getElementById('banOverlay').classList.add('show');
-  });
 
   const saveRestrBtn = document.getElementById('saveRestrictionsBtn');
   if (saveRestrBtn) {
-    saveRestrBtn.addEventListener('click', async (e) => {
+    saveRestrBtn.onclick = async () => {
       try {
-        await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/restrictions`, {
+        await RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/restrictions`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             loginBlocked: document.getElementById('r-loginBlocked').checked,
             siteBanned: document.getElementById('r-siteBanned').checked,
             moderationBanned: document.getElementById('r-moderationBanned').checked,
             ticketsSuspended: document.getElementById('r-ticketsSuspended').checked,
-            reason: document.getElementById('r-reason').value.trim()
+            reason: document.getElementById('r-reason').value.trim(),
+            notifyUser: true
           })
-        }), { okMessage: 'Access controls saved', failMessage: "Couldn't save access controls" });
+        });
+        RF.toast('Restrictions saved & user notified', true);
         load();
-      } catch { /* toast already shown */ }
-    });
-  }
-
-  const applyTempBtn = document.getElementById('applyTempBanBtn');
-  if (applyTempBtn) {
-    applyTempBtn.addEventListener('click', async (e) => {
-      const minutes = parseInt(document.getElementById('r-tempMinutes').value, 10);
-      try {
-        await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/restrictions`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tempBanMinutes: minutes, reason: document.getElementById('r-reason').value.trim() })
-        }), { okMessage: 'Temporary ban applied', failMessage: "Couldn't apply temp ban" });
-        load();
-      } catch { /* toast already shown */ }
-    });
-  }
-
-  const clearTempBtn = document.getElementById('clearTempBanBtn');
-  if (clearTempBtn) {
-    clearTempBtn.addEventListener('click', async (e) => {
-      try {
-        await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/restrictions`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clearTempBan: true })
-        }), { okMessage: 'Temp ban cleared', failMessage: "Couldn't clear temp ban" });
-        load();
-      } catch { /* toast already shown */ }
-    });
+      } catch (err) { RF.toast(err.message, false); }
+    };
   }
 
   const clearAllBtn = document.getElementById('clearAllRestrictionsBtn');
   if (clearAllBtn) {
-    clearAllBtn.addEventListener('click', async (e) => {
+    clearAllBtn.onclick = async () => {
       try {
-        await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/restrictions`, {
+        await RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/restrictions`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ loginBlocked: false, siteBanned: false, moderationBanned: false, ticketsSuspended: false, clearTempBan: true, reason: '' })
-        }), { okMessage: 'All restrictions cleared', failMessage: "Couldn't clear restrictions" });
+          body: JSON.stringify({ loginBlocked: false, siteBanned: false, moderationBanned: false, ticketsSuspended: false, reason: '' })
+        });
+        RF.toast('All restrictions cleared', true);
         load();
-      } catch { /* toast already shown */ }
-    });
+      } catch (err) { RF.toast(err.message, false); }
+    };
   }
+
+  const setNickBtn = document.getElementById('setNicknameBtn');
+  if (setNickBtn) {
+    setNickBtn.onclick = async () => {
+      const nickname = document.getElementById('nicknameInput').value.trim();
+      try {
+        await RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/nickname`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nickname })
+        });
+        RF.toast('Nickname updated', true);
+        load();
+      } catch (err) { RF.toast(err.message, false); }
+    };
+  }
+
+  const addRoleBtn = document.getElementById('addRoleBtn');
+  if (addRoleBtn) {
+    addRoleBtn.onclick = async () => {
+      const roleId = document.getElementById('addRoleSelect').value;
+      if (!roleId) return;
+      try {
+        await RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/roles`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ add: roleId })
+        });
+        RF.toast('Role added', true);
+        load();
+      } catch (err) { RF.toast(err.message, false); }
+    };
+  }
+
+  const addNoteBtn = document.getElementById('addNoteBtn');
+  if (addNoteBtn) {
+    addNoteBtn.onclick = async () => {
+      const type = document.getElementById('noteType').value;
+      const content = document.getElementById('noteContent').value.trim();
+      if (!content) return;
+      try {
+        const data = await RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/notes`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, content })
+        });
+        lastMember.notes = (lastMember.notes || []).concat([data.note]);
+        document.getElementById('noteContent').value = '';
+        renderNotes();
+        RF.toast('Note added', true);
+      } catch (err) { RF.toast(err.message, false); }
+    };
+  }
+
+  document.getElementById('kickBtn').onclick = () => {
+    document.getElementById('kickTarget').textContent = lastMember.tag;
+    document.getElementById('kickOverlay').classList.add('show');
+  };
+  document.getElementById('banBtn').onclick = () => {
+    document.getElementById('banTarget').textContent = lastMember.tag;
+    document.getElementById('banOverlay').classList.add('show');
+  };
+  document.getElementById('applyTimeoutBtn').onclick = () => {
+    document.getElementById('timeoutTarget').textContent = lastMember.tag;
+    document.getElementById('timeoutSummary').textContent = 'User will be temporarily restricted in Discord.';
+    document.getElementById('timeoutOverlay').classList.add('show');
+  };
 }
 
-document.getElementById('cancelKick').addEventListener('click', () => document.getElementById('kickOverlay').classList.remove('show'));
-document.getElementById('confirmKick').addEventListener('click', async (e) => {
+// Modal Handlers
+document.getElementById('cancelKick').onclick = () => document.getElementById('kickOverlay').classList.remove('show');
+document.getElementById('cancelBan').onclick = () => document.getElementById('banOverlay').classList.remove('show');
+document.getElementById('cancelTimeout').onclick = () => document.getElementById('timeoutOverlay').classList.remove('show');
+
+document.getElementById('confirmKick').onclick = async () => {
   const reason = document.getElementById('kickReason').value.trim();
-  const errEl = document.getElementById('kickError');
-  if (!reason) { errEl.textContent = 'A reason is required.'; return; }
+  if (!reason) return;
   try {
-    await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/kick`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason, byName: currentSenderName() })
-    }), { okMessage: `Kicked ${lastMember.tag}` });
-    document.getElementById('kickOverlay').classList.remove('show');
-    setTimeout(() => { window.location.href = '/moderation'; }, 600);
-  } catch (err) { errEl.textContent = err.message; }
-});
+    await RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/kick`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason })
+    });
+    window.location.href = '/moderation';
+  } catch (err) { document.getElementById('kickError').textContent = err.message; }
+};
 
-document.getElementById('cancelBan').addEventListener('click', () => document.getElementById('banOverlay').classList.remove('show'));
-document.getElementById('confirmBan').addEventListener('click', async (e) => {
+document.getElementById('confirmBan').onclick = async () => {
   const reason = document.getElementById('banReason').value.trim();
-  const errEl = document.getElementById('banError');
-  if (!reason) { errEl.textContent = 'A reason is required.'; return; }
-  const deleteMessageDays = document.getElementById('banDeleteDays').value;
+  if (!reason) return;
   try {
-    await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/ban`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason, deleteMessageDays, byName: currentSenderName() })
-    }), { okMessage: `Banned ${lastMember.tag}` });
-    document.getElementById('banOverlay').classList.remove('show');
-    setTimeout(() => { window.location.href = '/moderation'; }, 600);
-  } catch (err) { errEl.textContent = err.message; }
-});
+    await RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/ban`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason, deleteMessageDays: document.getElementById('banDeleteDays').value })
+    });
+    window.location.href = '/moderation';
+  } catch (err) { document.getElementById('banError').textContent = err.message; }
+};
 
-document.getElementById('cancelTimeout').addEventListener('click', () => document.getElementById('timeoutOverlay').classList.remove('show'));
-document.getElementById('confirmTimeout').addEventListener('click', async (e) => {
-  const minutes = parseInt(document.getElementById('timeoutMinutes').value, 10);
-  const reason = document.getElementById('timeoutReason').value.trim();
-  const errEl = document.getElementById('timeoutError');
+document.getElementById('confirmTimeout').onclick = async () => {
   try {
-    await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/timeout`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ minutes, reason, byName: currentSenderName() })
-    }), { okMessage: 'Timed out' });
+    await RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/timeout`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ minutes: 60, reason: 'Dashboard action' })
+    });
     document.getElementById('timeoutOverlay').classList.remove('show');
     load();
-  } catch (err) { errEl.textContent = err.message; }
-});
-
-document.getElementById('cancelAdminRole').addEventListener('click', () => { pendingAdminRoleId = null; document.getElementById('adminRoleOverlay').classList.remove('show'); });
-document.getElementById('confirmAdminRole').addEventListener('click', async (e) => {
-  const errEl = document.getElementById('adminRoleError');
-  if (!pendingAdminRoleId) return;
-  try {
-    await RF.withLoading(e.currentTarget, () => RF.apiCall(`/api/moderation/members/${encodeURIComponent(userId)}/roles`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ add: pendingAdminRoleId, byName: currentSenderName() })
-    }), { okMessage: 'Admin role added' });
-    document.getElementById('adminRoleOverlay').classList.remove('show');
-    pendingAdminRoleId = null;
-    load();
-  } catch (err) { errEl.textContent = err.message; }
-});
+  } catch (err) { document.getElementById('timeoutError').textContent = err.message; }
+};
 
 initNav();
 load();
