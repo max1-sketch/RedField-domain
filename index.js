@@ -813,6 +813,39 @@ function isRequestAuthed(req) {
     return null;
 }
 
+function renderSuspendedPage(config) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(config.siteTitle)} — Access Suspended</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --accent: ${config.accentColor || '#d69a4e'}; --bg: #0a0c11; --panel: #141722; --border: #262b3a; --ink: #e7e9ee; --muted: #9199a8; --red: #ef4444; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 20px; background: var(--bg); color: var(--ink); font-family: 'Inter', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .card { max-width: 420px; width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 36px 28px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+  .icon-box { width: 56px; height: 56px; margin: 0 auto 18px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--red); }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--red); margin: 0 0 6px; font-weight: 600; }
+  .title { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0 0 10px; }
+  .sub { font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0 0 24px; }
+  .btn { display: flex; align-items: center; justify-content: center; width: 100%; background: #1a1e2b; border: 1px solid var(--border); color: var(--ink); font-weight: 600; padding: 11px 16px; border-radius: 8px; text-decoration: none; font-size: 13px; transition: border-color .15s, color .15s; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon-box">🔒</div>
+    <p class="eyebrow">Access Suspended</p>
+    <div class="title">${escapeHtml(config.siteTitle)}</div>
+    <p class="sub">Your access to this dashboard has been suspended by an Administrator. Contact server leadership if you believe this is an error.</p>
+    <a href="/login" class="btn">Return to Sign-In</a>
+  </div>
+</body>
+</html>`;
+}
 function requireAuth(req, res, next) {
     const authUser = isRequestAuthed(req);
     if (authUser) {
@@ -824,7 +857,9 @@ function requireAuth(req, res, next) {
                 if (isSiteBanned(restriction) || isLoginBlocked(restriction)) {
                     clearAuthCookies(res);
                     if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Your access to this website has been suspended by an Administrator.' });
-                    return res.status(403).send('<h2 style="font-family:sans-serif;color:#ef4444;padding:40px;text-align:center;background:#0a0c11;min-height:100vh;margin:0;">🔒 Your access to this website has been suspended by an Administrator.</h2>');
+                    
+                    // Renders the clean glassmorphic ban card instead of raw text string
+                    return res.status(403).send(renderSuspendedPage(siteConfig));
                 }
             }
         }
@@ -832,9 +867,10 @@ function requireAuth(req, res, next) {
         return next();
     }
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
-    return res.redirect('/login');
+    
+    // Pass 1 query parameter if needed for login context
+    return res.redirect('/login?1');
 }
-
 function maintenanceGate(req, res, next) {
     if (!siteConfig.maintenanceMode) return next();
     if (isRequestAuthed(req)) return next();
