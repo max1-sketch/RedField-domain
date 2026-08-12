@@ -457,6 +457,15 @@ const TOUR_STEPS = [
 let tourSteps = [];
 let tourIndex = 0;
 
+function getCookie(name) {
+  const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function setCookie(name, value, days) {
+  document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${days * 86400}`;
+}
+
 function buildTourSteps() {
   // Finds every valid target step, falling back gracefully if a tab is restricted
   tourSteps = TOUR_STEPS.filter(step => !step.target || document.querySelector(step.target));
@@ -465,6 +474,8 @@ function buildTourSteps() {
 function positionTourStep(step) {
   const spotlight = document.getElementById('tourSpotlight');
   const caption = document.getElementById('tourCaption');
+
+  if (!spotlight || !caption) return;
 
   if (!step.target) {
     spotlight.classList.remove('visible');
@@ -508,33 +519,128 @@ function positionTourStep(step) {
 
 function renderTourStep() {
   const step = tourSteps[tourIndex];
+  if (!step) return;
+
   const eyebrowEl = document.getElementById('tourEyebrow');
   const iconEl = document.getElementById('tourIcon');
-  eyebrowEl.style.display = step.eyebrow ? 'block' : 'none';
-  eyebrowEl.textContent = step.eyebrow || '';
-  iconEl.style.display = step.icon ? 'block' : 'none';
-  iconEl.textContent = step.icon || '';
-  document.getElementById('tourTitle').textContent = step.title;
-  document.getElementById('tourBody').textContent = step.body;
+  if (eyebrowEl) {
+    eyebrowEl.style.display = step.eyebrow ? 'block' : 'none';
+    eyebrowEl.textContent = step.eyebrow || '';
+  }
+  if (iconEl) {
+    iconEl.style.display = step.icon ? 'block' : 'none';
+    iconEl.textContent = step.icon || '';
+  }
 
-  document.getElementById('tourDots').innerHTML = tourSteps.map((_, i) =>
-    `<span class="tour-dot${i === tourIndex ? ' active' : ''}"></span>`
-  ).join('');
+  const titleEl = document.getElementById('tourTitle');
+  const bodyEl = document.getElementById('tourBody');
+  const dotsEl = document.getElementById('tourDots');
+  const backBtn = document.getElementById('tourBack');
+  const nextBtn = document.getElementById('tourNext');
 
-  document.getElementById('tourBack').style.visibility = tourIndex === 0 ? 'hidden' : 'visible';
-  document.getElementById('tourNext').textContent = tourIndex === tourSteps.length - 1 ? 'Finish Tour' : 'Next';
+  if (titleEl) titleEl.textContent = step.title;
+  if (bodyEl) bodyEl.textContent = step.body;
+
+  if (dotsEl) {
+    dotsEl.innerHTML = tourSteps.map((_, i) =>
+      `<span class="tour-dot${i === tourIndex ? ' active' : ''}"></span>`
+    ).join('');
+  }
+
+  if (backBtn) backBtn.style.visibility = tourIndex === 0 ? 'hidden' : 'visible';
+  if (nextBtn) nextBtn.textContent = tourIndex === tourSteps.length - 1 ? 'Finish Tour' : 'Next';
 
   positionTourStep(step);
 }
 
 function goToTourStep(i) {
   if (i < 0 || i >= tourSteps.length) return;
-  document.getElementById('tourCaption').classList.remove('visible');
-  document.getElementById('tourSpotlight').classList.remove('visible');
+  const caption = document.getElementById('tourCaption');
+  const spotlight = document.getElementById('tourSpotlight');
+  if (caption) caption.classList.remove('visible');
+  if (spotlight) spotlight.classList.remove('visible');
+
   setTimeout(() => {
     tourIndex = i;
     renderTourStep();
   }, 220);
+}
+
+function endTour() {
+  const overlay = document.getElementById('tourOverlay');
+  const caption = document.getElementById('tourCaption');
+  const spotlight = document.getElementById('tourSpotlight');
+
+  if (overlay) overlay.classList.remove('visible');
+  if (caption) caption.classList.remove('visible');
+  if (spotlight) spotlight.classList.remove('visible');
+
+  setTimeout(() => {
+    if (overlay) overlay.classList.remove('show');
+  }, 350);
+}
+
+function initTour() {
+  // Uses key onboardingSeen_v4 to guarantee the tour triggers fresh
+  if (getCookie('onboardingSeen_v4')) return;
+  buildTourSteps();
+  if (!tourSteps.length) return;
+
+  const overlay = document.getElementById('tourOverlay');
+  if (!overlay) return;
+
+  overlay.classList.add('show');
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+
+  const skipBtn = document.getElementById('tourSkip');
+  const backBtn = document.getElementById('tourBack');
+  const nextBtn = document.getElementById('tourNext');
+
+  if (skipBtn) {
+    skipBtn.addEventListener('click', () => {
+      setCookie('onboardingSeen_v4', '1', 365);
+      endTour();
+    });
+  }
+
+  if (backBtn) {
+    backBtn.addEventListener('click', () => goToTourStep(tourIndex - 1));
+  }
+
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => {
+      if (tourIndex === tourSteps.length - 1) {
+        setCookie('onboardingSeen_v4', '1', 365);
+        endTour();
+        return;
+      }
+      goToTourStep(tourIndex + 1);
+    });
+  }
+
+  window.addEventListener('resize', () => {
+    if (overlay.classList.contains('show')) positionTourStep(tourSteps[tourIndex]);
+  });
+
+  tourIndex = 0;
+  renderTourStep();
+}
+
+// Automatic execution: Waits for DOM readiness and navigation rendering
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof initNav === 'function') {
+      initNav().then(initTour);
+    } else {
+      initTour();
+    }
+  });
+} else {
+  if (typeof initNav === 'function') {
+    initNav().then(initTour);
+  } else {
+    initTour();
+  }
 }
 
 function endTour() {

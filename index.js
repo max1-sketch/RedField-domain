@@ -1071,12 +1071,12 @@ function requireDiscordOrTicketToken(req, res, next) {
 // VIEW ROUTES
 // ---------------------------------------------------------------------------
 app.get('/login', (req, res) => {
-    // If they're already signed in (any method), sending them back to this
-    // page — which always renders the sign-in form no matter what — is
-    // exactly the "glitch back to login" loop. Skip straight to the
-    // dashboard instead; requireAuth further downstream still decides what
-    // they're actually allowed to see.
-    if (isRequestAuthed(req)) return res.redirect('/');
+    const authed = isRequestAuthed(req);
+    // Only redirect to / if the session is 100% valid
+    if (authed) {
+        return res.redirect('/');
+    }
+    // If not authed, stay on login page cleanly
     return sendTemplate(req, res, path.join(__dirname, 'views', 'login.html'));
 });
 app.get('/coming-soon', (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'coming-soon.html')));
