@@ -119,12 +119,12 @@
             ::-webkit-scrollbar-thumb { background: #262b3a; border-radius: 4px; }
             ::-webkit-scrollbar-thumb:hover { background: #3b4256; }
 
-            /* Toast Notifications */
-            #rf-toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
-            .rf-toast { background: #1a1e2b; border: 1px solid #262b3a; color: #e7e9ee; padding: 10px 16px; border-radius: 6px; font-size: 12.5px; font-weight: 600; opacity: 0; transform: translateY(10px); transition: opacity .2s, transform .2s; }
-            .rf-toast.show { opacity: 1; transform: translateY(0); }
-            .rf-toast.success { border-left: 3px solid #22c55e; }
-            .rf-toast.error { border-left: 3px solid #ef4444; }
+            /* Toast Notifications Container & Stack */
+            #rf-toast-container, #toastStack { position: fixed; top: 18px; right: 18px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; max-width: 320px; }
+            .rf-toast, .toast { background: #1a1e2b; border: 1px solid #262b3a; color: #e7e9ee; padding: 10px 16px; border-radius: 6px; font-size: 12.5px; font-weight: 600; opacity: 0; transform: translateY(-10px); transition: opacity .2s, transform .2s; box-shadow: 0 12px 34px rgba(0,0,0,.45); }
+            .rf-toast.show, .toast { opacity: 1; transform: translateY(0); }
+            .rf-toast.success, .toast:not(.error) { border-left: 3px solid #22c55e; }
+            .rf-toast.error, .toast.error { border-left: 3px solid #ef4444; }
 
             /* Button Animated Loader Dots */
             .rf-loader-dots span { animation: rfDotPulse 1.2s infinite; opacity: 0.2; }
@@ -197,8 +197,8 @@
     // ---------------------------------------------------------------------------
     // TOAST NOTIFICATIONS & BUTTON LOADERS
     // ---------------------------------------------------------------------------
-    RF.showToast = function (message, type = 'success') {
-        let container = document.getElementById('rf-toast-container');
+    RF.toast = function (message, isSuccess = true) {
+        let container = document.getElementById('rf-toast-container') || document.getElementById('toastStack');
         if (!container) {
             container = document.createElement('div');
             container.id = 'rf-toast-container';
@@ -206,7 +206,7 @@
         }
 
         const toast = document.createElement('div');
-        toast.className = `rf-toast ${type}`;
+        toast.className = `rf-toast ${isSuccess ? 'success' : 'error'}`;
         toast.textContent = message;
         container.appendChild(toast);
 
@@ -217,6 +217,8 @@
         }, 3000);
     };
 
+    RF.showToast = RF.toast;
+
     RF.withLoader = async function (btn, asyncFn, successMsg = 'Changes saved successfully!') {
         if (!btn || btn.disabled) return;
         const originalContent = btn.innerHTML;
@@ -225,13 +227,19 @@
 
         try {
             await asyncFn();
-            if (successMsg) RF.showToast(successMsg, 'success');
+            if (successMsg) RF.toast(successMsg, true);
         } catch (err) {
-            RF.showToast(err.message || 'Failed to save changes. Please try again.', 'error');
+            RF.toast(err.message || 'Failed to save changes. Please try again.', false);
         } finally {
             btn.disabled = false;
             btn.innerHTML = originalContent;
         }
+    };
+
+    RF.withLoading = async function (btn, asyncFn, options = {}) {
+        const okMsg = typeof options === 'string' ? options : (options.okMessage || 'Success');
+        const failMsg = typeof options === 'object' ? options.failMessage : 'Error';
+        return RF.withLoader(btn, asyncFn, okMsg);
     };
 
     // ---------------------------------------------------------------------------
@@ -329,7 +337,6 @@
 
     RF.renderNav = function (currentPath, allowedTabs) {
         return NAV_GROUPS.map(group => {
-            // Defensive check: If allowedTabs is null, undefined, or empty, default to showing ALL items
             const visibleItems = group.items.filter(item => {
                 if (!Array.isArray(allowedTabs) || !allowedTabs.length) return true;
                 return allowedTabs.includes(item.key);
