@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{SITE_TITLE}} — Access Pending</title>
+<title>{{SITE_TITLE}} — Access Restricted</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
   --accent: {{ACCENT_COLOR}};
@@ -16,7 +16,6 @@
   --ink: #e7e9ee;
   --muted: #9199a8;
   --faint: #5b6272;
-  --red: #ef4444;
   --amber: #fbbf24;
 }
 * { box-sizing: border-box; }
@@ -30,82 +29,67 @@ body {
 a { color: inherit; text-decoration: none; }
 .mono { font-family: 'IBM Plex Mono', monospace; }
 
-/* Subtle Ambient AI Glow Background */
+/* Subtle ambient background glow */
 body::before {
   content: ''; position: absolute;
-  top: -20%; left: 50%; transform: translateX(-50%);
-  width: 600px; height: 600px;
-  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 18%, transparent) 0%, transparent 70%);
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 450px; height: 450px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 12%, transparent) 0%, transparent 70%);
   pointer-events: none; z-index: 0;
 }
 
 .site-banner { position: fixed; top: 0; left: 0; right: 0; background: var(--accent); color: #0a0c11; font-weight: 700; font-size: 12.5px; text-align: center; padding: 9px 16px; z-index: 10; }
 
 .card {
-  width: 420px; max-width: 100%;
-  background: rgba(20, 23, 34, 0.95); border: 1px solid var(--border); border-radius: 16px;
-  padding: 38px 30px 32px; text-align: center; position: relative; z-index: 1;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
-  backdrop-filter: blur(12px);
+  width: 410px; max-width: 100%;
+  background: rgba(20, 23, 34, 0.85); border: 1px solid var(--border); border-radius: 16px;
+  padding: 36px 32px 30px; text-align: center; position: relative; z-index: 1;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+  backdrop-filter: blur(16px);
 }
 
-/* AI Neural Orb Icon Header */
-.ai-icon-wrap {
-  width: 80px; height: 85px; margin: 0 auto 18px;
-  position: relative; display: flex; align-items: center; justify-content: center;
-  perspective: 500px;
+/* Minimalist Icon Badge */
+.badge-icon-wrap {
+  width: 58px; height: 58px; margin: 0 auto 20px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 14px; display: flex; align-items: center; justify-content: center;
+  position: relative; box-shadow: 0 8px 20px rgba(0,0,0,0.3);
 }
-.ai-orb-ring {
-  position: absolute; border-radius: 50%;
-  border: 1.5px dashed var(--accent); opacity: 0.5;
-  pointer-events: none;
-}
-.ai-orb-ring.r1 { width: 75px; height: 75px; animation: spinOrb 10s linear infinite; }
-.ai-orb-ring.r2 { width: 90px; height: 90px; border-style: dotted; border-color: var(--amber); animation: spinOrbRev 14s linear infinite; opacity: 0.3; }
-
-@keyframes spinOrb { 100% { transform: rotate(360deg); } }
-@keyframes spinOrbRev { 100% { transform: rotate(-360deg); } }
-
-.ai-core-node {
-  width: 42px; height: 42px; border-radius: 50%;
-  background: radial-gradient(circle, var(--accent) 0%, #0a0c11 100%);
-  border: 2px solid var(--accent);
-  box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 80%, transparent);
-  display: flex; align-items: center; justify-content: center;
-  color: #0a0c11; font-weight: 900; font-size: 18px;
-}
+.badge-icon-wrap svg { width: 24px; height: 24px; fill: var(--accent); }
 
 .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin: 0 0 6px; font-weight: 600; }
-.brand { font-size: 20px; font-weight: 900; color: var(--ink); margin: 0 0 14px; letter-spacing: -0.02em; }
-.sub { font-size: 13px; color: var(--muted); margin: 0 0 22px; line-height: 1.65; }
+.brand { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0 0 10px; letter-spacing: -0.02em; }
+.sub { font-size: 13px; color: var(--muted); margin: 0 0 24px; line-height: 1.6; }
 
-/* AI Era Action Buttons */
+/* Buttons */
+.btn-group { display: flex; flex-direction: column; gap: 10px; }
+
 .btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
   width: 100%; box-sizing: border-box;
-  background: var(--accent); color: #0a0c11; font-weight: 800;
-  padding: 12px 18px; border-radius: 10px; text-decoration: none; font-size: 13.5px;
-  transition: transform .15s, opacity .15s;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent);
+  background: var(--accent); color: #0a0c11; font-weight: 700;
+  padding: 11.5px 16px; border-radius: 9px; text-decoration: none; font-size: 13px;
+  transition: opacity .15s, transform .15s;
 }
 .btn:hover { opacity: .92; transform: translateY(-1px); }
 
 .btn-secondary {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  width: 100%; box-sizing: border-box; margin-top: 10px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; box-sizing: border-box;
   background: var(--panel-2); border: 1px solid var(--border); color: var(--ink);
-  font-weight: 700; padding: 11px 18px; border-radius: 10px; text-decoration: none; font-size: 13px;
+  font-weight: 600; padding: 11px 16px; border-radius: 9px; text-decoration: none; font-size: 12.5px;
   transition: border-color .15s, color .15s;
 }
 .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
 
+/* Notice Banner */
 .warn-banner {
-  background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: var(--amber);
-  border-radius: 10px; padding: 12px 14px; font-size: 12.5px; font-weight: 600;
-  text-align: left; line-height: 1.55; margin-bottom: 18px;
+  background: rgba(251, 191, 36, 0.08); border: 1px solid rgba(251, 191, 36, 0.22); color: var(--amber);
+  border-radius: 10px; padding: 12px 14px; font-size: 12.5px; font-weight: 500;
+  text-align: left; line-height: 1.5; margin-bottom: 20px;
   display: flex; gap: 10px; align-items: flex-start;
 }
-.warn-banner .icon { flex-shrink: 0; font-size: 16px; margin-top: 1px; }
+.warn-banner .warn-icon { flex-shrink: 0; font-size: 15px; margin-top: 1px; }
 </style>
 </head>
 <body>
@@ -113,31 +97,29 @@ body::before {
 {{BANNER_HTML}}
 
 <div class="card">
-  <!-- AI Era Graphic Icon Header -->
-  <div class="ai-icon-wrap">
-    <div class="ai-orb-ring r1"></div>
-    <div class="ai-orb-ring r2"></div>
-    <div class="ai-core-node">⚡</div>
+  <div class="badge-icon-wrap">
+    <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-3.31-2.69-6-6-6S5 2.69 5 6v2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
   </div>
 
-  <p class="eyebrow">Member Portal</p>
+  <p class="eyebrow">Access Pending</p>
   <p class="brand">{{SITE_TITLE}}</p>
   
   <div id="warnBanner"></div>
   
-  <p class="sub">The member area for regular users isn't active yet. If you are looking for a ticket transcript, use the online link sent to your Discord Direct Messages when the ticket closed.</p>
+  <p class="sub">The member dashboard is currently restricted to staff members. If you opened a support ticket, your transcript link was sent to your Discord Direct Messages.</p>
   
-  <!-- Prevents redirect loops by giving an explicit logout option -->
-  <a class="btn" href="/logout">Log Out / Switch Account</a>
-  <a class="btn-secondary" href="/my-tickets">View My Saved Transcripts</a>
+  <div class="btn-group">
+    <a class="btn" href="/logout">Log Out / Switch Account</a>
+    <a class="btn-secondary" href="/my-tickets">View My Transcripts</a>
+  </div>
 </div>
 
 <script>
   if (new URLSearchParams(window.location.search).get('notStaff') === '1') {
     document.getElementById('warnBanner').innerHTML = `
       <div class="warn-banner">
-        <span class="icon">⚠️</span>
-        <div>Your Discord account isn't recognized as staff on this server. If you believe this is an error, contact an Administrator to assign your role.</div>
+        <span class="warn-icon">⚠️</span>
+        <div>Your Discord account isn't recognized as staff on this server. Contact an Administrator if your role needs to be assigned.</div>
       </div>`;
   }
 </script>
