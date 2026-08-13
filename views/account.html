@@ -179,14 +179,31 @@ async function initNav() {
     const res = await fetch('/api/guild');
     if (res.ok) {
       const g = await res.json();
-      const allowedTabs = g.viewerTier === 'staff' ? g.staffPermissions?.allowedTabs : null;
-      document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, allowedTabs);
+      const viewerTier = g.viewerTier || 'none';
+
+      // If regular member or non-staff, render the Member Portal sidebar
+      if (viewerTier === 'member' || viewerTier === 'none') {
+        const currentPath = window.location.pathname;
+        document.getElementById('navTabs').innerHTML = `
+          <div class="nav-section-title">PORTAL</div>
+          <a href="/my-dashboard" class="nav-item ${currentPath === '/my-dashboard' ? 'active' : ''}">📁 Overview &amp; Tickets</a>
+          <a href="/my-applications" class="nav-item ${currentPath === '/my-applications' ? 'active' : ''}">📝 Applications</a>
+          
+          <div class="nav-section-title">ACCOUNT</div>
+          <a href="/account" class="nav-item ${currentPath === '/account' ? 'active' : ''}">⚙️ Appearance Settings</a>
+        `;
+      } else {
+        // Staff or Admin -> Render standard staff navigation
+        const allowedTabs = viewerTier === 'staff' ? g.staffPermissions?.allowedTabs : null;
+        document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, allowedTabs);
+      }
     } else {
       document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
     }
   } catch {
     document.getElementById('navTabs').innerHTML = RF.renderNav(window.location.pathname, null);
   }
+
   const logoutIconEl = document.getElementById('logoutIcon');
   if (logoutIconEl && RF.ICONS?.logout) logoutIconEl.innerHTML = RF.ICONS.logout;
 }
