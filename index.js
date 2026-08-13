@@ -895,6 +895,11 @@ app.post('/api/login', (req, res) => {
 // Demo Route for Presentation
 app.get('/demo', (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'demo-index.html')));
 
+// Serves the dedicated Member Dashboard
+app.get('/my-dashboard', maintenanceGate, requireAuth, (req, res) => {
+    sendTemplate(req, res, path.join(__dirname, 'views', 'my-dashboard.html'));
+});
+
 app.get('/auth/discord', (req, res) => {
     if (!DISCORD_LOGIN_CONFIGURED) return res.status(503).send('Discord login is not configured.');
 
