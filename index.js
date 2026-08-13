@@ -46,11 +46,6 @@ const GUILD_ID = process.env.GUILD_ID || null;
 function getWebsiteUrl() {
     let url = (process.env.WEBSITE_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:3002').trim();
     url = url.replace(/\/+$/, '');
-    // Discord's Link-button URL validator rejects anything without a
-    // protocol outright — if WEBSITE_URL is set to something like
-    // "localhost:3000" (missing the scheme), every "View Online Transcript"
-    // button crashes finalizeTicketClose before the channel ever deletes.
-    // Guard against that regardless of how the env var ends up set.
     if (!/^https?:\/\//i.test(url)) {
         const isLocal = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(url.split('/')[0]);
         url = `${isLocal ? 'http' : 'https'}://${url}`;
@@ -243,19 +238,13 @@ function renderTemplate(filePath, req) {
         html += versionScript;
     }
 
-    // Light/dark mode — personal, per-browser, NOT site-wide. Read from a
-    // cookie (same pattern as the "reply name" preference already uses),
-    // never from siteConfig — this used to be a global admin-only setting
-    // that changed the site for every visitor, which wasn't the ask.
-  const cookies = req ? parseCookies(req) : {};
+    const cookies = req ? parseCookies(req) : {};
     const scheme = cookies.sitePreferredTheme || siteConfig.colorScheme || 'dark';
 
-    // Inject data-theme on <body> and <html
     if (/<body[\s>]/.test(html)) {
         html = html.replace(/<body(\s[^>]*)?>/, (match, attrs) => `<body data-theme="${scheme}"${attrs || ''}>`);
     }
     
-    // Inject the theme-overrides.css link into <head>
     if (html.includes('</head>') && !html.includes('theme-overrides.css')) {
         html = html.replace('</head>', `<link rel="stylesheet" href="/theme-overrides.css">\n</head>`);
     }
@@ -318,13 +307,6 @@ async function saveConfigs() {
     }
 }
 
-// ---------------------------------------------------------------------------
-// PER-COMMAND ENABLE / RESTRICT SETTINGS
-// ---------------------------------------------------------------------------
-// Every slash command can be individually turned off, or restricted to a
-// minimum tier ('everyone' | 'staff' | 'admin') from the website. New
-// commands ship with sensible defaults below; an Administrator can loosen or
-// tighten any of them from the Bot Commands settings page.
 function defaultCommandSettings() {
     return {
         ping: { enabled: true, minTier: 'everyone' },
@@ -443,14 +425,10 @@ function getGuildConfig(guildId) {
     const savedPanels = saved.panels || {};
 
     merged.panels = {};
-    // Built-in panels: merge each with whatever's been saved for it.
     for (const key of Object.keys(def.panels)) {
         merged.panels[key] = { ...def.panels[key], ...(savedPanels[key] || {}) };
         if (!Array.isArray(merged.panels[key].teamRoleIds)) merged.panels[key].teamRoleIds = [];
     }
-    // Custom panels created via the website aren't in def.panels, so the loop
-    // above never touches them — without this they were being dropped and
-    // re-saved without them on literally every request after creation.
     for (const key of Object.keys(savedPanels)) {
         if (merged.panels[key]) continue;
         merged.panels[key] = { ...savedPanels[key] };
@@ -545,6 +523,42 @@ function logModerationAction(action, targetId, targetTag, reason, byName) {
     }
 }
 
+// Anti-Spam DM Cooldown Set
+const dmCooldowns = new Set();
+
+async function sendAccessStatusDM(guild, userId, action, reason = '') {
+    const cooldownKey = `${userId}_${action}`;
+    if (dmCooldowns.has(cooldownKey)) return;
+
+    dmCooldowns.add(cooldownKey);
+    setTimeout(() => dmCooldowns.delete(cooldownKey), 5000);
+
+    try {
+        const member = await guild.members.fetch(userId).catch(() => null);
+        if (!member) return;
+
+        const isGranted = action === 'grant';
+        const serverName = siteConfig.siteTitle || guild.name;
+
+        const embed = new EmbedBuilder()
+            .setColor(isGranted ? 0x2ecc71 : 0xef4444)
+            .setTitle(isGranted ? '🔓 Dashboard Access Granted' : '🔒 Dashboard Access Revoked')
+            .setDescription(isGranted 
+                ? `An Administrator has granted you staff access to **${serverName}**.`
+                : `An Administrator has updated or revoked your staff access to **${serverName}**.`)
+            .addFields(
+                { name: 'Server', value: guild.name, inline: true },
+                { name: 'Reason', value: reason || 'No specific reason provided.', inline: true }
+            )
+            .setFooter({ text: serverName, iconURL: guild.iconURL() })
+            .setTimestamp();
+
+        await member.send({ embeds: [embed] }).catch(() => {});
+    } catch (err) {
+        console.log(`[DM] Could not DM user ${userId}: ${err.message}`);
+    }
+}
+
 // Restore All Permanent Data from Upstash Redis on Startup
 async function loadAllFromRedis() {
     if (!redis) return;
@@ -573,10 +587,6 @@ async function loadAllFromRedis() {
         const savedApps = await redis.get('applicationsData');
         if (savedApps) applicationsData = typeof savedApps === 'string' ? JSON.parse(savedApps) : savedApps;
 
-        // siteConfig (title, banner, accent color, light/dark mode) was
-        // never included here before — it only ever wrote to a local disk
-        // file, which most hosts wipe on every deploy. That's exactly why
-        // appearance changes weren't sticking.
         const savedSite = await redis.get('siteConfig');
         if (savedSite) {
             const parsed = typeof savedSite === 'string' ? JSON.parse(savedSite) : savedSite;
@@ -626,13 +636,9 @@ function getViewerContext(req, guild, guildConfig) {
     const ALL_TABS = ['archive', 'tickets', 'panels', 'tags', 'feedback', 'auditlog', 'moderation', 'lookup', 'blacklist', 'shiftroster', 'quickwords', 'settings'];
     const authUser = req.authUser;
     
-    // 1. Not authenticated at all
     if (!authUser) return { tier: 'none', allowedTabs: [], canModerate: false };
-
-    // 2. Access Code Login or Master
     if (!authUser.id) return { tier: 'master', allowedTabs: ALL_TABS, canModerate: true };
 
-    // 3. Discord OAuth User
     const member = guild ? guild.members.cache.get(authUser.id) : null;
     
     if (isAdmin(member, guildConfig)) {
@@ -651,10 +657,7 @@ function getViewerContext(req, guild, guildConfig) {
         };
     }
 
-    // 4. Anyone who is authenticated but isn't recognized as staff/admin (including a
-    // guild-member cache miss) gets NO access — never fall back to granting staff
-    // permissions. A cache miss is not the same thing as being staff.
-    return { tier: 'none', allowedTabs: [], canModerate: false };
+    return { tier: 'member', allowedTabs: [], canModerate: false };
 }
 
 function requireTabPermission(tabName) {
@@ -675,11 +678,6 @@ function requireTabPermission(tabName) {
     };
 }
 
-// Hard-gates a route to true Administrators (or the master access code) only.
-// Unlike requireTabPermission, this is never affected by the staff
-// allowedTabs toggle system — there is no "grant a regular staff member
-// access to this" path, by design, since this is the destructive
-// data-reset area.
 function requireHardAdmin(req, res, next) {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
@@ -703,7 +701,7 @@ function requireModerationCapability(req, res, next) {
         }
     }
 
-if (ctx.tier === 'master' || ctx.tier === 'admin') return next();
+    if (ctx.tier === 'master' || ctx.tier === 'admin') return next();
     if (ctx.tier === 'staff' && ctx.allowedTabs.includes('moderation') && ctx.canModerate) return next();
 
     return res.status(403).json({ error: 'Moderation actions are disabled for your Staff role by an Administrator.' });
@@ -715,17 +713,6 @@ if (ctx.tier === 'master' || ctx.tier === 'admin') return next();
 const app = express();
 app.use(express.json());
 
-// ---------------------------------------------------------------------------
-// SECURITY HEADERS
-// ---------------------------------------------------------------------------
-// Addresses a hardening scan: clickjacking protection, MIME-sniffing
-// protection, HSTS, and a real Content-Security-Policy. Every view in this
-// app relies heavily on inline <script> and inline style="" attributes
-// (that's how the whole codebase is built), so 'unsafe-inline' stays in for
-// script-src/style-src rather than breaking every page — a fully strict,
-// nonce-based CSP would need every view file rewritten to move scripts and
-// inline styles out, which is a much bigger job than this header pass.
-// 'unsafe-eval' is deliberately left out entirely; we don't need it anywhere.
 app.use((req, res, next) => {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -846,6 +833,7 @@ function renderSuspendedPage(config) {
 </body>
 </html>`;
 }
+
 function requireAuth(req, res, next) {
     const authUser = isRequestAuthed(req);
     if (authUser) {
@@ -857,8 +845,6 @@ function requireAuth(req, res, next) {
                 if (isSiteBanned(restriction) || isLoginBlocked(restriction)) {
                     clearAuthCookies(res);
                     if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Your access to this website has been suspended by an Administrator.' });
-                    
-                    // Renders the clean glassmorphic ban card instead of raw text string
                     return res.status(403).send(renderSuspendedPage(siteConfig));
                 }
             }
@@ -867,10 +853,9 @@ function requireAuth(req, res, next) {
         return next();
     }
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
-    
-    // Pass 1 query parameter if needed for login context
     return res.redirect('/login?1');
 }
+
 function maintenanceGate(req, res, next) {
     if (!siteConfig.maintenanceMode) return next();
     if (isRequestAuthed(req)) return next();
@@ -908,12 +893,6 @@ app.get('/auth/discord', (req, res) => {
         try {
             const parsed = new URL(req.headers.referer);
             const refPath = parsed.pathname + parsed.search;
-            // The referer is only useful when it's a page someone was actually
-            // trying to reach (e.g. a transcript link that redirected here).
-            // When the "Sign in with Discord" button itself lives on the login
-            // page, the referer is always /login — using that as the return
-            // destination sent people right back to the sign-in form after a
-            // successful login, even though they were already authenticated.
             const isAuthOrLoginPath = /^\/(login|staff-login|coming-soon|auth\/)/.test(parsed.pathname);
             if (!isAuthOrLoginPath) returnTo = refPath;
         } catch (e) {}
@@ -971,15 +950,15 @@ app.get('/auth/discord/callback', async (req, res) => {
         const member = guild ? await guild.members.fetch(discordUser.id).catch(() => null) : null;
 
         // Block login entirely if the user is not in your Discord server
-        if (!member) {
+        if (!member && !isOwnerContext({ user: discordUser, guild })) {
             return res.redirect('/login?error=not_in_server');
         }
 
         const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
-        const staff = Boolean(isStaff(member, guildConfig));
+        const staff = Boolean(member && isStaff(member, guildConfig));
 
         const expiresAt = Date.now() + SESSION_SECONDS * 1000;
-        const session = signDiscordSession({ id: discordUser.id, tag: member.user.tag, exp: expiresAt });
+        const session = signDiscordSession({ id: discordUser.id, tag: member ? member.user.tag : discordUser.username, exp: expiresAt });
         
         res.setHeader('Set-Cookie', [
             `discordAuth=${session}; HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
@@ -1002,7 +981,6 @@ app.get('/auth/discord/callback', async (req, res) => {
     }
 });
 
-
 function clearAuthCookies(res) {
     res.setHeader('Set-Cookie', [
         'ticketAuth=; Path=/; Max-Age=0',
@@ -1016,10 +994,10 @@ app.get('/logout', (req, res) => {
     res.redirect('/login');
 });
 
-// Member Dashboard Routes
+// Dedicated Member Dashboard Routes
 app.get('/my-dashboard', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'my-dashboard.html')));
-app.get('/my-applications', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'coming-soon.html')));
-app.get('/my-feedback', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'coming-soon.html')));
+app.get('/my-applications', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'my-applications.html')));
+app.get('/my-feedback', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'my-feedback.html')));
 
 app.post('/api/logout', (req, res) => {
     clearAuthCookies(res);
@@ -1061,10 +1039,6 @@ app.get('/theme-overrides.css', (req, res) => {
 app.use(express.static(path.join(__dirname, 'views'), { index: false }));
 
 function requireDiscordOrTicketToken(req, res, next) {
-    // Staff who are already signed in — whether via the shared access code or
-    // an already-staff Discord session — have full dashboard access and
-    // shouldn't need a *separate* Discord login just to open a transcript
-    // link. Only fall back to requiring one when nobody's authenticated yet.
     const authed = isRequestAuthed(req);
     if (authed) {
         if (authed.id) {
@@ -1081,7 +1055,6 @@ function requireDiscordOrTicketToken(req, res, next) {
                 req.authUser = authed;
                 return next();
             }
-            // Discord session but not staff — only their own ticket is allowed.
             const ticket = archivedTickets.get(req.params.id);
             if (!ticket) {
                 if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Transcript not found.' });
@@ -1094,14 +1067,10 @@ function requireDiscordOrTicketToken(req, res, next) {
             if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Access denied: You do not have permission to view this transcript.' });
             return res.status(403).send('<h2 style="font-family:sans-serif;color:#ef4444;padding:40px;text-align:center;background:#0a0c11;min-height:100vh;margin:0;">🔒 Access Denied: You do not have permission to view this transcript.</h2>');
         }
-        // Access-code ("master") login — full access, no extra check needed.
         req.authUser = authed;
         return next();
     }
 
-    // Not authenticated at all yet — a valid transcript token in the URL
-    // (the link DMed to the opener when their ticket closed) works without
-    // any login; otherwise send them to sign in with Discord.
     const ticket = archivedTickets.get(req.params.id);
     if (ticket && ticket.accessToken && req.query.token && req.query.token === ticket.accessToken) {
         return next();
@@ -1116,11 +1085,9 @@ function requireDiscordOrTicketToken(req, res, next) {
 // ---------------------------------------------------------------------------
 app.get('/login', (req, res) => {
     const authed = isRequestAuthed(req);
-    // Only redirect to / if the session is 100% valid
     if (authed) {
         return res.redirect('/');
     }
-    // If not authed, stay on login page cleanly
     return sendTemplate(req, res, path.join(__dirname, 'views', 'login.html'));
 });
 app.get('/coming-soon', (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'coming-soon.html')));
@@ -1137,9 +1104,6 @@ app.get('/', maintenanceGate, requireAuth, (req, res) => {
 
     return res.redirect('/my-dashboard');
 });
-
-// Member Dashboard Route
-app.get('/my-dashboard', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'my-dashboard.html')));
 
 app.get('/tickets', maintenanceGate, requireAuth, requireTabPermission('tickets'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'tickets.html')));
 app.get('/tickets/:channelId', maintenanceGate, requireAuth, requireTabPermission('tickets'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'live-ticket.html')));
@@ -1229,10 +1193,7 @@ app.get('/shift-roster', maintenanceGate, requireAuth, requireTabPermission('shi
 app.get('/audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'audit-log.html')));
 app.get('/settings', maintenanceGate, requireAuth, requireTabPermission('settings'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'settings.html')));
 app.get('/account', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'account.html')));
-// A separate, read-only page for regular (non-staff) ticket openers — just
-// their own tickets, none of the staff archive's admin controls. Only
-// requireAuth, deliberately no requireTabPermission — any signed-in Discord
-// user can reach it, staff or not, it just shows nothing but their own.
+
 app.get('/my-tickets', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'my-tickets.html')));
 app.get('/api/user/tickets', maintenanceGate, requireAuth, (req, res) => {
     if (!req.authUser || !req.authUser.id) return res.json([]);
@@ -1248,9 +1209,7 @@ app.get('/api/user/tickets', maintenanceGate, requireAuth, (req, res) => {
         accessToken: t.accessToken
     })));
 });
-// Intentionally not added to sidebar nav or the staff allowedTabs list —
-// reachable only if you know the URL, and even then only Administrators (or
-// the master access code) can actually get past requireHardAdmin.
+
 app.get('/danger-zone', maintenanceGate, requireAuth, requireHardAdmin, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'danger-zone.html')));
 app.get('/bot-commands', maintenanceGate, requireAuth, requireTabPermission('settings'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'bot-commands.html')));
 app.get('/transcript/:id', maintenanceGate, requireDiscordOrTicketToken, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'transcript.html')));
@@ -1261,10 +1220,6 @@ app.get('/api/tickets/:id', maintenanceGate, requireDiscordOrTicketToken, (req, 
     res.json(ticket);
 });
 
-// User Context API — used by the sidebar nav on every page, and by the
-// account page. Previously only handled a Discord session; a shared
-// access-code ("master") login just got a bare 401 with no way for the
-// account page to show anything sensible for that case.
 app.get('/api/me', (req, res) => {
     const cookies = parseCookies(req);
 
@@ -1366,8 +1321,6 @@ app.get('/api/dashboard-stats', maintenanceGate, requireAuth, requireTabPermissi
     const ratings = (feedbackData || []).filter(f => Number.isFinite(f.rating));
     const avgRating = ratings.length ? (ratings.reduce((s, f) => s + f.rating, 0) / ratings.length) : null;
 
-    // Average time from open to close, in minutes — prefer this week's
-    // sample, fall back to all-time if nothing's closed this week yet.
     const withDuration = archivedList.filter(t => t.openedAt && t.closedAt);
     const recentDuration = withDuration.filter(t => new Date(t.closedAt).getTime() >= weekAgo);
     const durationSource = recentDuration.length ? recentDuration : withDuration;
@@ -1375,8 +1328,6 @@ app.get('/api/dashboard-stats', maintenanceGate, requireAuth, requireTabPermissi
         ? Math.round(durationSource.reduce((s, t) => s + (new Date(t.closedAt).getTime() - new Date(t.openedAt).getTime()), 0) / durationSource.length / 60000)
         : null;
 
-    // Leaderboard: tickets closed per staff member (by claimedBy tag) over
-    // the last 30 days, falling back to all-time if nothing in that window.
     function buildLeaderboard(cutoff) {
         const counts = {};
         for (const t of archivedList) {
@@ -1432,8 +1383,6 @@ app.post('/api/danger-zone/reset', maintenanceGate, requireAuth, requireHardAdmi
         auditLogEntries: alsoWipeAuditLog ? auditLogs.length : 0
     };
 
-    // Best-effort delete the live Discord channels for every open ticket —
-    // a failure on any single channel doesn't stop the rest of the reset.
     let channelsDeleted = 0;
     for (const [channelId] of openTicketEntries) {
         try {
@@ -1457,13 +1406,10 @@ app.post('/api/danger-zone/reset', maintenanceGate, requireAuth, requireHardAdmi
         auditLogs.length = 0;
     }
 
-    // Always recorded, even if the audit log itself was just wiped — this is
-    // the one entry that can never be skipped, so a reset is never silent.
     logAudit('DANGER_ZONE_RESET', byName, `Full reset: ${counts.openTickets} open tickets (${channelsDeleted} channels deleted), ${counts.archivedTickets} archived transcripts${alsoWipeFeedback ? `, ${counts.feedbackEntries} feedback entries` : ''}${alsoWipeAuditLog ? `, ${counts.auditLogEntries} prior audit log entries` : ''} — all permanently removed`);
 
     res.json({ success: true, counts, channelsDeleted });
 });
-
 
 app.post('/api/tickets/:id/tags', maintenanceGate, requireAuth, (req, res) => {
     const guild = getTargetGuild();
@@ -1484,10 +1430,6 @@ app.post('/api/tickets/:id/tags', maintenanceGate, requireAuth, (req, res) => {
 app.get('/api/feedback', maintenanceGate, requireAuth, requireTabPermission('feedback'), (req, res) => res.json(feedbackData));
 app.get('/api/audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), (req, res) => res.json(auditLogs));
 
-// Discord's own native server audit log (kicks/bans/role changes/etc done
-// directly in Discord, not through this dashboard) — a separate data source
-// from our own logAudit() history above, fetched live from Discord each time
-// rather than stored locally.
 app.get('/api/discord-audit-log', maintenanceGate, requireAuth, requireTabPermission('auditlog'), async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
@@ -1682,13 +1624,6 @@ app.post('/api/guild/panels/create', maintenanceGate, requireAuth, requireTabPer
     res.json({ success: true, typeKey, panel: guildConfig.panels[typeKey] });
 });
 
-// Posts a single panel's embed + open-ticket button into a chosen text channel,
-// so panels no longer require running /sendpanels in Discord at all — staff can
-// configure and (re)post them entirely from this page.
-// Detects Discord's specific "your emoji data is bad" rejection so callers
-// can retry without emoji instead of just failing outright — this is what
-// makes already-stored bad emoji (saved before isValidEmoji was tightened)
-// self-heal on the next post instead of needing a manual edit first.
 function isInvalidEmojiError(err) {
     return Boolean(err && err.code === 50035 && /emoji/i.test(String(err.message || '')));
 }
@@ -1722,9 +1657,6 @@ app.post('/api/guild/panels/:typeKey/post', maintenanceGate, requireAuth, requir
             await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(buildButton(true))] });
         } catch (sendErr) {
             if (!isInvalidEmojiError(sendErr) || !panel.emoji) throw sendErr;
-            // Stored emoji is bad in a way our validation didn't catch —
-            // clear it so this panel doesn't fail every future post, then
-            // retry once without it.
             panel.emoji = '';
             emojiWasCleared = true;
             await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(buildButton(false))] });
@@ -1740,9 +1672,6 @@ app.post('/api/guild/panels/:typeKey/post', maintenanceGate, requireAuth, requir
     }
 });
 
-// Posts every configured panel as a single "Open A Ticket" dropdown message
-// instead of one embed+button per panel — players pick a type from the list
-// rather than scrolling past several separate panel messages.
 app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requireTabPermission('panels'), async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
@@ -1781,10 +1710,6 @@ app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requir
             await channel.send(buildPayload(panelEntries));
         } catch (sendErr) {
             if (!isInvalidEmojiError(sendErr)) throw sendErr;
-            // Try to identify exactly which option Discord rejected
-            // (its error message includes the option's index, e.g.
-            // "options[2].emoji.name") so we can clear just that panel's
-            // emoji instead of stripping every panel's emoji blindly.
             const match = String(sendErr.message || '').match(/options\[(\d+)\]/);
             const badIndex = match ? parseInt(match[1], 10) : null;
             let retryEntries = panelEntries;
@@ -1794,8 +1719,6 @@ app.post('/api/guild/panels/post-dropdown', maintenanceGate, requireAuth, requir
                 clearedTypeKey = badTypeKey;
                 retryEntries = panelEntries;
             } else {
-                // Couldn't identify the exact one — strip all emoji for this
-                // retry only, without permanently touching stored config.
                 retryEntries = panelEntries.map(([k, p]) => [k, { ...p, emoji: '' }]);
             }
             await channel.send(buildPayload(retryEntries));
@@ -1820,8 +1743,6 @@ app.get('/api/guild/commands', maintenanceGate, requireAuth, requireTabPermissio
     res.json({ commandSettings: guildConfig.commandSettings });
 });
 
-// Appearance is personal, per-browser — a cookie, not site config. Anyone
-// signed in can set their own; it never affects what anyone else sees.
 app.get('/api/site/appearance', maintenanceGate, requireAuth, (req, res) => {
     const cookies = parseCookies(req);
     res.json({ colorScheme: cookies.sitePreferredTheme === 'light' ? 'light' : 'dark' });
@@ -1842,7 +1763,6 @@ app.post('/api/site/appearance', maintenanceGate, requireAuth, async (req, res) 
     siteConfig.colorScheme = scheme;
     await saveSiteConfig();
     
-    // Allow any preset name or custom gradient tag in cookies
     res.setHeader('Set-Cookie', `sitePreferredTheme=${encodeURIComponent(scheme)}; Path=/; Max-Age=${365 * 86400}; SameSite=Lax`);
     res.json({ success: true, colorScheme: scheme });
 });
@@ -1954,9 +1874,6 @@ app.post('/api/open-tickets/:channelId/priority', maintenanceGate, requireAuth, 
     res.json({ success: true, priority });
 });
 
-// Claim/unclaim from the website — this was entirely missing, which is
-// exactly why claiming a ticket there failed outright: the button had
-// nothing to call.
 app.post('/api/open-tickets/:channelId/claim', maintenanceGate, requireAuth, requireTabPermission('tickets'), async (req, res) => {
     const guild = getTargetGuild();
     if (!guild) return res.status(503).json({ error: 'Bot is not currently in any server.' });
@@ -2131,8 +2048,6 @@ app.post('/api/open-tickets/:channelId/close', maintenanceGate, requireAuth, req
         await channel.send(`⛔ **${asName}** closed this ticket from the website. Archiving now...`).catch(() => {});
         clearCloseRequestTimer(channel.id);
         
-        // Archive the transcript and delete the channel immediately — finalizeTicketClose
-        // handles the delete itself, there is no "keep it around locked" option anymore.
         const result = await finalizeTicketClose(channel, guild, guildConfig, asName);
         if (!result.success) {
             return res.status(207).json({ success: true, warning: `Ticket was archived, but the Discord channel couldn't be deleted (${result.error}). Check the bot's permissions in that channel/category.` });
@@ -2697,7 +2612,7 @@ app.post('/api/moderation/members/:userId/restrictions', maintenanceGate, requir
         logModerationAction('restrict', targetId, targetTag, reason || (isNoop ? 'Cleared restrictions' : null), byName);
 
         if (targetMember && !isNoop) {
-            sendModerationDM(targetMember, 'Your dashboard access has changed', `An Administrator (${byName}) updated your staff access restrictions on **${guild.name}**.${reason ? `\nReason: ${reason}` : ''}`);
+            sendAccessStatusDM(guild, targetId, isNoop ? 'grant' : 'revoke', reason || 'Access privileges updated by an Administrator.');
         }
 
         res.json({ success: true, restriction: guildConfig.staffRestrictions[targetId] || null });
@@ -2926,13 +2841,6 @@ function isSuspendedFromTickets(guildConfig, userId) {
 // ---------------------------------------------------------------------------
 // TICKET REASON AUTO-TRIAGE
 // ---------------------------------------------------------------------------
-// Not a literal AI model — this is deliberately a plain keyword/heuristic
-// check against the "reason" text someone typed when opening their ticket.
-// It's fast, free, has no external dependency, and is reliable for the
-// specific job of "does this look like a report/bug, and is anything
-// obviously missing" — a real AI call would need an API key that isn't
-// configured anywhere in this project, cost money per ticket, and add a
-// network dependency for something this heuristic already handles well.
 const TRIAGE_REPORT_KEYWORDS = ['report', 'reporting', 'cheat', 'cheater', 'cheating', 'hack', 'hacker', 'hacking', 'exploit', 'exploiting', 'exploiter', 'abuse', 'abusing', 'abuser', 'scam', 'scammer', 'scamming', 'harass', 'harassing', 'harassment', 'bully', 'bullying', 'toxic', 'grief', 'griefing', 'griefer', 'breaking the rules', 'rule break', 'rulebreak'];
 const TRIAGE_BUG_KEYWORDS = ['bug', 'glitch', 'glitchy', 'broken', 'crash', 'crashing', 'crashed', "isn't working", "doesn't work", 'not working', 'malfunction', 'malfunctioning', 'error', 'stuck', 'freeze', 'freezing', 'frozen'];
 const TRIAGE_PROOF_SIGNALS = ['http://', 'https://', 'proof', 'evidence', 'screenshot', 'screen shot', 'screen-shot', 'video', 'clip', 'recording', 'vod', 'imgur', 'youtube', 'youtu.be', 'streamable', 'medal.tv', 'gyazo', 'discord.com/channels', 'cdn.discordapp.com'];
@@ -2948,9 +2856,6 @@ function classifyTicketReason(reasonText) {
     };
 }
 
-// Sends at most one follow-up nudge right after a ticket opens — bug details
-// requested take priority over the report/proof check, which takes priority
-// over the generic "say more" nudge, so a ticket never gets double-pinged.
 async function sendTicketTriageFollowUp(channel, user, reasonText) {
     try {
         const { looksLikeBug, looksLikeReport, hasProofSignal, wordCount } = classifyTicketReason(reasonText);
@@ -2993,8 +2898,6 @@ const PRIORITY_LABEL = { low: 'Low', normal: 'Normal', high: 'High', urgent: 'Ur
 const PRIORITY_COLOR = { low: 0x2ecc71, normal: null, high: 0xf39c12, urgent: 0xe74c3c };
 
 function buildTicketChannelName(ticket) {
-    // Only tickets created after this feature shipped have a stored base name —
-    // older in-flight tickets are left alone rather than guessed at.
     if (!ticket.baseChannelName) return null;
     const claimedSuffix = ticket.claimedBy ? '-claimed' : '';
     const priority = ticket.priority || 'normal';
@@ -3005,8 +2908,6 @@ function buildTicketChannelName(ticket) {
 async function syncTicketChannelName(channel, ticket) {
     const desired = buildTicketChannelName(ticket);
     if (!desired || channel.name === desired) return;
-    // Discord allows only 2 channel renames per 10 minutes — failures here
-    // (rapid claim/unclaim/priority toggling) are logged and otherwise ignored.
     await channel.setName(desired).catch(err => console.error('[ticket rename] failed:', err.message));
 }
 
@@ -3026,44 +2927,20 @@ async function updateTicketPriorityEmbed(channel, ticket, priority) {
     }
 }
 
-// The previous version of this only checked whether discord.js's own
-// builder could construct an emoji object locally without throwing — that
-// is NOT the same as Discord's server accepting it. discord.js's setEmoji()
-// is lenient: pass it plain text and it happily wraps it into {name: "..."}
-// without verifying it's an actual emoji character, so garbage sailed
-// through this check and only failed later, when the message was actually
-// sent (COMPONENT_INVALID_EMOJI). This does real validation: a proper
-// Discord custom-emoji reference, or an actual Unicode emoji character.
 function isValidEmoji(emoji) {
     if (!emoji || typeof emoji !== 'string') return false;
     const trimmed = emoji.trim();
     if (!trimmed) return false;
-    // Custom guild emoji: <:name:id> or animated <a:name:id>
     if (/^<a?:\w{2,32}:\d{15,25}>$/.test(trimmed)) return true;
-    // Reject anything containing letters, digits, or other plain-text
-    // characters — a real emoji never does, and this is exactly the kind of
-    // "looks emoji-ish but isn't" input Discord's API rejects.
     if (/[a-zA-Z0-9]/.test(trimmed)) return false;
-    // Real emoji (including multi-codepoint sequences like flags, ZWJ
-    // family/skin-tone combos) are short; this guards against pasted text.
     if (trimmed.length > 16) return false;
     try {
         return /\p{Extended_Pictographic}|\p{Emoji_Presentation}|\p{Regional_Indicator}/u.test(trimmed);
     } catch {
-        // Extremely old JS engine without Unicode property escapes — fall
-        // back to just the length/character-class checks above.
         return true;
     }
 }
 
-// Builds the select-menu options for a panel-type dropdown ("Open A Ticket").
-// Using StringSelectMenuOptionBuilder here (instead of assigning a raw
-// string to a plain object's `emoji` property) is the actual fix for
-// COMPONENT_INVALID_EMOJI — the builder's .setEmoji() resolves a plain
-// unicode string OR a <a:name:id> custom emoji string into the
-// {name, id, animated} shape Discord's API actually requires; a bare string
-// dropped straight into a raw option object is not valid there, even though
-// buttons happily accept a plain string via the same-looking .setEmoji().
 function buildPanelSelectOptions(panelEntries) {
     return panelEntries.map(([typeKey, p]) => {
         const opt = new StringSelectMenuOptionBuilder()
@@ -3072,7 +2949,7 @@ function buildPanelSelectOptions(panelEntries) {
         const description = clamp(p.title || '', 100);
         if (description) opt.setDescription(description);
         if (p.emoji && isValidEmoji(p.emoji)) {
-            try { opt.setEmoji(p.emoji); } catch { /* skip a bad emoji rather than fail the whole dropdown */ }
+            try { opt.setEmoji(p.emoji); } catch { /* skip a bad emoji */ }
         }
         return opt;
     });
@@ -3167,9 +3044,6 @@ async function finalizeTicketClose(channel, guild, guildConfig, closedByTag) {
     clearCloseRequestTimer(channel.id);
     const meta = openTickets.get(channel.id) || {};
 
-    // Step 1: transcript — a failure here (e.g. missing Read Message History
-    // permission) must not block the actual close below. Worst case, the
-    // archive gets saved with zero messages instead of the real transcript.
     let messagesArray = [];
     try {
         messagesArray = await fetchAllMessages(channel);
@@ -3202,9 +3076,6 @@ async function finalizeTicketClose(channel, guild, guildConfig, closedByTag) {
         console.error('[finalizeTicketClose] could not save archive:', err.message);
     }
 
-    // Building these can fail too (this is exactly what just happened — an
-    // invalid transcript URL threw inside .setURL()) — wrapped so a bad
-    // embed/button never blocks the actual channel deletion below either.
     let closeEmbed = null, transcriptRow = null, feedbackRow = null;
     try {
         closeEmbed = new EmbedBuilder()
@@ -3237,9 +3108,6 @@ async function finalizeTicketClose(channel, guild, guildConfig, closedByTag) {
         console.error('[finalizeTicketClose] could not build the close embed/components:', err.message);
     }
 
-    // Step 2: post to the log channel — best-effort, was previously NOT even
-    // wrapped in its own try/catch, so a bot missing Send Messages there
-    // would silently kill the whole close before the channel ever deleted.
     try {
         if (guildConfig.logChannelId && closeEmbed) {
             const logChannel = await guild.channels.fetch(guildConfig.logChannelId).catch(() => null);
@@ -3249,21 +3117,16 @@ async function finalizeTicketClose(channel, guild, guildConfig, closedByTag) {
         console.error('[finalizeTicketClose] could not post to log channel:', err.message);
     }
 
-    // Step 3: DM the opener — best-effort, closed DMs are expected/common.
     if (meta.userId && closeEmbed) {
         try {
             const user = await client.users.fetch(meta.userId);
             await user.send({ embeds: [closeEmbed], components: [transcriptRow, feedbackRow] });
-        } catch (e) { /* DMs closed or user left — not an error worth logging */ }
+        } catch (e) { /* DMs closed */ }
     }
 
     openTickets.delete(channel.id);
     saveOpenTickets();
 
-    // Step 4: the actual close. This is the one step staff are waiting on,
-    // so it always runs no matter what failed above, and its outcome is
-    // reported back so a caller can tell the user if it didn't work instead
-    // of leaving "Closing ticket..." on screen forever with no explanation.
     try {
         await channel.delete();
         return { success: true };
@@ -3352,8 +3215,6 @@ async function createTicketChannel(guild, user, typeKey, reason, robloxUsername,
     if (ticketRecord) ticketRecord.welcomeMessageId = welcomeMessage.id;
     saveOpenTickets();
 
-    // Fire-and-forget — has its own try/catch internally, so a failure here
-    // can never break ticket creation itself.
     sendTicketTriageFollowUp(ticketChannel, user, reason);
 
     return ticketChannel;
@@ -3508,10 +3369,7 @@ client.on('interactionCreate', async (interaction) => {
                 ticket.priority = priority;
                 openTickets.set(channel.id, ticket);
                 saveOpenTickets();
-                // Acknowledge the command first — renaming the channel and editing the
-                // pinned embed are each slow/rate-limited Discord calls that can blow
-                // past the 3-second interaction window, which is what was causing
-                // "the application did not respond" even though the priority did save.
+
                 await interaction.reply(`🚩 Priority set to **${PRIORITY_EMOJI[priority]} ${PRIORITY_LABEL[priority]}** by **${user.tag}**.`);
                 syncTicketChannelName(channel, ticket).catch(err => console.error('[priority] rename failed:', err.message));
                 updateTicketPriorityEmbed(channel, ticket, priority).catch(err => console.error('[priority] embed update failed:', err.message));
@@ -3698,6 +3556,7 @@ client.on('interactionCreate', async (interaction) => {
                 const ticket = openTickets.get(channel.id);
                 if (ticket.claimedBy) return interaction.reply({ content: `❌ Already claimed by **${ticket.claimedBy.tag}**.`, ephemeral: true });
                 ticket.claimedBy = { id: user.id, tag: user.tag };
+                openTickets.set(channel.id, ticket);
                 saveOpenTickets();
                 await interaction.reply(`🙋 **${user.tag}** is handling this ticket now.`);
                 syncTicketChannelName(channel, ticket).catch(err => console.error('[claim] rename failed:', err.message));
@@ -3712,6 +3571,7 @@ client.on('interactionCreate', async (interaction) => {
                 const ticket = openTickets.get(channel.id);
                 if (!ticket.claimedBy) return interaction.reply({ content: '⚠️ This ticket is not currently claimed.', ephemeral: true });
                 ticket.claimedBy = null;
+                openTickets.set(channel.id, ticket);
                 saveOpenTickets();
                 await interaction.reply(`↩️ **${user.tag}** unclaimed this ticket.`);
                 syncTicketChannelName(channel, ticket).catch(err => console.error('[unclaim] rename failed:', err.message));
@@ -3751,9 +3611,6 @@ client.on('interactionCreate', async (interaction) => {
                     new ButtonBuilder().setCustomId('closerequest_accept').setLabel('Accept & Close').setStyle(ButtonStyle.Success).setEmoji('✅'),
                     new ButtonBuilder().setCustomId('closerequest_deny').setLabel('Deny & Keep Open').setStyle(ButtonStyle.Danger).setEmoji('❌')
                 );
-                // It's staff asking the opener whether they're OK with closing —
-                // the wording previously had this backwards, saying the opener
-                // themselves had requested it.
                 const closeRequestEmbed = new EmbedBuilder()
                     .setColor(0x5865f2)
                     .setTitle('Close Request')
@@ -3853,9 +3710,6 @@ client.on('interactionCreate', async (interaction) => {
                 const updatedEmbed = EmbedBuilder.from(oldEmbed).setFields(
                     oldEmbed.fields.map(f => f.name === 'Status' ? { name: 'Status', value: `🟡 Claimed by ${user.tag}`, inline: true } : f)
                 );
-                // Acknowledge the click (this IS the button/embed swap) before the
-                // channel rename — renaming is a separate, slower Discord call that
-                // must not sit in front of the response or the click times out.
                 await interaction.update({ embeds: [updatedEmbed], components: buildTicketButtons(true) });
                 await channel.send(`🙋 **${user.tag}** is handling this ticket now.`);
                 syncTicketChannelName(channel, ticket).catch(err => console.error('[claim] rename failed:', err.message));
@@ -3926,8 +3780,6 @@ client.on('interactionCreate', async (interaction) => {
                 await interaction.update({ content: '🔒 Closing ticket...', components: [] });
                 const result = await finalizeTicketClose(channel, interaction.guild, guildConfig, user.tag);
                 if (!result.success) {
-                    // This is exactly what used to leave "Closing ticket..." stuck
-                    // forever with no explanation — now it actually tells you why.
                     await channel.send(`⚠️ This ticket was archived, but I couldn't delete the channel automatically (${result.error}). Check my permissions here, or delete it manually.`).catch(() => {});
                 }
             }
@@ -3962,10 +3814,6 @@ client.on('interactionCreate', async (interaction) => {
             if (customId === 'closerequest_accept') {
                 const ticket = openTickets.get(channel.id) || recoverTicketFromTopic(channel);
                 const isOpener = Boolean(ticket && ticket.userId === user.id);
-                // The whole point of this button is for the OPENER to respond —
-                // staff-only here meant the person being asked could never
-                // actually answer their own close request. Staff can still act
-                // on it too (e.g. following up if the opener goes quiet).
                 if (!isOpener && !isStaff(member, guildConfig)) {
                     return interaction.reply({ content: '❌ Only the ticket opener or staff can respond to this close request.', ephemeral: true });
                 }
@@ -4033,10 +3881,6 @@ client.on('interactionCreate', async (interaction) => {
             openTickets.set(interaction.channel.id, ticket);
             saveOpenTickets();
 
-            // Acknowledge the select first — this was the exact cause of the
-            // "didn't respond in time" error: the channel rename and embed edit
-            // below are separate, slower Discord calls and must never sit in
-            // front of the interaction response.
             await interaction.update({ content: `✅ Priority set to ${PRIORITY_EMOJI[priority]} ${PRIORITY_LABEL[priority]}.`, components: [] });
             await interaction.channel.send(`🚩 **${interaction.user.tag}** set this ticket's priority to **${PRIORITY_EMOJI[priority]} ${PRIORITY_LABEL[priority]}**.`);
             syncTicketChannelName(interaction.channel, ticket).catch(err => console.error('[priority] rename failed:', err.message));

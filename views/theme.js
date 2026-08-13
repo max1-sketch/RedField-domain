@@ -336,6 +336,18 @@
     ];
 
     RF.renderNav = function (currentPath, allowedTabs) {
+        if (allowedTabs && allowedTabs.isMember) {
+            return `
+                <div class="nav-section-title">PORTAL</div>
+                <a href="/my-dashboard" class="nav-item ${currentPath === '/my-dashboard' ? 'active' : ''}">📁 Overview &amp; Tickets</a>
+                <a href="/my-applications" class="nav-item ${currentPath === '/my-applications' ? 'active' : ''}">📝 Applications</a>
+                <a href="/my-feedback" class="nav-item ${currentPath === '/my-feedback' ? 'active' : ''}">⭐ Feedback</a>
+                
+                <div class="nav-section-title">ACCOUNT</div>
+                <a href="/account" class="nav-item ${currentPath === '/account' ? 'active' : ''}">⚙️ Appearance Settings</a>
+            `;
+        }
+
         return NAV_GROUPS.map(group => {
             const visibleItems = group.items.filter(item => {
                 if (!Array.isArray(allowedTabs) || !allowedTabs.length) return true;
