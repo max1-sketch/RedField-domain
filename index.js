@@ -995,9 +995,10 @@ app.get('/logout', (req, res) => {
 });
 
 // Dedicated Member Dashboard Routes
+// Dedicated Member Dashboard Routes
 app.get('/my-dashboard', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'my-dashboard.html')));
 app.get('/my-applications', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'my-applications.html')));
-app.get('/my-feedback', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'my-feedback.html')));
+app.get('/my-feedback', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'my-feedback.html')));ack.html')));
 
 app.post('/api/logout', (req, res) => {
     clearAuthCookies(res);

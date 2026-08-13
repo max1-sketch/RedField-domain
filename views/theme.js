@@ -335,9 +335,11 @@
         }
     ];
 
-    RF.renderNav = function (currentPath, allowedTabs, viewerTier) {
-        // If the user is a regular member or unauthenticated, render the Member Portal sidebar
-        if (viewerTier === 'member' || viewerTier === 'none' || (allowedTabs && allowedTabs.isMember)) {
+RF.renderNav = function (currentPath, allowedTabs, viewerTier) {
+        // Automatically render Member Portal tabs for member paths or member tiers
+        const isMember = currentPath.startsWith('/my-') || viewerTier === 'member' || viewerTier === 'none' || (allowedTabs && allowedTabs.isMember);
+
+        if (isMember) {
             return `
                 <div class="nav-section-title">PORTAL</div>
                 <a href="/my-dashboard" class="nav-item ${currentPath === '/my-dashboard' ? 'active' : ''}">
