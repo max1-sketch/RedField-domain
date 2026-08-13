@@ -969,33 +969,29 @@ app.get('/auth/discord/callback', async (req, res) => {
 
         const guild = getTargetGuild();
         const member = guild ? await guild.members.fetch(discordUser.id).catch(() => null) : null;
-        const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
-        const staff = Boolean(member && isStaff(member, guildConfig));
 
-        // Always issue a session, staff or not — the routes that actually need
-        // to be staff-only (dashboard tabs via requireTabPermission) already
-        // enforce that correctly on their own, and requireDiscordOrTicketToken
-        // already has its own opener-or-staff check for transcripts. Bouncing
-        // every non-staff login to /coming-soon here, before any of that ever
-        // ran, was breaking transcript access for ticket openers — they aren't
-        // staff, but they ARE allowed to see their own transcript.
+        // Block login entirely if the user is not in your Discord server
+        if (!member) {
+            return res.redirect('/login?error=not_in_server');
+        }
+
+        const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
+        const staff = Boolean(isStaff(member, guildConfig));
+
         const expiresAt = Date.now() + SESSION_SECONDS * 1000;
-        const session = signDiscordSession({ id: discordUser.id, tag: member ? member.user.tag : discordUser.username, exp: expiresAt });
+        const session = signDiscordSession({ id: discordUser.id, tag: member.user.tag, exp: expiresAt });
+        
         res.setHeader('Set-Cookie', [
             `discordAuth=${session}; HttpOnly; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
             `sessionExpires=${expiresAt}; Path=/; Max-Age=${SESSION_SECONDS}; SameSite=Lax`,
             'oauthState=; Path=/; Max-Age=0',
             'oauthReturnTo=; Path=/; Max-Age=0'
         ]);
+        
         logAudit('DISCORD_LOGIN', discordUser.username, `Logged in via Discord OAuth2`);
 
-        // A generic sign-in with nowhere specific to go (no transcript, no
-        // particular page) from someone who isn't staff has no dashboard page
-        // they can actually see — send them to coming-soon instead of a page
-        // they'd immediately get turned away from. Anyone headed somewhere
-        // specific (a transcript link, etc.) goes there and lets that route's
-        // own permission check decide.
-if (!staff && returnTo === '/') {
+        // Send non-staff members to the new Member Dashboard
+        if (!staff && returnTo === '/') {
             return res.redirect('/my-dashboard');
         }
         
@@ -1005,6 +1001,7 @@ if (!staff && returnTo === '/') {
         res.redirect('/login?error=discord_failed');
     }
 });
+
 
 function clearAuthCookies(res) {
     res.setHeader('Set-Cookie', [
@@ -1018,6 +1015,11 @@ app.get('/logout', (req, res) => {
     clearAuthCookies(res);
     res.redirect('/login');
 });
+
+// Member Dashboard Routes
+app.get('/my-dashboard', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'my-dashboard.html')));
+app.get('/my-applications', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'coming-soon.html')));
+app.get('/my-feedback', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'coming-soon.html')));
 
 app.post('/api/logout', (req, res) => {
     clearAuthCookies(res);
