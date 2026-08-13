@@ -335,16 +335,29 @@
         }
     ];
 
-    RF.renderNav = function (currentPath, allowedTabs) {
-        if (allowedTabs && allowedTabs.isMember) {
+RF.renderNav = function (currentPath, allowedTabs, viewerTier) {
+        // If the user is a regular member, render the Member Portal sidebar
+        if (viewerTier === 'member' || viewerTier === 'none' || (allowedTabs && allowedTabs.isMember)) {
             return `
                 <div class="nav-section-title">PORTAL</div>
-                <a href="/my-dashboard" class="nav-item ${currentPath === '/my-dashboard' ? 'active' : ''}">📁 Overview &amp; Tickets</a>
-                <a href="/my-applications" class="nav-item ${currentPath === '/my-applications' ? 'active' : ''}">📝 Applications</a>
-                <a href="/my-feedback" class="nav-item ${currentPath === '/my-feedback' ? 'active' : ''}">⭐ Feedback</a>
+                <a href="/my-dashboard" class="nav-item ${currentPath === '/my-dashboard' ? 'active' : ''}">
+                    <span class="ic">${RF.ICONS.tickets || '📁'}</span>
+                    <span>Overview &amp; Tickets</span>
+                </a>
+                <a href="/my-applications" class="nav-item ${currentPath === '/my-applications' ? 'active' : ''}">
+                    <span class="ic">${RF.ICONS.auditlog || '📝'}</span>
+                    <span>Applications</span>
+                </a>
+                <a href="/my-feedback" class="nav-item ${currentPath === '/my-feedback' ? 'active' : ''}">
+                    <span class="ic">${RF.ICONS.feedback || '⭐'}</span>
+                    <span>Feedback</span>
+                </a>
                 
                 <div class="nav-section-title">ACCOUNT</div>
-                <a href="/account" class="nav-item ${currentPath === '/account' ? 'active' : ''}">⚙️ Appearance Settings</a>
+                <a href="/account" class="nav-item ${currentPath === '/account' ? 'active' : ''}">
+                    <span class="ic">${RF.ICONS.settings || '⚙️'}</span>
+                    <span>Appearance Settings</span>
+                </a>
             `;
         }
 
@@ -374,4 +387,3 @@
             `;
         }).join('');
     };
-})();
