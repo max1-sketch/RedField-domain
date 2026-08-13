@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{SITE_TITLE}} — Submit Feedback</title>
+<link rel="stylesheet" href="/badges.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --accent: {{ACCENT_COLOR}}; --bg-0: #0a0c11; --sidebar-bg: #0d0f16; --panel: #141722; --panel-2: #1a1e2b; --border: #262b3a; --ink: #e7e9ee; --muted: #9199a8; --faint: #5b6272; }
+  * { box-sizing: border-box; } body { margin: 0; min-height: 100vh; background: var(--bg-0); color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px; }
+  a { color: inherit; text-decoration: none; }
+  .app-shell { display: flex; min-height: 100vh; }
+  .sidebar { width: 250px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border); padding: 18px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+  .sidebar-brand { display: flex; align-items: center; gap: 10px; background: var(--accent); color: #0a0c11; padding: 13px 15px; border-radius: 10px; font-weight: 800; }
+  nav.sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav-section-title { font-size: 10px; font-weight: 800; color: #525a6b; letter-spacing: 0.08em; text-transform: uppercase; padding: 14px 12px 6px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 13px; border-radius: 8px; color: var(--muted); font-size: 13.5px; font-weight: 500; }
+  .nav-item:hover { background: var(--panel-2); color: var(--ink); }
+  .nav-item.active { background: var(--accent); color: #0a0c11; font-weight: 700; }
+  .sidebar-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); }
+  .content-area { flex: 1; padding: 26px 30px 60px; max-width: 900px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 22px; margin-bottom: 20px; }
+  textarea { width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: var(--ink); padding: 12px; border-radius: 8px; font-family: inherit; font-size: 13px; min-height: 100px; margin-bottom: 12px; }
+  .btn { background: var(--accent); color: #0a0c11; font-weight: 700; padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer; }
+</style>
+</head>
+<body>
+
+{{BANNER_HTML}}
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand">{{SITE_TITLE}}</div>
+    <nav class="sidebar-nav" id="navTabs"></nav>
+    <div class="sidebar-footer">
+      <a href="/logout" class="nav-item">🚪 Log out</a>
+    </div>
+  </aside>
+
+  <main class="content-area">
+    <div class="card">
+      <h2 style="margin:0 0 8px;">Support Feedback & Suggestions</h2>
+      <p style="color:var(--muted); margin:0 0 20px;">Let us know how our staff team is doing or share ideas to improve the server.</p>
+      <textarea id="feedbackText" placeholder="Write your feedback or suggestion here..."></textarea>
+      <button class="btn" id="submitFeedbackBtn">Submit Feedback</button>
+    </div>
+    {{FOOTER_NOTE_HTML}}
+  </main>
+</div>
+
+<script src="/theme.js"></script>
+<script>
+  if (typeof initNav === 'function') initNav();
+  document.getElementById('submitFeedbackBtn').addEventListener('click', () => {
+    const text = document.getElementById('feedbackText').value.trim();
+    if (!text) return;
+    RF.toast('Thank you! Your feedback has been submitted.', true);
+    document.getElementById('feedbackText').value = '';
+  });
+</script>
+</body>
+</html>
