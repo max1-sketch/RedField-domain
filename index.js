@@ -995,9 +995,10 @@ app.get('/auth/discord/callback', async (req, res) => {
         // they'd immediately get turned away from. Anyone headed somewhere
         // specific (a transcript link, etc.) goes there and lets that route's
         // own permission check decide.
-        if (!staff && returnTo === '/') {
-            return res.redirect('/coming-soon?notStaff=1');
+if (!staff && returnTo === '/') {
+            return res.redirect('/my-dashboard');
         }
+        
         res.redirect(returnTo);
     } catch (err) {
         console.error('[discord oauth] failed:', err);
@@ -1122,7 +1123,22 @@ app.get('/login', (req, res) => {
 });
 app.get('/coming-soon', (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'coming-soon.html')));
 
-app.get('/', maintenanceGate, requireAuth, requireTabPermission('archive'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'index.html')));
+// Smart Home Route: Sends staff to index.html and members to /my-dashboard
+app.get('/', maintenanceGate, requireAuth, (req, res) => {
+    const guild = getTargetGuild();
+    const guildConfig = guild ? getGuildConfig(guild.id) : defaultConfig();
+    const ctx = getViewerContext(req, guild, guildConfig);
+
+    if (ctx.tier === 'admin' || ctx.tier === 'master' || (ctx.tier === 'staff' && ctx.allowedTabs.includes('archive'))) {
+        return sendTemplate(req, res, path.join(__dirname, 'views', 'index.html'));
+    }
+
+    return res.redirect('/my-dashboard');
+});
+
+// Member Dashboard Route
+app.get('/my-dashboard', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'my-dashboard.html')));
+
 app.get('/tickets', maintenanceGate, requireAuth, requireTabPermission('tickets'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'tickets.html')));
 app.get('/tickets/:channelId', maintenanceGate, requireAuth, requireTabPermission('tickets'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'live-ticket.html')));
 app.get('/panels', maintenanceGate, requireAuth, requireTabPermission('panels'), (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'panels.html')));
@@ -1171,7 +1187,6 @@ app.post('/api/quickwords', maintenanceGate, requireAuth, (req, res) => {
     saveQuickWords();
     res.json({ success: true, entry });
 });
-
 app.delete('/api/quickwords/:id', maintenanceGate, requireAuth, (req, res) => {
     const { id } = req.params;
     const guild = getTargetGuild();
