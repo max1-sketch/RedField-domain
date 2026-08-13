@@ -335,8 +335,8 @@
         }
     ];
 
-RF.renderNav = function (currentPath, allowedTabs, viewerTier) {
-        // If the user is a regular member, render the Member Portal sidebar
+    RF.renderNav = function (currentPath, allowedTabs, viewerTier) {
+        // If the user is a regular member or unauthenticated, render the Member Portal sidebar
         if (viewerTier === 'member' || viewerTier === 'none' || (allowedTabs && allowedTabs.isMember)) {
             return `
                 <div class="nav-section-title">PORTAL</div>
@@ -387,3 +387,4 @@ RF.renderNav = function (currentPath, allowedTabs, viewerTier) {
             `;
         }).join('');
     };
+})();
