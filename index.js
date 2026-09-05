@@ -995,10 +995,9 @@ app.get('/logout', (req, res) => {
 });
 
 // Dedicated Member Dashboard Routes
-// Dedicated Member Dashboard Routes
 app.get('/my-dashboard', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'my-dashboard.html')));
 app.get('/my-applications', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'my-applications.html')));
-app.get('/my-feedback', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'my-feedback.html')));ack.html')));
+app.get('/my-feedback', maintenanceGate, requireAuth, (req, res) => sendTemplate(req, res, path.join(__dirname, 'views', 'my-feedback.html')));
 
 app.post('/api/logout', (req, res) => {
     clearAuthCookies(res);
@@ -3223,23 +3222,33 @@ async function createTicketChannel(guild, user, typeKey, reason, robloxUsername,
 
 function ticketModal(typeKey, panel) {
     const modal = new ModalBuilder().setCustomId(`ticket_modal_${typeKey}`).setTitle(clamp(panel.buttonLabel || 'Open Ticket', 45));
+    
+    // Non-editable notice label informing users not to ask for mod status
+    const noticeInput = new TextInputBuilder()
+        .setCustomId('mod_notice')
+        .setLabel('NOTICE')
+        .setValue('Do NOT open a ticket asking for mod')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false);
+
+    const reasonInput = new TextInputBuilder()
+        .setCustomId('reason')
+        .setLabel(clamp(panel.promptLabel || 'Reason', 45))
+        .setStyle(TextInputStyle.Paragraph)
+        .setMaxLength(1000)
+        .setRequired(true);
+
+    const robloxUsernameInput = new TextInputBuilder()
+        .setCustomId('robloxUsername')
+        .setLabel('Roblox username (optional)')
+        .setStyle(TextInputStyle.Short)
+        .setMaxLength(50)
+        .setRequired(false);
+
     modal.addComponents(
-        new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-                .setCustomId('reason')
-                .setLabel(clamp(panel.promptLabel || 'Reason', 45))
-                .setStyle(TextInputStyle.Paragraph)
-                .setMaxLength(1000)
-                .setRequired(true)
-        ),
-        new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-                .setCustomId('robloxUsername')
-                .setLabel('Roblox username (optional)')
-                .setStyle(TextInputStyle.Short)
-                .setMaxLength(50)
-                .setRequired(false)
-        )
+        new ActionRowBuilder().addComponents(noticeInput),
+        new ActionRowBuilder().addComponents(reasonInput),
+        new ActionRowBuilder().addComponents(robloxUsernameInput)
     );
     return modal;
 }
